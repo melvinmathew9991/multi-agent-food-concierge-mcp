@@ -51,11 +51,9 @@ data/processed/indexes/
 data/processed/thumbs/
 eval/results/*.tmp
 
-# OS, editor and local assistant settings
+# OS and editor
 .DS_Store
 Thumbs.db
 desktop.ini
 .vscode/
 .idea/
-.claude/
-CLAUDE.local.md

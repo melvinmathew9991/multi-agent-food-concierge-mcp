@@ -1,16 +1,35 @@
-# Local-only material: course baseline, backups, working notes. Never committed.
+# Local-only material: course baseline, backups, working notes, audit reports. Never committed.
 private/
 docs/audits/
+*.bundle
 
 # Documents and notebooks are not versioned here
 *.pdf
 *.ipynb
 
-# Secrets and local config
+# Secrets, credentials and local config
 .env
 .env.*
 !.env.example
 .streamlit/secrets.toml
+.aws/
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+
+# User data: uploads are never persisted; logs and traces may contain user text
+uploads/
+tmp/
+logs/
+*.log
+
+# Local service state (Langfuse, Qdrant, Prefect)
+langfuse-data/
+qdrant_storage/
+.prefect/
 
 # Python
 __pycache__/
@@ -26,15 +45,17 @@ dist/
 .coverage
 htmlcov/
 
-# Generated artifacts (rebuilt by `python -m menurag.ingestion build`)
+# Generated artifacts (rebuilt by the ingestion flow)
 data/processed/catalog.db*
 data/processed/indexes/
 data/processed/thumbs/
 eval/results/*.tmp
 
-# OS / editor
+# OS, editor and local assistant settings
 .DS_Store
 Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+.claude/
+CLAUDE.local.md

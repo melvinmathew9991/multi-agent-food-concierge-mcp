@@ -1,5 +1,6 @@
 # Local-only material: course baseline, backups, working notes. Never committed.
 private/
+docs/audits/
 
 # Documents and notebooks are not versioned here
 *.pdf

@@ -14,7 +14,7 @@ A multimodal food concierge for a restaurant-aggregator catalog. Users describe 
 
 ## 2. As-built baseline (audited 2026-09-24)
 
-Summary only; details in `docs/baseline-defects.md` and `docs/audits/2026-09-24-end-to-end-audit.md`.
+Summary only; details in `docs/baseline-defects.md`.
 
 - The starting point was a course exercise (not redistributed here): a Streamlit + LangChain 0.2 + Bedrock + FAISS chatbot. It makes up to 11 sequential LLM calls per query, leaves allergen safety to an LLM Yes/No check, crashes on malformed JSON, uses a retired model, and has no tests, evaluation or version control.
 - Phase 0 is complete: package layout, settings, error hierarchy, logging and CI.

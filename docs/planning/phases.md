@@ -1,6 +1,6 @@
 # Phases — remaining sprints
 
-> Revision 3 (2026-09-24): adds multi-agent orchestration, A2A, reranker + Qdrant, Prefect, guardrails/access control and a Responsible AI programme. Only remaining work is planned. Baseline: `prd.md` §2. Progress: `CHANGELOG.md` and ADRs in `docs/adr/`. Audit refs (A#) → `docs/audits/2026-09-24-end-to-end-audit.md`. Feature refs (F#) → `prd.md` §6.
+> Revision 3 (2026-09-24): adds multi-agent orchestration, A2A, reranker + Qdrant, Prefect, guardrails/access control and a Responsible AI programme. Only remaining work is planned. Baseline: `prd.md` §2. Progress: `CHANGELOG.md` and ADRs in `docs/adr/`. Audit refs (A#) point to the end-to-end audit of 2026-09-24, which is kept locally and not published. Feature refs (F#) → `prd.md` §6.
 
 Size: **S** small · **M** medium · **L** large (split into several PR-sized commits).
 

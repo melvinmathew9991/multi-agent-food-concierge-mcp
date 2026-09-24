@@ -235,7 +235,7 @@ multi-agent-food-concierge-mcp/
 ├── tests/               # unit/, mcp/, agent/, api/ (offline)
 ├── deploy/              # Dockerfile, hf-space/README.md (Space config), streamlit notes
 ├── examples/            # a2a_client_agent.py (demo peer agent), claude_desktop_config.json
-├── docs/                # planning/, audits/, adr/, responsible-ai/ (system card, fairness, red-team), data-card.md, evaluation.md, mcp.md, a2a.md, runbook.md
+├── docs/                # planning/, adr/, responsible-ai/ (system card, fairness, red-team), data-card.md, evaluation.md, mcp.md, a2a.md, runbook.md
 ├── data/                # raw/ (own catalog + attributions, tracked), processed/ (descriptions tracked; db/index/thumbs built)
 └── private/             # git-ignored local material (course baseline, notes); never committed
 ```

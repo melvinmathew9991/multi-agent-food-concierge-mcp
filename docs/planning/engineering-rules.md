@@ -95,7 +95,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 
 ## 7. Security
 
-1. Secrets only via env / platform secret stores; `.env` git-ignored; gitleaks in CI; `pip-audit` in CI.
+1. Secrets only via env / platform secret stores; `.env` and credential files git-ignored; gitleaks scans the full history in CI; GitHub secret scanning with push protection is enabled on the repository; `pip-audit` in CI.
 2. Prompt-injection hygiene: user and catalog text in delimited blocks; tool outputs treated as data; the verifier checks the final output regardless.
 3. MCP HTTP transport: read-only tools, rate limits, body limits; no tool touches the filesystem or network beyond the catalog and the configured vision model.
 4. Uploads never persisted; the UI shows a free-tier data-use notice and an AI-interaction disclosure.
@@ -107,6 +107,6 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 1. `main` holds reviewed work only; one branch per phase (names in `phases.md`); nothing merges without the owner's review.
 2. **Commit messages:** Conventional Commits with scope (`feat(agent): …`), imperative, ≤ 72-char subject, body explains *why*. Messages describe the change only; no attribution trailers. Same for PR descriptions.
 3. Small coherent commits; tests pass at each.
-4. Never commit: `.env`, secrets, `private/`, built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details.
+4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks in CI and GitHub push protection catch what it cannot.
 5. Public repo, no LICENSE file. No force-push to `main`.
 6. Architecture decisions recorded as ADRs in `docs/adr/NNNN-title.md`.

@@ -1,6 +1,6 @@
 # Phases — remaining sprints
 
-> Revision 3 (2026-09-24): adds multi-agent orchestration, A2A, reranker + Qdrant, Prefect, guardrails/access control and a Responsible AI programme. Only remaining work is planned. Baseline: `prd.md` §2. Progress: `CHANGELOG.md` and ADRs in `docs/adr/`. Audit refs (A#) → `docs/audits/2026-09-24-end-to-end-audit.md`. Feature refs (F#) → `prd.md` §6.
+> Revision 3 (2026-09-24): adds multi-agent orchestration, A2A, reranker + Qdrant, Prefect, guardrails/access control and a Responsible AI programme. Only remaining work is planned. Baseline: `prd.md` §2. Progress: `CHANGELOG.md` and ADRs in `docs/adr/`. Audit refs (A#) point to the end-to-end audit of 2026-09-24, which is kept locally and not published. Feature refs (F#) → `prd.md` §6.
 
 Size: **S** small · **M** medium · **L** large (split into several PR-sized commits).
 
@@ -38,7 +38,7 @@ Every phase ends with something demonstrable. The walking skeleton is live at th
 ---
 
 ## Phase 0 — Foundation ✅ `chore/phase-0-foundation`
-Done: package skeleton, settings, error hierarchy, logging, CI, defect log, audits, plan revisions 2–3. Course baseline analysed locally and **not redistributed**.
+Done: package skeleton, settings, error hierarchy, logging, CI with secret scanning, ignore rules for credentials and user data, defect log, audits, plan revisions 2–3. Course baseline analysed locally and **not redistributed**.
 
 ## Phase 1 — Models, embeddings, telemetry · `feat/phase-1-models-telemetry` · L
 **Goal:** a zero-cost model layer, and tracing with masking, before any feature code.
@@ -135,7 +135,7 @@ Done: package skeleton, settings, error hierarchy, logging, CI, defect log, audi
 **DoD:** every metric reproducible from a committed run; limitations and failure modes documented.
 
 ## Phase 10 — Hardening and portfolio release · `chore/phase-10-release` · M
-1. gitleaks + pip-audit in CI, dependabot, PR template, CHANGELOG.
+1. pip-audit in CI, dependabot, PR template, CHANGELOG (gitleaks is already in CI from Phase 0).
 2. Small load test against a local container; latency/throughput table.
 3. `docs/runbook.md` (quota exhausted, Space asleep, Langfuse down, token rotation), ADR index.
 4. README: problem, architecture diagram, results (legacy vs new, retrieval, agent, red-team, RAI), live links, demo GIF, MCP + A2A quick starts, limitations, "what didn't work".

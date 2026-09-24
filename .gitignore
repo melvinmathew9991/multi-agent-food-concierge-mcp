@@ -1,0 +1,39 @@
+# Local-only material: course baseline, backups, working notes. Never committed.
+private/
+
+# Documents and notebooks are not versioned here
+*.pdf
+*.ipynb
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated artifacts (rebuilt by `python -m menurag.ingestion build`)
+data/processed/catalog.db*
+data/processed/indexes/
+data/processed/thumbs/
+eval/results/*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

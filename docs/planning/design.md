@@ -41,7 +41,7 @@ Veg/non-veg colours follow the Indian food-labelling convention the dataset uses
 | Numbers (price, kcal, macros) | Inter with tabular figures | 14/500 |
 | Code / debug | JetBrains Mono, fallback monospace | 13/400 |
 
-If the installed Streamlit version doesn't support custom theme fonts, fall back to `font = "sans serif"` and load no web fonts. Verify in Phase 5.
+If the installed Streamlit version doesn't support custom theme fonts, fall back to `font = "sans serif"` and load no web fonts. Verify in Phase 7.
 
 ## 4. Layout
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "multi-agent-food-concierge-mcp"
-version = "0.1.0.dev0"
+dynamic = ["version"]
 description = "Agentic multimodal menu concierge: LangGraph agent, MCP tools, hard dietary constraints, Langfuse LLMOps, zero-cost stack."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,7 +33,11 @@ dev = [
     "respx>=0.21",
     "ruff>=0.6",
     "mypy>=1.11",
+    "pip-audit>=2.7",
 ]
+
+[tool.setuptools.dynamic]
+version = { attr = "food_concierge.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -59,4 +63,11 @@ ignore = ["S101"]  # assert is idiomatic in pytest
 
 [tool.mypy]
 python_version = "3.11"
+strict = true
 ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true

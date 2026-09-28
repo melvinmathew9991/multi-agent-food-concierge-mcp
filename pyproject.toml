@@ -71,3 +71,7 @@ files = ["src", "tests"]
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

@@ -4,9 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Push and pull-request runs scan only the new commits; these runs scan the full history.
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   secrets:
@@ -19,11 +27,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Scan history for secrets
-        uses: gitleaks/gitleaks-action@v2
+      - name: Scan for secrets
+        # Third-party action pinned to a commit (v2.3.9).
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false
+      - name: Reject tracked files over 5 MB
+        run: |
+          large=$(git ls-files -z | xargs -0 -r stat -c '%s %n' | awk '$1 > 5 * 1024 * 1024')
+          if [ -n "$large" ]; then echo "Files over 5 MB:"; echo "$large"; exit 1; fi
 
   test:
     runs-on: ubuntu-latest
@@ -36,10 +49,16 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -e ".[dev]"
       - name: Lint
         run: |
           ruff check .
           ruff format --check .
+      - name: Type check
+        run: mypy
       - name: Test (offline)
         run: pytest
+      - name: Audit dependencies
+        run: pip-audit --skip-editable

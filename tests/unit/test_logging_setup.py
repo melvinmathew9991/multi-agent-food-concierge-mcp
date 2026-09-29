@@ -1,5 +1,7 @@
 import logging
 
+import pytest
+
 from food_concierge.logging_setup import KeyValueFormatter, configure_logging
 
 
@@ -20,6 +22,23 @@ def test_values_with_spaces_are_quoted() -> None:
     line = KeyValueFormatter("%(message)s").format(_record(detail="two words"))
 
     assert line == "hello detail='two words'"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("x\nERROR\tadmin_login_ok", r"query='x\nERROR\tadmin_login_ok'"),
+        ("a=b", "query='a=b'"),
+        ("", "query=''"),
+        ("it's", 'query="it\'s"'),
+        (["two words"], "query=\"['two words']\""),
+    ],
+)
+def test_unsafe_values_are_quoted_and_escaped(value: object, expected: str) -> None:
+    line = KeyValueFormatter("%(message)s").format(_record(query=value))
+
+    assert line == f"hello {expected}"
+    assert "\n" not in line
 
 
 def test_record_without_extras_is_unchanged() -> None:

@@ -3,6 +3,8 @@
 Loading settings never fails because a provider's credentials are missing:
 tests and local runs use Fake or Ollama. Credentials are checked when a provider
 is actually built (``require_*`` helpers), so the failure names the real problem.
+Loading does fail on a paid provider without ``ALLOW_PAID_PROVIDERS=true`` and on
+unknown keys in ``.env``, so a typo can't silently change behaviour.
 """
 
 from __future__ import annotations
@@ -11,39 +13,61 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from food_concierge.errors import ConfigError
 
-# Free providers first; openai and bedrock are paid and stay disabled by default (Phase 1 enforces this).
 ProviderName = Literal["groq", "gemini", "ollama", "fake", "openai", "bedrock"]
 EmbedProviderName = Literal["fastembed", "ollama", "fake", "openai", "bedrock"]
+KeyedProvider = Literal["groq", "gemini", "openai"]
+
+PAID_PROVIDERS: frozenset[str] = frozenset({"openai", "bedrock"})
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+def _default_fallbacks() -> list[ProviderName]:
+    return ["gemini"]
 
-    # Providers
-    chat_provider: ProviderName = "ollama"
+
+def _default_cors_origins() -> list[str]:
+    return ["http://localhost:8501"]
+
+
+class Settings(BaseSettings):
+    # extra="forbid" rejects unknown keys in .env; unrelated OS environment variables are never read.
+    # env_ignore_empty lets a copied .env.example leave values blank without overriding defaults.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid", env_ignore_empty=True)
+
+    # Providers (zero cost by default: free tiers and local models only)
+    chat_provider: ProviderName = "groq"
+    fallback_providers: Annotated[list[ProviderName], NoDecode] = Field(default_factory=_default_fallbacks)
     embed_provider: EmbedProviderName = "fastembed"
-    allowed_chat_providers: Annotated[list[ProviderName], NoDecode] = Field(default_factory=lambda: ["ollama"])
+    allow_paid_providers: bool = False
+
+    groq_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
+
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_chat_model: str = "llama3.1:8b"
+    ollama_vision_model: str = "qwen2.5vl:7b"
+    ollama_embed_model: str = "nomic-embed-text"
+
+    # Paid providers: implemented and stub-tested only
+    openai_api_key: SecretStr | None = None
+    openai_chat_model: str = ""
+    openai_embed_model: str = "text-embedding-3-small"
 
     aws_region: str = "us-east-1"
     bedrock_chat_model_id: str = ""
     bedrock_vision_model_id: str = ""
     bedrock_embed_model_id: str = "amazon.titan-embed-text-v2:0"
 
-    openai_api_key: SecretStr | None = None
-    openai_chat_model: str = ""
-    openai_embed_model: str = "text-embedding-3-small"
-
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_chat_model: str = "llama3.1:8b"
-    ollama_vision_model: str = "qwen2.5vl:7b"
-    ollama_embed_model: str = "nomic-embed-text"
+    # LLMOps
+    langfuse_public_key: SecretStr | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_host: str = "http://localhost:3000"
 
     # Request limits and timeouts
     provider_timeout_s: float = Field(default=30.0, gt=0)
@@ -58,24 +82,34 @@ class Settings(BaseSettings):
     daily_call_limit_openai: int = Field(default=200, ge=0)
     cache_ttl_hours: int = Field(default=168, ge=0)
 
-    # API
-    api_key: SecretStr | None = None
-    admin_api_key: SecretStr | None = None
-    enable_admin: bool = False
+    # API access: one token per scope (public / agent / admin)
+    api_token_public: SecretStr | None = None
+    api_token_agent: SecretStr | None = None
+    api_token_admin: SecretStr | None = None
     rate_limit_per_min: int = Field(default=20, gt=0)
-    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["http://localhost:8501"])
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=_default_cors_origins)
 
     # Paths
     data_dir: Path = REPO_ROOT / "data"
     log_level: str = "INFO"
 
-    @field_validator("allowed_chat_providers", "cors_origins", mode="before")
+    @field_validator("fallback_providers", "cors_origins", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:
         # Env vars arrive as "a,b"; pydantic-settings otherwise expects JSON.
         if isinstance(value, str) and not value.lstrip().startswith("["):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _paid_providers_need_opt_in(self) -> Settings:
+        if self.allow_paid_providers:
+            return self
+        configured = {self.chat_provider, self.embed_provider, *self.fallback_providers}
+        paid = sorted(configured & PAID_PROVIDERS)
+        if paid:
+            raise ValueError(f"Paid providers {paid} are configured but ALLOW_PAID_PROVIDERS is false.")
+        return self
 
     @property
     def raw_dir(self) -> Path:
@@ -96,12 +130,18 @@ class Settings(BaseSettings):
             "openai": self.daily_call_limit_openai,
         }.get(provider)
 
-    def require_openai_key(self) -> str:
-        if self.openai_api_key is None or not self.openai_api_key.get_secret_value():
-            raise ConfigError("OPENAI_API_KEY is not set.")
-        return self.openai_api_key.get_secret_value()
+    def require_api_key(self, provider: KeyedProvider) -> str:
+        key = {
+            "groq": self.groq_api_key,
+            "gemini": self.gemini_api_key,
+            "openai": self.openai_api_key,
+        }[provider]
+        if key is None or not key.get_secret_value():
+            raise ConfigError(f"{provider.upper()}_API_KEY is not set.")
+        return key.get_secret_value()
 
     def require_model_id(self, provider: ProviderName, purpose: Literal["chat", "vision"]) -> str:
+        # Free-tier model names for Groq and Gemini are verified and added in Phase 1.
         # OpenAI uses one multimodal model for both purposes; Bedrock and Ollama may split them.
         model_ids: dict[tuple[str, str], str] = {
             ("bedrock", "chat"): self.bedrock_chat_model_id,

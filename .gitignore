@@ -1,6 +1,7 @@
-# Local-only material: course baseline, backups, working notes, audit reports. Never committed.
+# Local-only material: course baseline, backups, working notes, audit reports, the project report. Never committed.
 private/
 docs/audits/
+docs/report.md
 *.bundle
 
 # Documents and notebooks are not versioned here

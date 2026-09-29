@@ -1,6 +1,6 @@
 # Phases — remaining sprints
 
-> Revision 3 (2026-09-24): adds multi-agent orchestration, A2A, reranker + Qdrant, Prefect, guardrails/access control and a Responsible AI programme. Only remaining work is planned. Baseline: `prd.md` §2. Progress: `CHANGELOG.md` and ADRs in `docs/adr/`. Audit refs (A#) point to the end-to-end audit of 2026-09-24, which is kept locally and not published. Feature refs (F#) → `prd.md` §6.
+> Revision 3 (2026-09-24): adds multi-agent orchestration, A2A, reranker + Qdrant, Prefect, guardrails/access control and a Responsible AI programme. Only remaining work is planned. Baseline: `prd.md` §2. Progress: [`CHANGELOG.md`](../../CHANGELOG.md) and ADRs in [`docs/adr/`](../adr/). Audit refs (A#, and "audit #N" in `architecture.md`) are summarised in the [audit reference index](#audit-reference-index) below; the full audit is kept locally because it quotes material that is not redistributed. Feature refs (F#) → `prd.md` §6.
 
 Size: **S** small · **M** medium · **L** large (split into several PR-sized commits).
 
@@ -37,12 +37,15 @@ Every phase ends with something demonstrable. The walking skeleton is live at th
 
 ---
 
-## Phase 0 — Foundation ✅ `chore/phase-0-foundation`
-Done: package skeleton, settings, error hierarchy, logging, CI with secret scanning, ignore rules for credentials and user data, defect log, audits, plan revisions 2–3. Course baseline analysed locally and **not redistributed**.
+## Phase 0 — Foundation ✅ `chore/phase-0-foundation`, `chore/phase-0-closeout`
+Done: package skeleton, settings, error hierarchy, logging, CI with secret scanning, `main` ruleset, ignore rules for credentials and user data, defect log, audits, plan revisions 2–3. Course baseline analysed locally and **not redistributed**.
+Close-out (Phase 0 audit, 2026-09-25): settings aligned with `.env.example` (paid-provider opt-in enforced, unknown `.env` keys rejected); log values escaped against injection; tests isolated from the shell environment; mypy (strict) and pip-audit in CI; weekly full-history secret scan; 5 MB file check; third-party action pinned; CHANGELOG and ADR index started. `main` was already protected by a repository ruleset.
+
+**DoD:** lint, strict type check, offline tests (100% coverage of `src/`), dependency audit and secret scan green in CI; `.env.example` and `Settings` checked against each other by a test; `main` accepts changes only through pull requests with green checks.
 
 ## Phase 1 — Models, embeddings, telemetry · `feat/phase-1-models-telemetry` · L
 **Goal:** a zero-cost model layer, and tracing with masking, before any feature code.
-1. Settings v2: providers (`groq`, `gemini`, `ollama`, `openai`, `bedrock`, `fake`), fallback order, `ALLOW_PAID_PROVIDERS=false`, budgets; `requirements.lock`; CI cache path; logging test (A19, A20, A24).
+1. Settings: Groq/Gemini model names (verified) and budget fields; `requirements.lock` used by CI and Docker, with upper bounds for SDKs with breaking-change history (A19). Provider selection, fallback order and `ALLOW_PAID_PROVIDERS` landed in the Phase 0 close-out; A20 and A24 are closed.
 2. `models/router.py`: OpenAI-compatible chat models (Groq/Gemini/Ollama) with fallbacks, timeouts and retries; `ChatBedrockConverse` behind the flag; scripted fake chat model.
 3. `models/embeddings.py`: fastembed wrapper + fake embedder; cross-encoder rerank wrapper (used in P3).
 4. `telemetry.py`: Langfuse client, span helpers, **masking hook** (image bytes, emails, phones), failure-tolerant; `docker-compose.yml` for local Langfuse.
@@ -135,7 +138,7 @@ Done: package skeleton, settings, error hierarchy, logging, CI with secret scann
 **DoD:** every metric reproducible from a committed run; limitations and failure modes documented.
 
 ## Phase 10 — Hardening and portfolio release · `chore/phase-10-release` · M
-1. pip-audit in CI, dependabot, PR template, CHANGELOG (gitleaks is already in CI from Phase 0).
+1. Dependabot (pip + GitHub Actions, which also keeps the pinned action current), PR template, CHANGELOG release notes (gitleaks, pip-audit and mypy are already in CI from Phase 0).
 2. Small load test against a local container; latency/throughput table.
 3. `docs/runbook.md` (quota exhausted, Space asleep, Langfuse down, token rotation), ADR index.
 4. README: problem, architecture diagram, results (legacy vs new, retrieval, agent, red-team, RAI), live links, demo GIF, MCP + A2A quick starts, limitations, "what didn't work".
@@ -144,6 +147,40 @@ Done: package skeleton, settings, error hierarchy, logging, CI with secret scann
 **DoD:** a reviewer can understand, run and verify the project in 10 minutes from the README.
 
 ---
+
+## Audit reference index
+
+One-line summaries of the end-to-end audit of 2026-09-24. Severity: C critical · H high · M medium · L low.
+
+| Ref | Sev | Finding | Addressed in |
+|---|---|---|---|
+| A1 | C | Image descriptions mention allergens missing from the dish metadata | P2 (vision as a third allergen source) |
+| A2 | C | Ingredient lists are incomplete, so an ingredient lexicon alone under-tags allergens | P2 (`unverified` state), P9 |
+| A3 | C | Labels derived from metadata make structured-query evaluation circular | P3 (violation metrics only) |
+| A4 | C | Evaluating image queries with catalog photos leaks the answer | P3 (altered images, lower bound) |
+| A5 | H | Evaluation was planned after the design choices it should inform | P3 moved before agent work |
+| A6 | H | Recall@3 is uninformative for broad queries | P3 (nDCG@3, Success@3) |
+| A7 | H | Descriptions generated with the dish name differ from what a user photo produces | P2, P3 (name-free descriptions) |
+| A8 | H | No lexical baseline | P3 (BM25) |
+| A9 | H | Per-client rate limits are ineffective behind a shared UI server | P4, P7 (scoped tokens, global limits) |
+| A10 | H | A budget counter in ephemeral storage resets on every cold start | Superseded: no paid provider by default |
+| A11 | H | Diet semantics undefined (eggs tagged vegetarian) | P2 |
+| A12 | M | Allergen taxonomy not chosen | P2 (EU-14 ∪ Big-9) |
+| A13 | M | Synthetic data: duplicate dishes, calories inconsistent with macros | P2 (`dish_key`, Atwater check) |
+| A14 | M | Numbers in embedded text; filters already cover them | P2 (semantic-only document text) |
+| A15 | M | Inferred filters can wrongly narrow results | P5 (inferred constraints confirmed by the user) |
+| A16 | M | Hand-tuned rerank weights overfit and add popularity bias | P3 (cross-encoder reranker instead of hand-tuned weights), P9 |
+| A17 | M | Faithfulness of generated explanations unmeasured | P6 (calibrated judge) |
+| A18 | M | Small evaluation sets have low statistical power | P3 (bootstrap CIs) |
+| A19 | M | No lock file; SDK lower bounds only | P1 |
+| A20 | M | CI pip cache had no dependency file | Closed in P0 |
+| A21 | M | Data paths depend on an editable install | P4, P7 (`DATA_DIR`) |
+| A22 | M | Example config shipped a known API key | Closed in P0 (blank tokens); P7 refuses placeholders |
+| A23 | M | User photos are sent to third-party providers | P7 (data-use notice) |
+| A24 | L | Logging setup untested | Closed in P0 |
+| A25 | L | Risk of over-building for a small catalog | Plan revision 3 |
+| A26 | L | FAISS is more than a 50-item catalog needs | P3 (vector backends benchmarked) |
+| A27 | L | Course-material licensing unresolved | Closed in P0 (not redistributed; own catalog in P2) |
 
 ## Backlog
 - Full MCP OAuth 2.1 authorisation flow for the remote transport.

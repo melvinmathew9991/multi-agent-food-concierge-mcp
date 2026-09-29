@@ -57,7 +57,7 @@
 3. Type hints on public functions; Pydantic at every boundary (API, MCP tools, LLM structured output, CSV rows, config).
 4. Structured `logging` (key=value); no `print` in library code; never log secrets, image bytes or full prompts at INFO.
 5. Match the surrounding idiom; comments explain *why*.
-6. `ruff check`, `ruff format --check` and tests green before every commit.
+6. `ruff check`, `ruff format --check`, `mypy` (strict) and tests green before every commit.
 
 ## 4. Error handling
 
@@ -95,7 +95,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 
 ## 7. Security
 
-1. Secrets only via env / platform secret stores; `.env` and credential files git-ignored; gitleaks scans the full history in CI; GitHub secret scanning with push protection is enabled on the repository; `pip-audit` in CI.
+1. Secrets only via env / platform secret stores; `.env` and credential files git-ignored; gitleaks scans new commits on every push and pull request and the full history weekly; GitHub secret scanning with push protection is enabled on the repository; `pip-audit` in CI.
 2. Prompt-injection hygiene: user and catalog text in delimited blocks; tool outputs treated as data; the verifier checks the final output regardless.
 3. MCP HTTP transport: read-only tools, rate limits, body limits; no tool touches the filesystem or network beyond the catalog and the configured vision model.
 4. Uploads never persisted; the UI shows a free-tier data-use notice and an AI-interaction disclosure.
@@ -107,6 +107,6 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 1. `main` holds reviewed work only; one branch per phase (names in `phases.md`); nothing merges without the owner's review.
 2. **Commit messages:** Conventional Commits with scope (`feat(agent): …`), imperative, ≤ 72-char subject, body explains *why*. Messages describe the change only; no attribution trailers. Same for PR descriptions.
 3. Small coherent commits; tests pass at each.
-4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks in CI and GitHub push protection catch what it cannot.
-5. Public repo, no LICENSE file. No force-push to `main`.
+4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, the local project report (`docs/report.md`), user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks and a 5 MB file-size check in CI, and GitHub push protection, catch what it cannot.
+5. Public repo, no LICENSE file. A repository ruleset on `main` blocks force-pushes and deletion and requires a pull request with the `secrets` and `test` checks green.
 6. Architecture decisions recorded as ADRs in `docs/adr/NNNN-title.md`.

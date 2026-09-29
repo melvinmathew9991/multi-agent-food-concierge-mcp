@@ -189,7 +189,7 @@ Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from 
 
 ## 9. Configuration and secrets
 
-`pydantic-settings`; `.env` locally; HF Space secrets and Streamlit secrets in production. Keys: `GROQ_API_KEY`, `GEMINI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`; optional `AWS_*` (Bedrock, off), `OPENAI_API_KEY` (off). Model names, fallback order, budgets and limits are all settings. Free-tier model names are verified at implementation time and recorded in an ADR.
+`pydantic-settings`; `.env` locally; HF Space secrets and Streamlit secrets in production. Keys: `GROQ_API_KEY`, `GEMINI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`, `API_TOKEN_PUBLIC` / `API_TOKEN_AGENT` / `API_TOKEN_ADMIN`; optional `AWS_*` (Bedrock, off), `OPENAI_API_KEY` (off). `.env.example` lists every key and a test checks it against `Settings`; unknown keys in `.env` are rejected at startup. Model names, fallback order, budgets and limits are all settings. Free-tier model names are verified at implementation time and recorded in an ADR.
 
 ## 10. Zero-cost guardrails
 

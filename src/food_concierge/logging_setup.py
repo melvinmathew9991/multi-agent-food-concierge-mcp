@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import logging
+import re
 
 _RESERVED = set(vars(logging.makeLogRecord({})).keys()) | {"message", "asctime"}
+
+# Values made only of these characters are written bare; anything else is quoted and escaped,
+# so user text in a field can never break a line or forge another key=value pair.
+_BARE_VALUE = re.compile(r"[\w.:/@+,-]+")
+
+
+def _format_value(value: object) -> str:
+    text = value if isinstance(value, str) else str(value)
+    return text if _BARE_VALUE.fullmatch(text) else repr(text)
 
 
 class KeyValueFormatter(logging.Formatter):
@@ -15,7 +25,7 @@ class KeyValueFormatter(logging.Formatter):
         extras = {k: v for k, v in vars(record).items() if k not in _RESERVED}
         if not extras:
             return base
-        pairs = " ".join(f"{k}={v!r}" if isinstance(v, str) and " " in v else f"{k}={v}" for k, v in extras.items())
+        pairs = " ".join(f"{k}={_format_value(v)}" for k, v in extras.items())
         return f"{base} {pairs}"
 
 

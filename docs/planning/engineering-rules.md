@@ -107,6 +107,6 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 1. `main` holds reviewed work only; one branch per phase (names in `phases.md`); nothing merges without the owner's review.
 2. **Commit messages:** Conventional Commits with scope (`feat(agent): …`), imperative, ≤ 72-char subject, body explains *why*. Messages describe the change only; no attribution trailers. Same for PR descriptions.
 3. Small coherent commits; tests pass at each.
-4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks and a 5 MB file-size check in CI, and GitHub push protection, catch what it cannot.
+4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, the local project report (`docs/report.md`), user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks and a 5 MB file-size check in CI, and GitHub push protection, catch what it cannot.
 5. Public repo, no LICENSE file. A repository ruleset on `main` blocks force-pushes and deletion and requires a pull request with the `secrets` and `test` checks green.
 6. Architecture decisions recorded as ADRs in `docs/adr/NNNN-title.md`.

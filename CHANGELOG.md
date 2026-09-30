@@ -13,9 +13,12 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - A per-request deadline (8 s, the PRD p95 target), per-day and per-minute call caps for the Groq and Gemini free tiers, tracing switches, and a model cache directory outside the repository.
 - Provider error translation (`models/provider_errors.py`): OpenAI-compatible, httpx and Bedrock failures become app errors that say whether the next provider may succeed and whether an operator must act. New `ProviderRequestError` (never falls back) and `ProviderModelNotFoundError` (retired or closed models).
 - `ScriptedChatModel`, a fake chat model that replays scripted replies, tool calls and failures and records every call, for router and agent tests.
+- Model router (`models/router.py`): one model per role, Groq → Gemini by default through their OpenAI-compatible endpoints, Ollama locally, Bedrock and OpenAI only with `ALLOW_PAID_PROVIDERS`. Failures become app errors and move to the next provider, except rejected requests; empty replies count as failures; reasoning effort is set per role; providers without a model for a role are skipped. Contract tests run over an injected HTTP transport and a Bedrock stub.
+- Per-provider attempt timeouts (Groq 3 s, Gemini 5 s); the settings check adds them up along the fallback chain against the deadline.
 
 #### Changed
-- Provider timeout lowered from 30 s to 6 s and retries from 2 to 1, and a single attempt may not exceed the request deadline: the old defaults allowed about three minutes per request.
+- Provider timeout lowered from 30 s to 4 s (Groq and Gemini have their own) and SDK retries from 2 to 0, applied only to the last provider: the old defaults allowed about three minutes per model call, and a retried 429 slept on Retry-After instead of moving to the next provider.
+- Unknown provider failures are treated as the provider being unavailable, so they move to the next provider.
 
 ### Phase 0: Foundation
 

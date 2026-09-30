@@ -23,6 +23,7 @@ def test_default_config_has_no_paid_provider(settings: Settings) -> None:
 
 def test_paid_provider_requires_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FALLBACK_PROVIDERS", "gemini,bedrock")
+    monkeypatch.setenv("REQUEST_DEADLINE_S", "12")  # three providers must fit the deadline
     with pytest.raises(ValidationError, match="ALLOW_PAID_PROVIDERS"):
         Settings(_env_file=None)
 
@@ -32,6 +33,7 @@ def test_paid_provider_requires_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_csv_env_vars_are_split(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FALLBACK_PROVIDERS", "gemini, ollama")
+    monkeypatch.setenv("REQUEST_DEADLINE_S", "12")
     monkeypatch.setenv("CORS_ORIGINS", "https://a.example,https://b.example")
 
     s = Settings(_env_file=None)
@@ -74,18 +76,39 @@ def test_call_limits_cover_hosted_providers_only(settings: Settings) -> None:
     assert settings.minute_call_limit("ollama") is None
 
 
-def test_single_attempt_must_fit_the_request_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("REQUEST_DEADLINE_S", "5")
-    monkeypatch.setenv("PROVIDER_TIMEOUT_S", "6")
+def test_fallback_chain_must_fit_the_request_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FALLBACK_PROVIDERS", "gemini,ollama")  # 3 s + 5 s + 4 s > 8 s
 
-    with pytest.raises(ValidationError, match="REQUEST_DEADLINE_S"):
+    with pytest.raises(ValidationError, match="add up to 12 s"):
+        Settings(_env_file=None)
+
+    monkeypatch.setenv("REQUEST_DEADLINE_S", "12")
+    assert Settings(_env_file=None).provider_chain == ["groq", "gemini", "ollama"]
+
+
+def test_retries_count_against_the_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROVIDER_MAX_RETRIES", "1")  # the last provider (Gemini, 5 s) may try twice
+
+    with pytest.raises(ValidationError, match="add up to 13 s"):
         Settings(_env_file=None)
 
 
-def test_default_retries_fit_the_latency_target(settings: Settings) -> None:
-    # One attempt plus its retries on the primary must leave time for the fallback provider.
-    assert settings.provider_timeout_s <= settings.request_deadline_s
-    assert settings.provider_max_retries <= 2
+def test_timeouts_are_per_provider(settings: Settings) -> None:
+    assert settings.timeout_for("groq") == settings.groq_timeout_s
+    assert settings.timeout_for("gemini") == settings.gemini_timeout_s
+    assert settings.timeout_for("ollama") == settings.provider_timeout_s
+
+
+def test_provider_chain_drops_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FALLBACK_PROVIDERS", "groq,gemini")
+
+    assert Settings(_env_file=None).provider_chain == ["groq", "gemini"]
+
+
+def test_reasoning_effort_by_role(settings: Settings) -> None:
+    assert settings.reasoning_effort("router") == "low"
+    assert settings.reasoning_effort("judge") == "medium"
+    assert settings.reasoning_effort("vision") is None
 
 
 @pytest.mark.parametrize("provider", ["groq", "gemini", "openai"])

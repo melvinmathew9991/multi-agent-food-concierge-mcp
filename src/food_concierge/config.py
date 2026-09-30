@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     chat_provider: ProviderName = "groq"
     fallback_providers: Annotated[list[ProviderName], NoDecode] = Field(default_factory=_default_fallbacks)
     embed_provider: EmbedProviderName = "fastembed"
+    embed_model: str = "BAAI/bge-small-en-v1.5"
+    # BGE's retrieval instruction; fastembed does not add it. Optional for v1.5, so Phase 3 measures both.
+    embed_query_prefix: str = "Represent this sentence for searching relevant passages: "
+    embed_batch_size: int = Field(default=64, gt=0)
+    rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     allow_paid_providers: bool = False
 
     groq_api_key: SecretStr | None = None

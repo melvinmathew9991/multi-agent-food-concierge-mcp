@@ -55,10 +55,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers -m 'not live'"
+addopts = "-ra --strict-markers -m 'not live and not model_download'"
 asyncio_mode = "auto"
 markers = [
     "live: calls a real model provider; skipped unless selected with -m live",
+    "model_download: downloads an open model; run nightly with -m model_download, never in PR CI",
 ]
 
 [tool.ruff]
@@ -78,7 +79,7 @@ python_version = "3.11"
 strict = true
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

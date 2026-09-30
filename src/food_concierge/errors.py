@@ -54,6 +54,10 @@ class ProviderError(AppError):
     code = "provider_error"
     http_status = 502
     default_message = "The model service returned an error."
+    # falls_back: another provider may succeed where this one failed.
+    # needs_attention: an operator must fix something (credentials, a retired model), so it is logged at ERROR.
+    falls_back: bool = True
+    needs_attention: bool = False
 
     def __init__(self, message: str | None = None, *, provider: str | None = None) -> None:
         super().__init__(message)
@@ -63,6 +67,14 @@ class ProviderError(AppError):
 class ProviderAuthError(ProviderError):
     code = "provider_auth_error"
     default_message = "The model service rejected our credentials."
+    needs_attention = True
+
+
+class ProviderRequestError(ProviderError):
+    # The request itself was rejected (bad parameters, context too long); the next provider would reject it too.
+    code = "provider_bad_request"
+    default_message = "The model service could not handle this request."
+    falls_back = False
 
 
 class ProviderRateLimitedError(ProviderError):
@@ -81,6 +93,13 @@ class ProviderUnavailableError(ProviderError):
     code = "provider_unavailable"
     http_status = 503
     default_message = "The model service is unavailable."
+
+
+class ProviderModelNotFoundError(ProviderUnavailableError):
+    # Free-tier models are retired or closed to new accounts without notice; the configured name needs updating.
+    code = "provider_model_unavailable"
+    default_message = "The configured model is not available."
+    needs_attention = True
 
 
 class ProviderResponseError(ProviderError):

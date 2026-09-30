@@ -14,7 +14,7 @@
 - **Workflows:** `prefect` (OSS; no Prefect Cloud dependency)
 - **Guardrails:** `onnxruntime`, `tokenizers`, `huggingface-hub` (local classifier; model licence must permit redistribution/use)
 - **LLMOps:** `langfuse`
-- **API:** `fastapi`, `uvicorn`, `sse-starlette`, `python-multipart`, `pydantic` v2, `pydantic-settings`, `httpx`
+- **API:** `fastapi`, `uvicorn`, `sse-starlette`, `python-multipart`, `pydantic` v2, `pydantic-settings`, `httpx`, `httpx2` (the HTTP client of `openai` ≥ 3)
 - **Other:** `Pillow`, `boto3`/`botocore` (Bedrock, stub-tested)
 - **Stdlib:** `sqlite3`, `logging`, `hashlib`
 
@@ -85,7 +85,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 1. Unit: normalisation, allergen tagging (all 50 items hand-checked in a table-driven test), constraint merge/verify, nutrition totals, retrieval with a fake embedder, error mapping.
 2. **MCP:** in-memory client–server tests per tool/resource/prompt; schema snapshot tests; error-path tests (`isError`).
 3. **Agent:** scripted fake chat model (deterministic tool-call sequences) testing graph paths: fast path, tool loop, verifier repair, budget exhaustion, interrupt/resume, provider fallback, prompt-injection fixture. Assert **zero violations** on every path.
-4. Providers: contract tests with respx (OpenAI-compatible) and botocore Stubber (Bedrock).
+4. Providers: contract tests with an injected `httpx2.MockTransport` (OpenAI-compatible; respx cannot intercept `openai` ≥ 3) and botocore Stubber (Bedrock). respx remains for plain `httpx` clients.
 5. API: `TestClient` incl. SSE streams and error mapping.
 5a. **A2A:** in-process client ↔ server with the fake model; Agent Card snapshot; task states incl. `input-required` on interrupt.
 5b. **Security:** token-scope tests for every MCP tool and A2A skill; per-agent allow-list enforcement; red-team suite (attack success rate gate); trace-masking tests (no image bytes or emails in exported spans).

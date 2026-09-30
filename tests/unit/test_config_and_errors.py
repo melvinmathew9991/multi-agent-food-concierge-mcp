@@ -66,9 +66,26 @@ def test_unknown_env_file_key_is_rejected(tmp_path: Path) -> None:
         Settings(_env_file=env_file)
 
 
-def test_daily_limits_apply_only_to_paid_providers(settings: Settings) -> None:
+def test_call_limits_cover_hosted_providers_only(settings: Settings) -> None:
     assert settings.daily_call_limit("bedrock") == 200
+    assert settings.daily_call_limit("groq") == settings.daily_call_limit_groq
+    assert settings.minute_call_limit("gemini") == settings.minute_call_limit_gemini
     assert settings.daily_call_limit("ollama") is None
+    assert settings.minute_call_limit("ollama") is None
+
+
+def test_single_attempt_must_fit_the_request_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("REQUEST_DEADLINE_S", "5")
+    monkeypatch.setenv("PROVIDER_TIMEOUT_S", "6")
+
+    with pytest.raises(ValidationError, match="REQUEST_DEADLINE_S"):
+        Settings(_env_file=None)
+
+
+def test_default_retries_fit_the_latency_target(settings: Settings) -> None:
+    # One attempt plus its retries on the primary must leave time for the fallback provider.
+    assert settings.provider_timeout_s <= settings.request_deadline_s
+    assert settings.provider_max_retries <= 2
 
 
 @pytest.mark.parametrize("provider", ["groq", "gemini", "openai"])
@@ -89,6 +106,36 @@ def test_model_id_resolution(settings: Settings) -> None:
     assert settings.require_model_id("ollama", "vision") == settings.ollama_vision_model
     with pytest.raises(errors.ConfigError, match="bedrock"):
         settings.require_model_id("bedrock", "chat")
+
+
+def test_router_and_judge_roles_share_the_chat_model(settings: Settings) -> None:
+    for role in ("router", "judge"):
+        assert settings.require_model_id("ollama", role) == settings.ollama_chat_model
+
+
+def test_unverified_free_tier_model_fails_loudly(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(errors.ConfigError, match="vision model configured for provider 'groq'"):
+        settings.require_model_id("groq", "vision")
+
+    monkeypatch.setenv("GEMINI_CHAT_MODEL", "gemini-test")
+    assert Settings(_env_file=None).require_model_id("gemini", "router") == "gemini-test"
+
+
+def test_trace_sample_rate_is_a_probability(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TRACE_SAMPLE_RATE", "1.5")
+    with pytest.raises(ValidationError, match="trace_sample_rate"):
+        Settings(_env_file=None)
+
+
+def test_model_cache_lives_outside_the_repository(settings: Settings) -> None:
+    assert not settings.model_cache_dir.is_relative_to(REPO_ROOT)
+
+
+def test_model_cache_falls_back_to_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+
+    assert Settings(_env_file=None).model_cache_dir == Path.home() / ".cache" / "food-concierge" / "models"
 
 
 def test_derived_paths_and_limits(settings: Settings) -> None:

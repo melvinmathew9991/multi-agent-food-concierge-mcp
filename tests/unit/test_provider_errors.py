@@ -8,7 +8,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from food_concierge import errors
-from food_concierge.models.provider_errors import translate_provider_error
+from food_concierge.models.provider_errors import FALLBACK_ERRORS, translate_provider_error
 
 # openai>=3 is built on httpx2, so its exceptions carry httpx2 requests and responses.
 _REQUEST = httpx2.Request("POST", "https://provider.test/v1/chat/completions")
@@ -45,7 +45,7 @@ def _validation_error() -> ValidationError:
         (_status_error(openai.APIStatusError, 408), errors.ProviderTimeoutError),
         (_status_error(openai.InternalServerError, 500), errors.ProviderUnavailableError),
         (_status_error(openai.APIStatusError, 503), errors.ProviderUnavailableError),
-        (_status_error(openai.ConflictError, 409), errors.ProviderError),
+        (_status_error(openai.ConflictError, 409), errors.ProviderUnavailableError),
         (openai.APITimeoutError(request=_REQUEST), errors.ProviderTimeoutError),
         (openai.APIConnectionError(request=_REQUEST), errors.ProviderUnavailableError),
         (httpx.ReadTimeout("slow"), errors.ProviderTimeoutError),
@@ -62,11 +62,11 @@ def _validation_error() -> ValidationError:
         (_bedrock_error("ModelTimeoutException"), errors.ProviderTimeoutError),
         (_bedrock_error("ResourceNotFoundException"), errors.ProviderModelNotFoundError),
         (_bedrock_error("ServiceUnavailableException"), errors.ProviderUnavailableError),
-        (_bedrock_error("SomethingNew"), errors.ProviderError),
+        (_bedrock_error("SomethingNew"), errors.ProviderUnavailableError),
         (boto_errors.ReadTimeoutError(endpoint_url="https://bedrock.test"), errors.ProviderTimeoutError),
         (boto_errors.EndpointConnectionError(endpoint_url="https://bedrock.test"), errors.ProviderUnavailableError),
         (boto_errors.NoCredentialsError(), errors.ProviderAuthError),
-        (RuntimeError("unexpected"), errors.ProviderError),
+        (RuntimeError("unexpected"), errors.ProviderUnavailableError),
     ],
 )
 def test_provider_failures_map_to_app_errors(exc: BaseException, expected: type[errors.ProviderError]) -> None:
@@ -75,6 +75,8 @@ def test_provider_failures_map_to_app_errors(exc: BaseException, expected: type[
     assert type(err) is expected
     assert isinstance(err, errors.ProviderError)
     assert err.provider == "groq"
+    # Every translated failure either moves the chain on or is a request the next provider would reject too.
+    assert isinstance(err, FALLBACK_ERRORS) != (expected is errors.ProviderRequestError)
 
 
 def test_messages_never_carry_provider_detail() -> None:

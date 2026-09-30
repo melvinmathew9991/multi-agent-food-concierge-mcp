@@ -55,9 +55,7 @@ def _from_openai_status(exc: openai.APIStatusError) -> type[ProviderError]:
         return ProviderRequestError
     if exc.status_code == 408:
         return ProviderTimeoutError
-    if exc.status_code >= 500:
-        return ProviderUnavailableError
-    return ProviderError
+    return ProviderUnavailableError
 
 
 def _error_class(exc: BaseException) -> type[ProviderError]:
@@ -79,14 +77,21 @@ def _error_class(exc: BaseException) -> type[ProviderError]:
         return ProviderResponseError
     if isinstance(exc, boto_errors.ClientError):
         code = exc.response.get("Error", {}).get("Code", "")
-        return _BEDROCK_CODES.get(code, ProviderError)
+        return _BEDROCK_CODES.get(code, ProviderUnavailableError)
     if isinstance(exc, boto_errors.ReadTimeoutError | boto_errors.ConnectTimeoutError):
         return ProviderTimeoutError
     if isinstance(exc, boto_errors.EndpointConnectionError | boto_errors.ConnectionClosedError):
         return ProviderUnavailableError
     if isinstance(exc, boto_errors.NoCredentialsError):
         return ProviderAuthError
-    return ProviderError
+    # Unknown failures: another provider may well succeed, so treat them as this one being unavailable.
+    return ProviderUnavailableError
+
+
+# The errors the fallback chain moves on from (LangChain matches on type, so this is a tuple of classes).
+FALLBACK_ERRORS: tuple[type[ProviderError], ...] = tuple(
+    cls for cls in ProviderError.__subclasses__() if cls.falls_back
+)
 
 
 def translate_provider_error(exc: BaseException, provider: str) -> AppError:

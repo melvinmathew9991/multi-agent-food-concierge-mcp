@@ -25,6 +25,7 @@ KeyedProvider = Literal["groq", "gemini", "openai"]
 # What a model is used for. Router and judge share the chat model until Phase 5/6 measurements
 # justify a separate one; callers ask by role so that change stays inside config.
 ModelRole = Literal["chat", "vision", "router", "judge"]
+ReasoningEffort = Literal["low", "medium", "high"]
 
 PAID_PROVIDERS: frozenset[str] = frozenset({"openai", "bedrock"})
 
@@ -58,6 +59,8 @@ class Settings(BaseSettings):
 
     groq_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     # Free-tier model names are blank until verified live and recorded in ADR-0006.
     groq_chat_model: str = ""
     groq_vision_model: str = ""
@@ -87,11 +90,21 @@ class Settings(BaseSettings):
     trace_sample_rate: float = Field(default=1.0, ge=0, le=1)
     environment: Literal["development", "ci", "production"] = "development"
 
-    # Request limits and timeouts. The deadline bounds a whole request across retries and fallbacks,
-    # and matches the PRD p95 target; a single attempt must fit inside it.
+    # Model calls. The deadline bounds one model call across the whole fallback chain and matches the
+    # PRD p95 target. The next provider is the retry: SDK retries (default 0) apply only to the last
+    # provider, so a 429 moves on at once instead of sleeping on Retry-After.
     request_deadline_s: float = Field(default=8.0, gt=0)
-    provider_timeout_s: float = Field(default=6.0, gt=0)
-    provider_max_retries: int = Field(default=1, ge=0, le=2)
+    provider_timeout_s: float = Field(default=4.0, gt=0)
+    # Per-provider attempt timeouts where latency differs: on 2026-09-30 Groq answered in ~0.4 s and
+    # Gemini Flash-Lite in 2.3-3.5 s (small samples; the Phase 1 model profile re-measures them).
+    groq_timeout_s: float = Field(default=3.0, gt=0)
+    gemini_timeout_s: float = Field(default=5.0, gt=0)
+    provider_max_retries: int = Field(default=0, ge=0, le=2)
+    chat_temperature: float = Field(default=0.2, ge=0, le=2)
+    # Thinking models spend output tokens on hidden reasoning; low effort keeps the visible answer in budget.
+    reasoning_effort_chat: ReasoningEffort = "low"
+    reasoning_effort_router: ReasoningEffort = "low"
+    reasoning_effort_judge: ReasoningEffort = "medium"
     max_output_tokens: int = Field(default=400, gt=0, le=4096)
     max_query_chars: int = Field(default=500, gt=0)
     max_image_mb: float = Field(default=5.0, gt=0)
@@ -128,9 +141,15 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def _attempt_fits_deadline(self) -> Settings:
-        if self.provider_timeout_s > self.request_deadline_s:
-            raise ValueError("PROVIDER_TIMEOUT_S must not exceed REQUEST_DEADLINE_S.")
+    def _chain_fits_deadline(self) -> Settings:
+        # Worst case: every provider times out once, and the last one also uses its retries.
+        timeouts = [self.timeout_for(provider) for provider in self.provider_chain]
+        worst_case = sum(timeouts) + timeouts[-1] * self.provider_max_retries
+        if worst_case > self.request_deadline_s:
+            raise ValueError(
+                f"Provider timeouts add up to {worst_case:g} s across the fallback chain, more than "
+                "REQUEST_DEADLINE_S; shorten the timeouts, the chain or the retries."
+            )
         return self
 
     @model_validator(mode="after")
@@ -142,6 +161,11 @@ class Settings(BaseSettings):
         if paid:
             raise ValueError(f"Paid providers {paid} are configured but ALLOW_PAID_PROVIDERS is false.")
         return self
+
+    @property
+    def provider_chain(self) -> list[ProviderName]:
+        """The chat provider followed by its fallbacks, each once, in order."""
+        return list(dict.fromkeys([self.chat_provider, *self.fallback_providers]))
 
     @property
     def raw_dir(self) -> Path:
@@ -180,6 +204,18 @@ class Settings(BaseSettings):
         if key is None or not key.get_secret_value():
             raise ConfigError(f"{provider.upper()}_API_KEY is not set.")
         return key.get_secret_value()
+
+    def timeout_for(self, provider: ProviderName) -> float:
+        """Timeout for one attempt at ``provider``."""
+        return {"groq": self.groq_timeout_s, "gemini": self.gemini_timeout_s}.get(provider, self.provider_timeout_s)
+
+    def reasoning_effort(self, role: ModelRole) -> ReasoningEffort | None:
+        """Reasoning effort for thinking models; vision descriptions do not reason."""
+        return {
+            "chat": self.reasoning_effort_chat,
+            "router": self.reasoning_effort_router,
+            "judge": self.reasoning_effort_judge,
+        }.get(role)
 
     def require_model_id(self, provider: ProviderName, role: ModelRole) -> str:
         # OpenAI uses one multimodal model for both purposes; the others may split them.

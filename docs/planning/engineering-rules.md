@@ -104,7 +104,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 
 ## 8. Git
 
-1. `main` holds reviewed work only; one branch per phase (names in `phases.md`); nothing merges without the owner's review.
+1. `main` holds reviewed work only; one short-lived branch per workstream, cut from the latest `main` and never reused after merge (naming in `phases.md`); nothing merges without the owner's review.
 2. **Commit messages:** Conventional Commits with scope (`feat(agent): …`), imperative, ≤ 72-char subject, body explains *why*. Messages describe the change only; no attribution trailers. Same for PR descriptions.
 3. Small coherent commits; tests pass at each.
 4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, the local project report (`docs/report.md`), user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks and a 5 MB file-size check in CI, and GitHub push protection, catch what it cannot.

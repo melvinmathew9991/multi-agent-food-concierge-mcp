@@ -30,9 +30,10 @@ Every phase ends with something demonstrable. The walking skeleton is live at th
 
 ## Git workflow
 
-- `main` ← one branch per phase, cut from the latest `main`.
+- `main` ← one short-lived branch per workstream, cut from the latest `main` and deleted after merge. Names: `feat/p<N>-<topic>` (e.g. `feat/p1-embeddings`), or `fix/`, `docs/`, `chore/`, `build/` for other kinds of change. The phase heading gives the prefix.
+- One topic per pull request; a phase is the unit of planning, a workstream the unit of review. A branch is never reused after its PR merges, so no "update branch" merges are needed.
 - Conventional Commits with scope; no AI/tool references; no co-author trailers (`engineering-rules.md` §8).
-- End of phase: tests + gates green → final commit → push and open the PR → **stop for review** → the owner merges.
+- End of each workstream: tests + gates green → push and open the PR → **stop for review** → the owner merges. End of phase: CHANGELOG, plan and ADRs up to date, and the phase marked done.
 - Public repo, no LICENSE. Tags: `v0.1.0` (P4 live MCP), `v0.2.0` (P7 live demo), `v0.3.0` (P8 A2A), `v1.0.0` (P10).
 
 ---
@@ -43,7 +44,7 @@ Close-out (Phase 0 audit, 2026-09-25): settings aligned with `.env.example` (pai
 
 **DoD:** lint, strict type check, offline tests (100% coverage of `src/`), dependency audit and secret scan green in CI; `.env.example` and `Settings` checked against each other by a test; `main` accepts changes only through pull requests with green checks.
 
-## Phase 1 — Models, embeddings, telemetry · `feat/phase-1-models-telemetry` · L
+## Phase 1 — Models, embeddings, telemetry · `feat/p1-*` (started as `feat/phase-1-models-telemetry`) · L
 **Goal:** one model layer that every later phase calls: typed, with fallbacks, bounded by a request deadline, traced and masked. Plus a measured profile of what each free model can reliably do, which P3–P6 choices depend on. Provider selection, fallback order and `ALLOW_PAID_PROVIDERS` landed in the Phase 0 close-out; A20 and A24 are closed.
 
 Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 memory capped), Langfuse Cloud Hobby from the P4 demo; `uv` generates the lock files; `qwen2.5vl:7b` for local vision, `qwen2.5vl:3b` if it does not fit in 8 GB VRAM; heavy caches (fastembed, Docker volumes, Ollama) live outside the synced project folder.
@@ -58,7 +59,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** offline tests green at 100% coverage with lint, strict types, both lock audits and the secret scan; CI installs from the lock; live smoke on Groq, Gemini and Ollama visible as masked traces in local Langfuse; a forced Groq failure served by Gemini; Bedrock stub contract passes; ADR-0006 accepted with measured numbers.
 
-## Phase 2 — Data, safety and ingestion flows · `feat/phase-2-data-safety` · M
+## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · M
 **Goal:** trustworthy catalog, allergens and indexes, built by orchestrated flows.
 0. **Own catalog v2 (publishable):** ~150 dishes across ~15 restaurants authored for this project: Atwater-consistent nutrition, hand-verified allergen ground truth, and a separate "restaurant-provided labels" column with documented, deliberate gaps (synthetic by design). One openly licensed photo per dish (e.g. Wikimedia Commons CC0/CC BY/CC BY-SA) fetched by script, with author, licence and source URL in `data/raw/attributions.csv`. Image descriptions generated with local Ollama vision ($0).
 1. Loader + normalisation (diet semantics + `eggless`; categories vs cuisines; serves; Atwater check) (A11, A13).
@@ -70,7 +71,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** one-command flow run builds everything; re-run is a no-op; allergen tests green; property test: filtered search never returns a violating item on either backend.
 
-## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/phase-3-eval-ranking` · M
+## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · M
 **Goal:** the "before" numbers and a CI gate, before any agent logic (A5).
 1. `eval/datasets/retrieval.yaml`: ~60 queries, graded human labels for semantic queries; structured queries only for violation metrics (A3); dev/test split.
 2. Image queries from **altered catalog images** (decided): random crops, rotation, colour/lighting shifts, blur, JPEG re-compression and background change, with a fixed seed and the transforms recorded per query. Reported as a **lower bound** on real-photo performance, with unaltered self-retrieval shown separately as a sanity check (A4). Name-free vs name-conditioned descriptions compared (A7).
@@ -80,7 +81,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** reproducible results; the gate fails on a deliberately degraded config (tested); retrieval stack and vector backend chosen from dev-split evidence (ADR-0001).
 
-## Phase 4 — MCP server, access control, first deploy · `feat/phase-4-mcp-server` · L
+## Phase 4 — MCP server, access control, first deploy · `feat/p4-*` · L
 **Goal:** secure, reusable tools, live on HF Spaces.
 1. `services/` layer (catalog, retrieval, allergens, nutrition, constraints, vision).
 2. FastMCP server: 6 tools, 4 resources, 2 prompts; typed schemas; `isError`; size limits.
@@ -91,7 +92,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** Claude Desktop uses the tools locally; the public Space serves `/v1/search` and MCP with scopes enforced; `v0.1.0`. Creating the HF Space needs approval.
 
-## Phase 5 — Multi-agent system, memory and guardrails · `feat/phase-5-agents` · L
+## Phase 5 — Multi-agent system, memory and guardrails · `feat/p5-*` · L
 **Goal:** a bounded, safe, observable multi-agent system over MCP.
 1. Graph per Architecture §6: `guard_input` → `load_context` → supervisor → specialists (vision, recommender, meal planner) → deterministic `verify` → `confirm` (interrupt) → `respond` → `save_memory`; plus the **single-agent baseline graph**.
 2. **Per-agent tool allow-lists**; budgets (tool calls, hops, repairs); safe fallback.
@@ -102,7 +103,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** meal-planning scenarios run end to end on Groq with full traces; every graph path tested offline.
 
-## Phase 6 — Agent evaluation, red-teaming and LLMOps · `feat/phase-6-agent-evals` · M
+## Phase 6 — Agent evaluation, red-teaming and LLMOps · `feat/p6-*` · M
 **Goal:** measured agent quality, security and operations.
 1. `eval/datasets/agent.yaml` (~30 scenarios) and `eval/datasets/redteam.yaml` (direct/indirect injection, tool escalation, allergen override).
 2. Metrics: task success, violations (0), tool-selection and routing accuracy, steps, repairs, latency, fallback rate, tokens + shadow cost; **attack success rate**; injection classifier TPR/FPR.
@@ -113,7 +114,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** reproducible eval runs; judge calibration and red-team results reported; topology decision recorded.
 
-## Phase 7 — API, UI and live demo · `feat/phase-7-api-ui` · M
+## Phase 7 — API, UI and live demo · `feat/p7-*` · M
 **Goal:** a polished, governed public demo.
 1. FastAPI: `/v1/agent/runs` (SSE), resume, feedback → Langfuse scores; token scopes; rate limits; placeholder-key refusal; `DATA_DIR` (A9, A21, A22).
 2. Streamlit per `design.md` §9: streaming chat, tool timeline, meal-plan card, interrupt buttons, constraint chips, preferences panel (view/delete), feedback, **AI-interaction disclosure**, data-use notice (A23).
@@ -121,7 +122,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** public URLs work from a clean browser; quota exhaustion degrades to retrieval-only (drill documented); `v0.2.0`.
 
-## Phase 8 — A2A interoperability · `feat/phase-8-a2a` · M
+## Phase 8 — A2A interoperability · `feat/p8-*` · M
 **Goal:** agent↔agent delegation next to agent↔tool (MCP).
 1. A2A server: Agent Card (`/.well-known/agent-card.json`), skills `recommend_dishes` + `plan_meal`, streaming task updates, `input-required` mapped to interrupts, artifacts = verified proposal.
 2. Scoped bearer auth; audit spans; rate limits.
@@ -130,7 +131,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** the demo peer agent completes a delegated meal plan against the live Space; `v0.3.0`.
 
-## Phase 9 — Responsible AI review · `feat/phase-9-responsible-ai` · M
+## Phase 9 — Responsible AI review · `feat/p9-*` · M
 **Goal:** a documented, measured Responsible AI assessment.
 1. **Fairness:** restaurant exposure vs relevance-deserved exposure; popularity (rating) bias controlling for relevance; mitigation if disparity is material (e.g. tie-break policy), re-measured.
 2. **Counterfactual consistency:** paired identity/cultural-cue requests; safety agreement (target 100%), top-3 Jaccard.
@@ -141,7 +142,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** every metric reproducible from a committed run; limitations and failure modes documented.
 
-## Phase 10 — Hardening and portfolio release · `chore/phase-10-release` · M
+## Phase 10 — Hardening and portfolio release · `chore/p10-*` · M
 1. Dependabot (pip + GitHub Actions, which also keeps the pinned action current), PR template, CHANGELOG release notes (gitleaks, pip-audit and mypy are already in CI from Phase 0).
 2. Small load test against a local container; latency/throughput table.
 3. `docs/runbook.md` (quota exhausted, Space asleep, Langfuse down, token rotation), ADR index.

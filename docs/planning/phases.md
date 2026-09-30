@@ -32,7 +32,7 @@ Every phase ends with something demonstrable. The walking skeleton is live at th
 
 - `main` ← one branch per phase, cut from the latest `main`.
 - Conventional Commits with scope; no AI/tool references; no co-author trailers (`engineering-rules.md` §8).
-- End of phase: tests + gates green → final commit → **stop for review** → the owner pushes, opens the PR and merges.
+- End of phase: tests + gates green → final commit → push and open the PR → **stop for review** → the owner merges.
 - Public repo, no LICENSE. Tags: `v0.1.0` (P4 live MCP), `v0.2.0` (P7 live demo), `v0.3.0` (P8 A2A), `v1.0.0` (P10).
 
 ---
@@ -44,15 +44,19 @@ Close-out (Phase 0 audit, 2026-09-25): settings aligned with `.env.example` (pai
 **DoD:** lint, strict type check, offline tests (100% coverage of `src/`), dependency audit and secret scan green in CI; `.env.example` and `Settings` checked against each other by a test; `main` accepts changes only through pull requests with green checks.
 
 ## Phase 1 — Models, embeddings, telemetry · `feat/phase-1-models-telemetry` · L
-**Goal:** a zero-cost model layer, and tracing with masking, before any feature code.
-1. Settings: Groq/Gemini model names (verified) and budget fields; `requirements.lock` used by CI and Docker, with upper bounds for SDKs with breaking-change history (A19). Provider selection, fallback order and `ALLOW_PAID_PROVIDERS` landed in the Phase 0 close-out; A20 and A24 are closed.
-2. `models/router.py`: OpenAI-compatible chat models (Groq/Gemini/Ollama) with fallbacks, timeouts and retries; `ChatBedrockConverse` behind the flag; scripted fake chat model.
-3. `models/embeddings.py`: fastembed wrapper + fake embedder; cross-encoder rerank wrapper (used in P3).
-4. `telemetry.py`: Langfuse client, span helpers, **masking hook** (image bytes, emails, phones), failure-tolerant; `docker-compose.yml` for local Langfuse.
-5. Tests: respx (OpenAI-compatible), botocore Stubber (Bedrock), "default config has no paid provider", masking tests.
-6. Verify and record free-tier limits and model names (Groq/Gemini text + vision; Llama Guard-class availability); pull the Ollama vision model (≈6 GB, ask first).
+**Goal:** one model layer that every later phase calls: typed, with fallbacks, bounded by a request deadline, traced and masked. Plus a measured profile of what each free model can reliably do, which P3–P6 choices depend on. Provider selection, fallback order and `ALLOW_PAID_PROVIDERS` landed in the Phase 0 close-out; A20 and A24 are closed.
 
-**DoD:** offline tests green; live smoke on Groq, Gemini, Ollama visible as masked traces in local Langfuse; Bedrock stub contract passes.
+Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 memory capped), Langfuse Cloud Hobby from the P4 demo; `uv` generates the lock files; `qwen2.5vl:7b` for local vision, `qwen2.5vl:3b` if it does not fit in 8 GB VRAM; heavy caches (fastembed, Docker volumes, Ollama) live outside the synced project folder.
+
+1. **Dependencies (A19):** `requirements.lock` (runtime, for Docker) and `requirements-dev.lock` (CI), universal and hash-checked; SDKs capped below their next major; CI fails when a lock no longer matches `pyproject.toml`, and audits both locks.
+2. **Settings:** model names per provider and role (`chat`, `vision`, `router`, `judge`), blank until verified live; a per-request deadline (default 8 s, the PRD p95 target) with a shorter per-attempt timeout and one SDK retry, since 30 s × 3 attempts × 2 providers cannot meet it; per-minute and per-day call caps for free providers; tracing switch, sample rate and environment.
+3. **`models/router.py`:** `ChatOpenAI(base_url=…)` for Groq, Gemini and Ollama, `ChatBedrockConverse` behind the paid flag, `ScriptedChatModel` (scripted messages, tool calls and exceptions) for tests. SDK retries and `.with_fallbacks` only. Fallback on 429, timeout, 5xx, connection and auth errors (auth logged at ERROR); no fallback on 400. One translation from provider exceptions into the `Provider*Error` hierarchy. A capability table per provider (tools, JSON schema, vision, streaming, usage) picks the structured-output method; one repair, then fallback. Temperature 0 and a seed for routing and extraction. Images stripped of EXIF before they leave the process.
+4. **`models/embeddings.py`:** fastembed `BAAI/bge-small-en-v1.5` with separate query and passage embedding (BGE query prefix), L2-normalised, batched, revision pinned; an `EmbedderFingerprint` stored in every index manifest, and loading a mismatched index fails. A token-hashing fake embedder, so offline tests can assert ranking order. Cross-encoder rerank wrapper for P3. A nightly drift check against committed reference vectors (cosine ≥ 0.999).
+5. **`telemetry.py`:** a thin wrapper over the Langfuse v4 (OpenTelemetry) SDK: traces, spans, LangChain callback, flush, `trace_id` in log lines; a no-op when disabled or unconfigured; failures logged and swallowed. One `TraceMeta` model (request, provider, model, role, fallback used, attempts, tokens, prompt version, degraded). A recursive, size-bounded masking function for image data, bytes, emails and phone numbers, tested in both directions: PII is masked, and prices, calories, dates and IDs are not. `docker-compose.yml` for local Langfuse with pinned images bound to 127.0.0.1.
+6. **Tests:** respx contract tests per OpenAI-compatible provider (success, 429 → fallback, 5xx → one retry → fallback, timeout, 400 without fallback, auth, malformed output → repair → error, deadline); botocore Stubber for Bedrock and its paid-flag guard; masking, fake models, fingerprint mismatch. Coverage stays at 100% of `src/`.
+7. **Model profile (live, never in CI):** per provider and role, a fixed set of 20 prompts measures structured-output adherence (first try and after repair), tool-call accuracy, p50/p95 latency and tokens, vision on own photos, and rate-limit headers; Llama Guard-class availability recorded for P5. Results in `eval/results/` with sample sizes and intervals; model names and fallback order in **ADR-0006**.
+
+**DoD:** offline tests green at 100% coverage with lint, strict types, both lock audits and the secret scan; CI installs from the lock; live smoke on Groq, Gemini and Ollama visible as masked traces in local Langfuse; a forced Groq failure served by Gemini; Bedrock stub contract passes; ADR-0006 accepted with measured numbers.
 
 ## Phase 2 — Data, safety and ingestion flows · `feat/phase-2-data-safety` · M
 **Goal:** trustworthy catalog, allergens and indexes, built by orchestrated flows.

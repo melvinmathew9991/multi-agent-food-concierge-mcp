@@ -11,8 +11,7 @@ One file per decision: `NNNN-short-title.md`, numbered in order and never renumb
 | 0003 | LangGraph over CrewAI/AutoGen; supervisor design | P5 | Planned |
 | 0004 | Default agent topology (single vs multi-agent), chosen from measurements | P6 | Planned |
 | 0005 | Boundaries between MCP (agent-to-tool) and A2A (agent-to-agent) | P8 | Planned |
-
-Free-tier model names verified in Phase 1 are recorded in an ADR at that point.
+| 0006 | Free-tier models and fallback order, chosen from the Phase 1 model profile | P1 | Planned |
 
 ## Template
 

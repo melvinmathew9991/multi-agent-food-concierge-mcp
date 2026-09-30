@@ -47,11 +47,17 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: pyproject.toml
-      - name: Install
+          cache-dependency-path: requirements-dev.lock
+      - name: Install (locked, hash-checked)
         run: |
           python -m pip install --upgrade pip setuptools
-          pip install -e ".[dev]"
+          pip install --require-hashes -r requirements-dev.lock
+          pip install --no-deps -e .
+      - name: Lock files match pyproject.toml
+        run: |
+          uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header -q -o requirements.lock
+          uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes --no-header -q -o requirements-dev.lock
+          git diff --exit-code -- requirements.lock requirements-dev.lock
       - name: Lint
         run: |
           ruff check .
@@ -61,4 +67,6 @@ jobs:
       - name: Test (offline)
         run: pytest
       - name: Audit dependencies
-        run: pip-audit --skip-editable
+        run: |
+          pip-audit --require-hashes --disable-pip -r requirements.lock
+          pip-audit --require-hashes --disable-pip -r requirements-dev.lock

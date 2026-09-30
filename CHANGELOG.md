@@ -9,6 +9,11 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 #### Added
 - Hash-checked lock files: `requirements.lock` (runtime) and `requirements-dev.lock` (CI), generated with `uv`. CI installs from the dev lock, fails when either lock no longer matches `pyproject.toml`, and audits both.
 - LangChain (core, OpenAI, AWS), Langfuse, fastembed and pytest-asyncio, with SDKs capped below their next major version.
+- Settings for model names per provider and role (`chat`, `vision`, `router`, `judge`); Groq and Gemini names stay blank until verified, and a blank name fails when the model is built.
+- A per-request deadline (8 s, the PRD p95 target), per-day and per-minute call caps for the Groq and Gemini free tiers, tracing switches, and a model cache directory outside the repository.
+
+#### Changed
+- Provider timeout lowered from 30 s to 6 s and retries from 2 to 1, and a single attempt may not exceed the request deadline: the old defaults allowed about three minutes per request.
 
 ### Phase 0: Foundation
 

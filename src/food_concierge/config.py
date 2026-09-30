@@ -9,6 +9,7 @@ unknown keys in ``.env``, so a typo can't silently change behaviour.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -21,6 +22,9 @@ from food_concierge.errors import ConfigError
 ProviderName = Literal["groq", "gemini", "ollama", "fake", "openai", "bedrock"]
 EmbedProviderName = Literal["fastembed", "ollama", "fake", "openai", "bedrock"]
 KeyedProvider = Literal["groq", "gemini", "openai"]
+# What a model is used for. Router and judge share the chat model until Phase 5/6 measurements
+# justify a separate one; callers ask by role so that change stays inside config.
+ModelRole = Literal["chat", "vision", "router", "judge"]
 
 PAID_PROVIDERS: frozenset[str] = frozenset({"openai", "bedrock"})
 
@@ -33,6 +37,12 @@ def _default_fallbacks() -> list[ProviderName]:
 
 def _default_cors_origins() -> list[str]:
     return ["http://localhost:8501"]
+
+
+def _default_model_cache_dir() -> Path:
+    # Outside the repository: model files are large and the checkout may sit in a synced folder.
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
+    return Path(base) / "food-concierge" / "models"
 
 
 class Settings(BaseSettings):
@@ -48,6 +58,11 @@ class Settings(BaseSettings):
 
     groq_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None
+    # Free-tier model names are blank until verified live and recorded in ADR-0006.
+    groq_chat_model: str = ""
+    groq_vision_model: str = ""
+    gemini_chat_model: str = ""
+    gemini_vision_model: str = ""
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_chat_model: str = "llama3.1:8b"
@@ -68,18 +83,28 @@ class Settings(BaseSettings):
     langfuse_public_key: SecretStr | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_host: str = "http://localhost:3000"
+    tracing_enabled: bool = True
+    trace_sample_rate: float = Field(default=1.0, ge=0, le=1)
+    environment: Literal["development", "ci", "production"] = "development"
 
-    # Request limits and timeouts
-    provider_timeout_s: float = Field(default=30.0, gt=0)
-    provider_max_retries: int = Field(default=2, ge=0, le=5)
+    # Request limits and timeouts. The deadline bounds a whole request across retries and fallbacks,
+    # and matches the PRD p95 target; a single attempt must fit inside it.
+    request_deadline_s: float = Field(default=8.0, gt=0)
+    provider_timeout_s: float = Field(default=6.0, gt=0)
+    provider_max_retries: int = Field(default=1, ge=0, le=2)
     max_output_tokens: int = Field(default=400, gt=0, le=4096)
     max_query_chars: int = Field(default=500, gt=0)
     max_image_mb: float = Field(default=5.0, gt=0)
     max_history_turns: int = Field(default=4, ge=0)
 
-    # Cost guardrails (calls per UTC day, per paid provider)
+    # Call caps per provider: paid ones bound cost, free ones stay under the published free-tier
+    # quotas (placeholders until measured in Phase 1 and recorded in ADR-0006). Local providers are uncapped.
     daily_call_limit_bedrock: int = Field(default=200, ge=0)
     daily_call_limit_openai: int = Field(default=200, ge=0)
+    daily_call_limit_groq: int = Field(default=900, ge=0)
+    daily_call_limit_gemini: int = Field(default=200, ge=0)
+    minute_call_limit_groq: int = Field(default=25, ge=0)
+    minute_call_limit_gemini: int = Field(default=8, ge=0)
     cache_ttl_hours: int = Field(default=168, ge=0)
 
     # API access: one token per scope (public / agent / admin)
@@ -91,6 +116,7 @@ class Settings(BaseSettings):
 
     # Paths
     data_dir: Path = REPO_ROOT / "data"
+    model_cache_dir: Path = Field(default_factory=_default_model_cache_dir)
     log_level: str = "INFO"
 
     @field_validator("fallback_providers", "cors_origins", mode="before")
@@ -100,6 +126,12 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.lstrip().startswith("["):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _attempt_fits_deadline(self) -> Settings:
+        if self.provider_timeout_s > self.request_deadline_s:
+            raise ValueError("PROVIDER_TIMEOUT_S must not exceed REQUEST_DEADLINE_S.")
+        return self
 
     @model_validator(mode="after")
     def _paid_providers_need_opt_in(self) -> Settings:
@@ -124,10 +156,19 @@ class Settings(BaseSettings):
         return int(self.max_image_mb * 1024 * 1024)
 
     def daily_call_limit(self, provider: ProviderName) -> int | None:
-        """Daily call cap for paid providers; ``None`` means uncapped (free providers)."""
+        """Calls allowed per UTC day; ``None`` means uncapped (local and fake providers)."""
         return {
             "bedrock": self.daily_call_limit_bedrock,
             "openai": self.daily_call_limit_openai,
+            "groq": self.daily_call_limit_groq,
+            "gemini": self.daily_call_limit_gemini,
+        }.get(provider)
+
+    def minute_call_limit(self, provider: ProviderName) -> int | None:
+        """Calls allowed per minute on free tiers; ``None`` means no per-minute cap."""
+        return {
+            "groq": self.minute_call_limit_groq,
+            "gemini": self.minute_call_limit_gemini,
         }.get(provider)
 
     def require_api_key(self, provider: KeyedProvider) -> str:
@@ -140,10 +181,14 @@ class Settings(BaseSettings):
             raise ConfigError(f"{provider.upper()}_API_KEY is not set.")
         return key.get_secret_value()
 
-    def require_model_id(self, provider: ProviderName, purpose: Literal["chat", "vision"]) -> str:
-        # Free-tier model names for Groq and Gemini are verified and added in Phase 1.
-        # OpenAI uses one multimodal model for both purposes; Bedrock and Ollama may split them.
+    def require_model_id(self, provider: ProviderName, role: ModelRole) -> str:
+        # OpenAI uses one multimodal model for both purposes; the others may split them.
+        purpose = "vision" if role == "vision" else "chat"
         model_ids: dict[tuple[str, str], str] = {
+            ("groq", "chat"): self.groq_chat_model,
+            ("groq", "vision"): self.groq_vision_model,
+            ("gemini", "chat"): self.gemini_chat_model,
+            ("gemini", "vision"): self.gemini_vision_model,
             ("bedrock", "chat"): self.bedrock_chat_model_id,
             ("bedrock", "vision"): self.bedrock_vision_model_id or self.bedrock_chat_model_id,
             ("openai", "chat"): self.openai_chat_model,
@@ -155,7 +200,7 @@ class Settings(BaseSettings):
         }
         model_id = model_ids.get((provider, purpose), "")
         if not model_id:
-            raise ConfigError(f"No {purpose} model configured for provider '{provider}'.")
+            raise ConfigError(f"No {role} model configured for provider '{provider}'.")
         return model_id
 
 

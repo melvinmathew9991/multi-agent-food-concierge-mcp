@@ -20,7 +20,7 @@
 
 **Approved (UI):** `streamlit`, `httpx`.
 **Approved (ingestion/eval):** `pandas`, `pyyaml`, `scipy`.
-**Approved (dev/test):** `pytest`, `pytest-cov`, `pytest-asyncio`, `respx`, `ruff`, `mypy`, `pip-audit`; gitleaks (CI action).
+**Approved (dev/test):** `pytest`, `pytest-cov`, `pytest-asyncio`, `respx`, `ruff`, `mypy`, `pip-audit`, `uv` (lock files only); gitleaks (CI action).
 
 **Disallowed:**
 

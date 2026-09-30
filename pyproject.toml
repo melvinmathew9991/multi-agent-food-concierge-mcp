@@ -21,6 +21,7 @@ dependencies = [
     "boto3>=1.35",
     "openai>=1.50,<4",
     "httpx>=0.27",
+    "httpx2>=2.12,<3",  # the HTTP client of openai>=3; the router injects it (timeouts, test transports)
     "langchain-core>=1.0,<2",
     "langchain-openai>=1.0,<2",
     "langchain-aws>=1.0,<2",
@@ -55,6 +56,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers -m 'not live'"
+asyncio_mode = "auto"
 markers = [
     "live: calls a real model provider; skipped unless selected with -m live",
 ]

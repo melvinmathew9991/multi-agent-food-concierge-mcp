@@ -11,6 +11,8 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - LangChain (core, OpenAI, AWS), Langfuse, fastembed and pytest-asyncio, with SDKs capped below their next major version.
 - Settings for model names per provider and role (`chat`, `vision`, `router`, `judge`); Groq and Gemini names stay blank until verified, and a blank name fails when the model is built.
 - A per-request deadline (8 s, the PRD p95 target), per-day and per-minute call caps for the Groq and Gemini free tiers, tracing switches, and a model cache directory outside the repository.
+- Provider error translation (`models/provider_errors.py`): OpenAI-compatible, httpx and Bedrock failures become app errors that say whether the next provider may succeed and whether an operator must act. New `ProviderRequestError` (never falls back) and `ProviderModelNotFoundError` (retired or closed models).
+- `ScriptedChatModel`, a fake chat model that replays scripted replies, tool calls and failures and records every call, for router and agent tests.
 
 #### Changed
 - Provider timeout lowered from 30 s to 6 s and retries from 2 to 1, and a single attempt may not exceed the request deadline: the old defaults allowed about three minutes per request.

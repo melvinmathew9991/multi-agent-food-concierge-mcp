@@ -17,6 +17,7 @@ from food_concierge import errors
 from food_concierge.config import Settings
 from food_concierge.models.fake import ScriptedChatModel
 from food_concierge.models.router import build_chat_model, get_chat_model
+from food_concierge.telemetry import ModelCallRecorder
 
 GROQ = "api.groq.com"
 GEMINI = "generativelanguage.googleapis.com"
@@ -369,3 +370,24 @@ def test_bedrock_native_streaming_failures_are_translated() -> None:
         stub.add_client_error("converse_stream", service_error_code="ThrottlingException", http_status_code=429)
         with pytest.raises(errors.ProviderRateLimitedError):
             list(streaming._stream([]))
+
+
+def test_fallback_is_recorded_with_real_provider_names(settings: Settings) -> None:
+    fake = FakeProviders(groq=status(429))
+    recorder = ModelCallRecorder()
+
+    get_chat_model("chat", settings, http_client=fake.client()).invoke("hi", config={"callbacks": [recorder]})
+
+    meta = recorder.meta(role="chat")
+    assert [(a.provider, a.model, a.error_code) for a in recorder.attempts] == [
+        ("groq", "groq-chat", "provider_rate_limited"),
+        ("gemini", "gemini-chat", None),
+    ]
+    assert meta.fallback_used
+    assert (meta.provider, meta.input_tokens, meta.output_tokens) == ("gemini", 5, 2)
+
+
+def test_bedrock_reports_itself_as_bedrock() -> None:
+    model = build_chat_model("bedrock", "chat", _bedrock_settings(), bedrock_client=_bedrock_client())
+
+    assert model._get_ls_params()["ls_provider"] == "bedrock"

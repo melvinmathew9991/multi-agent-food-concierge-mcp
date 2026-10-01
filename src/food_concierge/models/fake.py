@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from typing import Annotated, Any
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
-from langchain_core.language_models import BaseChatModel, LanguageModelInput
+from langchain_core.language_models import BaseChatModel, LangSmithParams, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import Runnable
@@ -32,6 +32,7 @@ class ScriptedChatModel(BaseChatModel):
     # Validation would coerce scripted exceptions into messages; the script is test input, used as given.
     script: Annotated[list[ScriptStep], SkipValidation] = Field(default_factory=list)
     model_name: str = "fake-chat"
+    provider: str = "fake"  # reported to callbacks as ``ls_provider``, so fallback tests can tell models apart
 
     _position: int = PrivateAttr(default=0)
     _calls: list[list[BaseMessage]] = PrivateAttr(default_factory=list)
@@ -40,6 +41,12 @@ class ScriptedChatModel(BaseChatModel):
     @property
     def _llm_type(self) -> str:
         return "scripted"
+
+    def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
+        params = super()._get_ls_params(stop=stop, **kwargs)
+        params["ls_provider"] = self.provider
+        params["ls_model_name"] = self.model_name
+        return params
 
     @property
     def calls(self) -> list[list[BaseMessage]]:

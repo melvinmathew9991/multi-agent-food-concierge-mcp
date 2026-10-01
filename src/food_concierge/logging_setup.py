@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import re
 
+from opentelemetry import trace
+
 _RESERVED = set(vars(logging.makeLogRecord({})).keys()) | {"message", "asctime"}
 
 # Values made only of these characters are written bare; anything else is quoted and escaped,
@@ -29,9 +31,20 @@ class KeyValueFormatter(logging.Formatter):
         return f"{base} {pairs}"
 
 
+class TraceContextFilter(logging.Filter):
+    """Adds ``trace_id`` inside a sampled trace, so a log line leads to its trace in Langfuse."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        context = trace.get_current_span().get_span_context()
+        if context.is_valid and context.trace_flags.sampled and not hasattr(record, "trace_id"):
+            record.trace_id = format(context.trace_id, "032x")
+        return True
+
+
 def configure_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(KeyValueFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    handler.addFilter(TraceContextFilter())
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level.upper())

@@ -12,6 +12,7 @@ docs/report.md
 .env
 .env.*
 !.env.example
+!.env.langfuse.example
 .streamlit/secrets.toml
 .aws/
 *.pem

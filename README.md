@@ -24,6 +24,17 @@ pytest
 pip-audit --skip-editable
 ```
 
+## Tracing (optional)
+
+Without Langfuse keys tracing is off and everything still runs. To see traces locally (needs Docker):
+
+```bash
+cp .env.langfuse.example .env.langfuse        # fill in every value
+docker compose --env-file .env.langfuse up -d  # Langfuse on http://localhost:3000
+```
+
+Then put the project keys from `.env.langfuse` into `.env` as `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`. Trace payloads are masked before export: image data, emails and phone numbers never leave the process.
+
 ## Project documents
 
 Planning documents live in [`docs/planning/`](docs/planning/):

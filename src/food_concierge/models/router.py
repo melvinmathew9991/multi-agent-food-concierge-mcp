@@ -26,7 +26,7 @@ from typing import Any
 import httpx2
 from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
-from langchain_core.language_models import BaseChatModel, LanguageModelInput
+from langchain_core.language_models import BaseChatModel, LangSmithParams, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
@@ -82,6 +82,12 @@ class GuardedChatOpenAI(ChatOpenAI):
 
     provider_label: str = "openai"
 
+    def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
+        # Traces and ModelCallRecorder name the real provider, not "openai" for every compatible endpoint.
+        params = super()._get_ls_params(stop=stop, **kwargs)
+        params["ls_provider"] = self.provider_label
+        return params
+
     def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
         with _translated(self.provider_label):
             result = super()._generate(*args, **kwargs)
@@ -104,6 +110,11 @@ class GuardedChatOpenAI(ChatOpenAI):
 
 class GuardedChatBedrockConverse(ChatBedrockConverse):
     """``ChatBedrockConverse`` raising application errors (async runs these in an executor)."""
+
+    def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
+        params = super()._get_ls_params(stop=stop, **kwargs)
+        params["ls_provider"] = "bedrock"
+        return params
 
     def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
         with _translated("bedrock"):

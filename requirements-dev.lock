@@ -579,6 +579,7 @@ httpx==0.28.1 \
     #   huggingface-hub
     #   langchain-core
     #   langfuse
+    #   langgraph-sdk
     #   respx
 httpx2==2.13.1 \
     --hash=sha256:6dff50fabc270ee5fd25d845d0b078ed20564579744d6d962850975996d2f9a4 \
@@ -762,6 +763,10 @@ jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
     # via jsonschema
+langchain==1.4.3 \
+    --hash=sha256:0334066939dd1c7551889727ed2d09a72dea7a6aed2193ffb61817fb658d8921 \
+    --hash=sha256:aed5c1a7cd581f70ddc076b75fdbcbae8031b8373983f86efd287aa70798abc2
+    # via multi-agent-food-concierge-mcp (pyproject.toml)
 langchain-aws==1.7.9 \
     --hash=sha256:2af21da1af458c6e7d43e58d26978711e15b81a6f9916da38d882d4ca7b58213 \
     --hash=sha256:a0803d4ac4db8481e044e6814dd5cc1572a3e9a238694e64c7959492e7abbe13
@@ -771,8 +776,13 @@ langchain-core==1.6.6 \
     --hash=sha256:d9a71e312ab7443701238750e04a57aefc037c4f1ec82837c8a1609d9a14a9b1
     # via
     #   multi-agent-food-concierge-mcp (pyproject.toml)
+    #   langchain
     #   langchain-aws
     #   langchain-openai
+    #   langgraph
+    #   langgraph-checkpoint
+    #   langgraph-prebuilt
+    #   langgraph-sdk
 langchain-openai==1.6.6 \
     --hash=sha256:60dcaa443ddfdf1559feaf1d25916f394c7dda809aebe22a769fc39f02705be7 \
     --hash=sha256:7b3848f42825aca40165463aa37757051165eb292ba7f24658a2f58f9bb221f9
@@ -780,11 +790,31 @@ langchain-openai==1.6.6 \
 langchain-protocol==0.0.19 \
     --hash=sha256:4cdf879a492a35980fd859ae792d3c65458ccaae504e183c9a10d7eac1f0720f \
     --hash=sha256:79d90a1425122ac87e8052e2ec054fbd09c3edbf341bdfb6397112a495c7bf8c
-    # via langchain-core
+    # via
+    #   langchain-core
+    #   langgraph-sdk
 langfuse==4.15.6 \
     --hash=sha256:2364d5f17342301a8651ef166abb5bb260aaadd94d1ac72aa30c298b3a395d85 \
     --hash=sha256:af80ed1199e57c2641c9f228066bf9dc324657c06ce6e68660118fa46b237e35
     # via multi-agent-food-concierge-mcp (pyproject.toml)
+langgraph==1.2.12 \
+    --hash=sha256:5fae9fa4ce771e90f10ff19ce0d5aaef4b41d7632c713d769e89cbce1241a4b9 \
+    --hash=sha256:95403af7b510de8d79164742f71daaf866c69ca804a8cb72bef2cc1fa1ab9813
+    # via langchain
+langgraph-checkpoint==4.2.0 \
+    --hash=sha256:0547fd228935a0b758865de3a3d6d7a2537c308895d0f9ab092ce9151b5da942 \
+    --hash=sha256:51a593b6bee684b0818e5d6e58e28ab340c6db7794575056ce7bd1b746a84ed7
+    # via
+    #   langgraph
+    #   langgraph-prebuilt
+langgraph-prebuilt==1.1.0 \
+    --hash=sha256:3c579cf6eed2d17f9c157c2d0fcaddcd8688524e7022d3b22b37a3bf4589d528 \
+    --hash=sha256:51e311747d755b751d5c6b39b0c1446124d3a7643d2515017e6714b323508fc9
+    # via langgraph
+langgraph-sdk==0.4.5 \
+    --hash=sha256:d49a98a2ee8e0c494b101a7caf8061c8b4b94d3ee5ada0ea2dbe50903a5487b1 \
+    --hash=sha256:e03ef033a20d21288af496e9b6c08ae3afcc1b58dc5abcd37575bfd1a93045de
+    # via langgraph
 langsmith==0.14.1 \
     --hash=sha256:0b5cd2473420c9c5acef33a9bafe6c812a7cf96741e9a5af465b1d93bf77f7ae \
     --hash=sha256:dcfd8a25ba72d8663024bd87df02e372e470f43e18f4a726f37fbacc772c0193
@@ -1532,6 +1562,7 @@ opentelemetry-api==1.45.0 \
     --hash=sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7 \
     --hash=sha256:80e068aba7cd56c8b58512d6a36f8d25cb1dfaa0c0a4cc1c938ccf9f362d9cb3
     # via
+    #   multi-agent-food-concierge-mcp (pyproject.toml)
     #   fastapi
     #   langfuse
     #   opentelemetry-exporter-http-transport
@@ -1571,7 +1602,7 @@ opentelemetry-semantic-conventions==0.66b0 \
     --hash=sha256:175b19dd98c4473f4f43a2b1df59186fd7b4a48cd3f77cbe03438b6d6fda230a \
     --hash=sha256:97a77dce484c54861e7eeff7651fd8a806dd3c30e501dc316730215ec36890e6
     # via opentelemetry-sdk
-orjson==3.12.0 ; platform_python_implementation != 'PyPy' \
+orjson==3.12.0 \
     --hash=sha256:010811c1b69773450a01cef97727a67b223242f350b77d4ca000e59a9ef2155a \
     --hash=sha256:01efac2074fffb4cb1ea3fab7861e9d0f2a26913854a972f5ac760525dbdaf6e \
     --hash=sha256:03091c8a64db4be38746597ceea68f33c238e27acd9bfe99fb59420224ae7a55 \
@@ -1637,7 +1668,60 @@ orjson==3.12.0 ; platform_python_implementation != 'PyPy' \
     --hash=sha256:f06dd838d1e07d9b1de0932ec0485ec92c4d5f5d1ad4817a656268c3e88be1e1 \
     --hash=sha256:f3c0683136acdc29afdf88a5bc2f7d3d0e34087788d1d63c0144b805a87a196f \
     --hash=sha256:fb2539159dfe8d371914f354360fa50e4a577cc89222a3828b9650a5e5040252
-    # via langsmith
+    # via
+    #   langgraph-sdk
+    #   langsmith
+ormsgpack==1.12.2 \
+    --hash=sha256:0b39e629fd2e1c5b2f46f99778450b59454d1f901bc507963168985e79f09c5d \
+    --hash=sha256:118576ea6006893aea811b17429bfc561b4778fad393f5f538c84af70b01260c \
+    --hash=sha256:18867233df592c997154ff942a6503df274b5ac1765215bceba7a231bea2745d \
+    --hash=sha256:1dcc17d92b6390d4f18f937cf0b99054824a7815818012ddca925d6e01c2e49e \
+    --hash=sha256:21f4276caca5c03a818041d637e4019bc84f9d6ca8baa5ea03e5cc8bf56140e9 \
+    --hash=sha256:292410a7d23de9b40444636b9b8f1e4e4b814af7f1ef476e44887e52a123f09d \
+    --hash=sha256:29a9f17a3dac6054c0dce7925e0f4995c727f7c41859adf9b5572180f640d172 \
+    --hash=sha256:34d5b28b3570e9fed9a5a76528fc7230c3c76333bc214798958e58e9b79cc18a \
+    --hash=sha256:3708693412c28f3538fb5a65da93787b6bbab3484f6bc6e935bfb77a62400ae5 \
+    --hash=sha256:39c1bd2092880e413902910388be8715f70b9f15f20779d44e673033a6146f2d \
+    --hash=sha256:43013a3f3e2e902e1d05e72c0f1aeb5bedbb8e09240b51e26792a3c89267e181 \
+    --hash=sha256:458e4568be13d311ef7d8877275e7ccbe06c0e01b39baaac874caaa0f46d826c \
+    --hash=sha256:46d084427b4132553940070ad95107266656cb646ea9da4975f85cb1a6676553 \
+    --hash=sha256:4ee766d2e78251b7a63daf1cddfac36a73562d3ddef68cacfb41b2af64698033 \
+    --hash=sha256:50b7249244382209877deedeee838aef1542f3d0fc28b8fe71ca9d7e1896a0d7 \
+    --hash=sha256:58d379d72b6c5e964851c77cfedfb386e474adee4fd39791c2c5d9efb53505cc \
+    --hash=sha256:59f5da97000c12bc2d50e988bdc8576b21f6ab4e608489879d35b2c07a8ab51a \
+    --hash=sha256:5af04800d844451cf102a59c74a841324868d3f1625c296a06cc655c542a6685 \
+    --hash=sha256:5ea60cb5f210b1cfbad8c002948d73447508e629ec375acb82910e3efa8ff355 \
+    --hash=sha256:5f13034dc6c84a6280c6c33db7ac420253852ea233fc3ee27c8875f8dd651163 \
+    --hash=sha256:7121b3d355d3858781dc40dafe25a32ff8a8242b9d80c692fd548a4b1f7fd3c8 \
+    --hash=sha256:73670ed0375ecc303858e3613f407628dd1fca18fe6ac57b7b7ce66cc7bb006c \
+    --hash=sha256:7a1c460655d7288407ffa09065e322a7231997c0d62ce914bf3a96ad2dc6dedd \
+    --hash=sha256:7a29d09b64b9694b588ff2f80e9826bdceb3a2b91523c5beae1fab27d5c940e7 \
+    --hash=sha256:7c8b1667a72cbba74f0ae7ecf3105a5e01304620ed14528b2cb4320679d2869b \
+    --hash=sha256:837dd316584485b72ef451d08dd3e96c4a11d12e4963aedb40e08f89685d8ec2 \
+    --hash=sha256:8463a3fc5f09832e67bdb0e2fda6d518dc4281b133166146a67f54c08496442e \
+    --hash=sha256:8cde5eaa6c6cbc8622db71e4a23de56828e3d876aeb6460ffbcb5b8aff91093b \
+    --hash=sha256:944a2233640273bee67521795a73cf1e959538e0dfb7ac635505010455e53b33 \
+    --hash=sha256:958dcb270d30a7cb633a45ee62b9444433fa571a752d2ca484efdac07480876e \
+    --hash=sha256:9e4459c3f27066beadb2b81ea48a076a417aafffff7df1d3c11c519190ed44f2 \
+    --hash=sha256:ae3aba7eed4ca7cb79fd3436eddd29140f17ea254b91604aa1eb19bfcedb990f \
+    --hash=sha256:b009049086ddc6b8f80c76b3955df1aa22a5fbd7673c525cd63bf91f23122ede \
+    --hash=sha256:baca4b6773d20a82e36d6fd25f341064244f9f86a13dead95dd7d7f996f51709 \
+    --hash=sha256:bc68dd5915f4acf66ff2010ee47c8906dc1cf07399b16f4089f8c71733f6e36c \
+    --hash=sha256:bd5f4bf04c37888e864f08e740c5a573c4017f6fd6e99fa944c5c935fabf2dd9 \
+    --hash=sha256:c010da16235806cf1d7bc4c96bf286bfa91c686853395a299b3ddb49499a3e13 \
+    --hash=sha256:c1429217f8f4d7fcb053523bbbac6bed5e981af0b85ba616e6df7cce53c19657 \
+    --hash=sha256:c2be829954434e33601ae5da328cccce3266b098927ca7a30246a0baec2ce7bd \
+    --hash=sha256:c6a4c34ddef109647c769d69be65fa1de7a6022b02ad45546a69b3216573eb4a \
+    --hash=sha256:cec70477d4371cd524534cd16472d8b9cc187e0e3043a8790545a9a9b296c258 \
+    --hash=sha256:d024b40828f1dde5654faebd0d824f9cc29ad46891f626272dd5bfd7af2333a4 \
+    --hash=sha256:da538c542bac7d1c8f3f2a937863dba36f013108ce63e55745941dda4b75dbb6 \
+    --hash=sha256:dc7a33be14c347893edbb1ceda89afbf14c467d593a5ee92c11de4f1666b4d4f \
+    --hash=sha256:df6961442140193e517303d0b5d7bc2e20e69a879c2d774316125350c4a76b92 \
+    --hash=sha256:eddffb77eff0bad4e67547d67a130604e7e2dfbb7b0cde0796045be4090f35c6 \
+    --hash=sha256:f04b5e896d510b07c0ad733d7fce2d44b260c5e6c402d272128f8941984e4285 \
+    --hash=sha256:f3601f19afdbea273ed70b06495e5794606a8b690a568d6c996a90d7255e51c1 \
+    --hash=sha256:fcd55e5f6ba0dbce624942adf9f152062135f991a0126064889f68eb850de0dd
+    # via langgraph-checkpoint
 packageurl-python==0.17.6 \
     --hash=sha256:1252ce3a102372ca6f86eb968e16f9014c4ba511c5c37d95a7f023e2ca6e5c25 \
     --hash=sha256:31a85c2717bc41dd818f3c62908685ff9eebcb68588213745b14a6ee9e7df7c9
@@ -1967,9 +2051,11 @@ pydantic==2.13.5 \
     # via
     #   multi-agent-food-concierge-mcp (pyproject.toml)
     #   fastapi
+    #   langchain
     #   langchain-aws
     #   langchain-core
     #   langfuse
+    #   langgraph
     #   langsmith
     #   openai
     #   pydantic-settings
@@ -3239,6 +3325,7 @@ websockets==16.1.1 \
     --hash=sha256:fce6c48559c86d1ac3632ccb1bebc7d5442fbe79bd9bb0e40379ee54be2a4051 \
     --hash=sha256:fd46fff7eb62c24804d234f0051c7a8ea81285ad63e0337d3dcf33ca82aee58a
     # via
+    #   langgraph-sdk
     #   langsmith
     #   streamlit
     #   uvicorn
@@ -3564,7 +3651,9 @@ xxhash==4.0.1 \
     --hash=sha256:fc737c05ca2d48e5dcdbbb249314df3fc6c2a0be6da8b0aa28e13d72afaad7cd \
     --hash=sha256:ff48915bf1871a1f19f74c11834c6329443d306cedc0c05fe7fe617810422a80 \
     --hash=sha256:ffa44b4c7c5d0ffa31356b4428659516c0e47647825c74079a296b3857b6d99d
-    # via langsmith
+    # via
+    #   langgraph
+    #   langsmith
 zstandard==0.25.0 \
     --hash=sha256:011d388c76b11a0c165374ce660ce2c8efa8e5d87f34996aa80f9c0816698b64 \
     --hash=sha256:01582723b3ccd6939ab7b3a78622c573799d5d8737b534b86d0e06ac18dbde4a \

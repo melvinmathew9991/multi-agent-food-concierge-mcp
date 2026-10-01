@@ -16,9 +16,16 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - Model router (`models/router.py`): one model per role, Groq → Gemini by default through their OpenAI-compatible endpoints, Ollama locally, Bedrock and OpenAI only with `ALLOW_PAID_PROVIDERS`. Failures become app errors and move to the next provider, except rejected requests; empty replies count as failures; reasoning effort is set per role; providers without a model for a role are skipped. Contract tests run over an injected HTTP transport and a Bedrock stub.
 - Per-provider attempt timeouts (Groq 3 s, Gemini 5 s); the settings check adds them up along the fallback chain against the deadline.
 - Local embeddings (`models/embeddings.py`): fastembed `BAAI/bge-small-en-v1.5` with separate query and document embedding, a configurable BGE query instruction and normalised vectors; an `EmbedderFingerprint` (model, snapshot revision, model-file hash, dim, prefix) that refuses a mismatched index; a hashing fake embedder whose rankings are meaningful offline; a cross-encoder reranker wrapper and an overlap fake for Phase 3.
+- Tracing (`telemetry.py`) over the Langfuse v4 SDK: spans and generations, a LangChain callback, flush and shutdown. Off without keys or with `TRACING_ENABLED=false`; Langfuse failures are logged and never reach the request, and a failed block is marked with its error code only, never its message or stack trace.
+- Trace masking before export: image data URIs, long base64, bytes, emails and phone numbers are replaced; prices, calories, dates, times and IDs are kept, tested in both directions. Bounded in depth, items and text length, and fails closed. Langfuse media upload is switched off, because it runs before the mask hook.
+- `TraceMeta`, one metadata shape for traced model calls, and `ModelCallRecorder`, a LangChain callback that records each provider attempt along the fallback chain (provider, model, error code, tokens), so a fallback is visible in traces and logs.
+- Log lines inside a sampled trace carry its `trace_id`.
+- `docker-compose.yml` for local Langfuse: pinned images, ports bound to 127.0.0.1, no default secrets (`.env.langfuse.example`), project and API keys created on first start.
 - Nightly workflow: the real embedding model is checked against committed reference vectors, since fastembed cannot pin a model revision. A `model_download` test marker keeps model downloads out of PR CI.
 
 #### Changed
+- Model runs report their real provider (`groq`, `gemini`, `ollama`, `bedrock`) to callbacks and traces instead of `openai` for every OpenAI-compatible endpoint.
+- `langchain` (required by Langfuse's LangChain callback; brings LangGraph 1.2 for Phase 5) and `opentelemetry-api` are direct dependencies. `websockets` is pinned at 16.1.1, the cap set by `langgraph-sdk`.
 - Provider timeout lowered from 30 s to 4 s (Groq and Gemini have their own) and SDK retries from 2 to 0, applied only to the last provider: the old defaults allowed about three minutes per model call, and a retried 429 slept on Retry-After instead of moving to the next provider.
 - Unknown provider failures are treated as the provider being unavailable, so they move to the next provider.
 

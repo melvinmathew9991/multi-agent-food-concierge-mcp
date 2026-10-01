@@ -59,6 +59,8 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** offline tests green at 100% coverage with lint, strict types, both lock audits and the secret scan; CI installs from the lock; live smoke on Groq, Gemini and Ollama visible as masked traces in local Langfuse; a forced Groq failure served by Gemini; Bedrock stub contract passes; ADR-0006 accepted with measured numbers.
 
+**Status (2026-10-01):** items 1–7 built; ADR-0006 accepted (Groq `openai/gpt-oss-20b` → Gemini `gemini-3.5-flash-lite`). Open before the phase closes: the live smoke with masked traces in local Langfuse and a forced Groq failure served by Gemini; vision measured on own photos (no vision default until then).
+
 ## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · M
 **Goal:** trustworthy catalog, allergens and indexes, built by orchestrated flows.
 0. **Own catalog v2 (publishable):** ~150 dishes across ~15 restaurants authored for this project: Atwater-consistent nutrition, hand-verified allergen ground truth, and a separate "restaurant-provided labels" column with documented, deliberate gaps (synthetic by design). One openly licensed photo per dish (e.g. Wikimedia Commons CC0/CC BY/CC BY-SA) fetched by script, with author, licence and source URL in `data/raw/attributions.csv`. Image descriptions generated with local Ollama vision ($0).

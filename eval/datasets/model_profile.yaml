@@ -1,0 +1,74 @@
+# Fixed prompts for the Phase 1 model profile (scripts/model_profile.py). Written for this project.
+# 20 items: 10 constraint extractions and 5 routing decisions (structured output, role "router"),
+# and 5 tool calls (role "chat"). Change only with a new profile run: results cite this file's hash.
+#
+# Expected values: a list means any of them is accepted; allergens are compared as sets.
+# Tool arguments: `equals` (case-insensitive for text), `contains` (substring), `set` (same items).
+
+version: 1
+
+extraction:
+  - id: ex01
+    text: "Vegan dinner under 600 calories, no peanuts please"
+    expect: {diet: vegan, max_calories: 600, budget_inr: null, exclude_allergens: [peanuts], courses: null}
+  - id: ex02
+    text: "I'm vegetarian, budget ₹400 for a 3-course meal"
+    expect: {diet: vegetarian, max_calories: null, budget_inr: 400, exclude_allergens: [], courses: 3}
+  - id: ex03
+    text: "Something eggless for my mom, she's allergic to sesame and mustard"
+    expect: {diet: eggless, max_calories: null, budget_inr: null, exclude_allergens: [sesame, mustard], courses: null}
+  - id: ex04
+    text: "Plan a 2-course lunch, max 800 kcal, under 350 rupees, no gluten"
+    expect: {diet: any, max_calories: 800, budget_inr: 350, exclude_allergens: [gluten], courses: 2}
+  - id: ex05
+    text: "Show me anything spicy"
+    expect: {diet: any, max_calories: null, budget_inr: null, exclude_allergens: [], courses: null}
+  - id: ex06
+    text: "Lactose intolerant and vegan, keep it below 500 cal"
+    expect: {diet: vegan, max_calories: 500, budget_inr: null, exclude_allergens: [milk], courses: null}
+  - id: ex07
+    text: "Non-veg is fine. Shellfish allergy. Budget 1200 INR for four courses"
+    expect: {diet: any, max_calories: null, budget_inr: 1200, exclude_allergens: [shellfish], courses: 4}
+  - id: ex08
+    text: "Can I get a light veg breakfast, around 300 calories? No tree nuts or soy."
+    expect: {diet: vegetarian, max_calories: 300, budget_inr: null, exclude_allergens: [tree_nuts, soy], courses: null}
+  - id: ex09
+    text: "My kid can't have eggs or fish. Dinner for under Rs. 250."
+    expect: {diet: [any, eggless], max_calories: null, budget_inr: 250, exclude_allergens: [eggs, fish], courses: null}
+  - id: ex10
+    text: "Need a celiac-safe vegetarian thali, 700 kcal max, ₹500 tops, 3 courses"
+    expect: {diet: vegetarian, max_calories: 700, budget_inr: 500, exclude_allergens: [gluten], courses: 3}
+
+routing:
+  - {id: rt01, text: "What's a good spicy paneer dish near Koramangala?", expect: recommend}
+  - {id: rt02, text: "Plan me a 3-course vegan dinner under 700 kcal", expect: meal_plan}
+  - {id: rt03, text: "Does the butter chicken at Spice Route contain nuts?", expect: dish_info}
+  - {id: rt04, text: "Thanks, that was really helpful!", expect: smalltalk}
+  - {id: rt05, text: "Write me a Python script to scrape a food delivery site", expect: out_of_scope}
+
+tools:
+  - id: tl01
+    text: "Find vegan biryani under ₹300"
+    expect:
+      name: search_dishes
+      args: {query: {contains: biryani}, diet: {equals: vegan}, max_price_inr: {equals: 300}}
+  - id: tl02
+    text: "Tell me more about dish d-0042"
+    expect:
+      name: get_dish_details
+      args: {dish_id: {equals: d-0042}}
+  - id: tl03
+    text: "Is d-0107 safe for someone allergic to peanuts and sesame?"
+    expect:
+      name: check_allergens
+      args: {dish_id: {equals: d-0107}, allergens: {set: [peanuts, sesame]}}
+  - id: tl04
+    text: "What are the total calories and price of d-0042, d-0107 and d-0213 together?"
+    expect:
+      name: meal_totals
+      args: {dish_ids: {set: [d-0042, d-0107, d-0213]}}
+  - id: tl05
+    text: "Show me some eggless desserts"
+    expect:
+      name: search_dishes
+      args: {query: {contains: dessert}, diet: {equals: eggless}}

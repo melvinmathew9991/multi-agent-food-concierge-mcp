@@ -66,10 +66,11 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     groq_base_url: str = "https://api.groq.com/openai/v1"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    # Free-tier model names are blank until verified live and recorded in ADR-0006.
-    groq_chat_model: str = ""
+    # Chosen from the Phase 1 model profile (ADR-0006, eval/results/model_profile_2026-10-01.json).
+    # Groq has no vision model; Gemini vision stays blank until measured on own photos.
+    groq_chat_model: str = "openai/gpt-oss-20b"
     groq_vision_model: str = ""
-    gemini_chat_model: str = ""
+    gemini_chat_model: str = "gemini-3.5-flash-lite"
     gemini_vision_model: str = ""
 
     ollama_base_url: str = "http://localhost:11434"

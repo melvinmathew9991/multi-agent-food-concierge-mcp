@@ -25,9 +25,12 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - Provider capability table (`models/capabilities.py`): tools, structured-output method, vision, streaming, usage and seed per provider. Tool calling for Groq, Gemini and Bedrock; JSON schema for Ollama and OpenAI. Provisional until the model profile measures it.
 - Image cleaning (`models/images.py`): every inline image a model is sent is re-encoded without metadata (EXIF with GPS and device, XMP, ICC, text chunks), with its orientation applied. Only JPEG, PNG and WebP within `MAX_IMAGE_MB` and 40 MP are accepted; bad images are refused before any request.
 - `MODEL_SEED`: roles other than `chat` (routing, extraction, vision, judging) run at temperature 0 with a seed where the provider accepts one.
+- Model profile (`scripts/model_profile.py`, live, never in CI): 20 fixed prompts (`eval/datasets/model_profile.yaml`: constraint extraction, routing, tool calls) through the production code path, scoring structured-output validity on the first try and after repair, correctness, tool accuracy, latency against the production timeout, tokens and rate-limit headers, with Wilson 95% intervals. Results in `eval/results/`.
+- ADR-0006: Groq `openai/gpt-oss-20b` then Gemini `gemini-3.5-flash-lite` are the default chat models, chosen from two profile runs (40/40 and 39/40 correct, p95 0.73 s and 1.25 s, no 429 or 503). Gemini 3.5/3.8 Flash ran out of free quota within minutes, 3.1 Flash-Lite returned 503s, Gemini 2.5 Flash-Lite returned 404, Gemma rejects `reasoning_effort`, and local Llama models produced valid but wrong output (8/20). No vision default yet.
 - Nightly workflow: the real embedding model is checked against committed reference vectors, since fastembed cannot pin a model revision. A `model_download` test marker keeps model downloads out of PR CI.
 
 #### Changed
+- `GROQ_CHAT_MODEL` and `GEMINI_CHAT_MODEL` default to the ADR-0006 models instead of blank.
 - `ModelCallRecorder` counts a fallback only when another provider answered, so a repair on the same provider is not a fallback.
 - Model runs report their real provider (`groq`, `gemini`, `ollama`, `bedrock`) to callbacks and traces instead of `openai` for every OpenAI-compatible endpoint.
 - `langchain` (required by Langfuse's LangChain callback; brings LangGraph 1.2 for Phase 5) and `opentelemetry-api` are direct dependencies. `websockets` is pinned at 16.1.1, the cap set by `langgraph-sdk`.

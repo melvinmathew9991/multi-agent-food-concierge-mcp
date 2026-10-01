@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     gemini_timeout_s: float = Field(default=5.0, gt=0)
     provider_max_retries: int = Field(default=0, ge=0, le=2)
     chat_temperature: float = Field(default=0.2, ge=0, le=2)
+    # Routing, extraction, vision and judging run at temperature 0 with this seed where the provider accepts one,
+    # so the same input gives the same decision and evaluation runs are repeatable.
+    model_seed: int = Field(default=7, ge=0)
     # Thinking models spend output tokens on hidden reasoning; low effort keeps the visible answer in budget.
     reasoning_effort_chat: ReasoningEffort = "low"
     reasoning_effort_router: ReasoningEffort = "low"

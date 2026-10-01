@@ -7,7 +7,11 @@ providers are allowed. Each provider model is wrapped so that it
 - raises application errors instead of SDK exceptions, which is what the
   fallback chain matches on (``FALLBACK_ERRORS``); a rejected request stops it;
 - treats an empty reply as a failed attempt, because thinking models can spend
-  the whole output budget on hidden reasoning and still return "success".
+  the whole output budget on hidden reasoning and still return "success";
+- re-encodes every inline image without metadata before it is sent (``images.py``).
+
+Roles other than ``chat`` run at temperature 0, with a seed where the provider
+accepts one. Typed output goes through ``models/structured.py``.
 
 The chain itself is LangChain's ``with_fallbacks``; there is no retry loop here.
 The next provider is the retry, so SDK retries apply only to the last provider.
@@ -26,6 +30,7 @@ from typing import Any
 import httpx2
 from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
+from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel, LangSmithParams, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
@@ -35,7 +40,9 @@ from pydantic import SecretStr
 
 from food_concierge.config import PAID_PROVIDERS, ModelRole, ProviderName, Settings, get_settings
 from food_concierge.errors import AppError, ConfigError, ProviderError, ProviderResponseError
+from food_concierge.models.capabilities import CAPABILITIES
 from food_concierge.models.fake import ScriptedChatModel
+from food_concierge.models.images import clean_message_images
 from food_concierge.models.provider_errors import FALLBACK_ERRORS, translate_provider_error
 
 logger = logging.getLogger(__name__)
@@ -77,10 +84,14 @@ def _require_output(result: ChatResult, provider: str) -> ChatResult:
     raise err
 
 
+_DEFAULT_MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
 class GuardedChatOpenAI(ChatOpenAI):
     """``ChatOpenAI`` for any OpenAI-compatible endpoint, raising application errors."""
 
     provider_label: str = "openai"
+    max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES
 
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
         # Traces and ModelCallRecorder name the real provider, not "openai" for every compatible endpoint.
@@ -88,42 +99,86 @@ class GuardedChatOpenAI(ChatOpenAI):
         params["ls_provider"] = self.provider_label
         return params
 
-    def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            result = super()._generate(*args, **kwargs)
+            result = super()._generate(messages, stop, run_manager, **kwargs)
         return _require_output(result, self.provider_label)
 
-    async def _agenerate(self, *args: Any, **kwargs: Any) -> ChatResult:
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            result = await super()._agenerate(*args, **kwargs)
+            result = await super()._agenerate(messages, stop, run_manager, **kwargs)
         return _require_output(result, self.provider_label)
 
-    def _stream(self, *args: Any, **kwargs: Any) -> Iterator[ChatGenerationChunk]:
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            yield from super()._stream(*args, **kwargs)
+            yield from super()._stream(messages, stop, run_manager, **kwargs)
 
-    async def _astream(self, *args: Any, **kwargs: Any) -> AsyncIterator[ChatGenerationChunk]:
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            async for chunk in super()._astream(*args, **kwargs):
+            async for chunk in super()._astream(messages, stop, run_manager, **kwargs):
                 yield chunk
 
 
 class GuardedChatBedrockConverse(ChatBedrockConverse):
     """``ChatBedrockConverse`` raising application errors (async runs these in an executor)."""
 
+    max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES
+
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
         params = super()._get_ls_params(stop=stop, **kwargs)
         params["ls_provider"] = "bedrock"
         return params
 
-    def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated("bedrock"):
-            result = super()._generate(*args, **kwargs)
+            result = super()._generate(messages, stop, run_manager, **kwargs)
         return _require_output(result, "bedrock")
 
-    def _stream(self, *args: Any, **kwargs: Any) -> Iterator[ChatGenerationChunk]:
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated("bedrock"):
-            yield from super()._stream(*args, **kwargs)
+            yield from super()._stream(messages, stop, run_manager, **kwargs)
 
 
 def build_chat_model(
@@ -147,6 +202,7 @@ def build_chat_model(
     retries = settings.provider_max_retries if is_last else 0
     timeout = settings.timeout_for(provider)
     temperature = settings.chat_temperature if role == "chat" else 0.0
+    seed = settings.model_seed if role != "chat" and CAPABILITIES[provider].seed else None
     if provider == "bedrock":
         return GuardedChatBedrockConverse(
             model_id=model,
@@ -154,6 +210,7 @@ def build_chat_model(
             max_tokens=settings.max_output_tokens,
             temperature=temperature,
             client=bedrock_client,
+            max_image_bytes=settings.max_image_bytes,
             config=BotoConfig(
                 connect_timeout=timeout,
                 read_timeout=timeout,
@@ -180,6 +237,8 @@ def build_chat_model(
         max_tokens=settings.max_output_tokens,
         temperature=temperature,
         reasoning_effort=effort,
+        seed=seed,
+        max_image_bytes=settings.max_image_bytes,
         # These endpoints implement Chat Completions only; never switch to the Responses API.
         use_responses_api=False,
         http_client=http_client,
@@ -202,7 +261,7 @@ def get_chat_model(
     When every provider fails, the first provider's error is raised.
     """
     settings = settings or get_settings()
-    chain = [p for p in settings.provider_chain if _has_model(settings, p, role)]
+    chain = [p for p in settings.provider_chain if has_model(settings, p, role)]
     if not chain:
         raise ConfigError(f"No provider in {settings.provider_chain} has a {role} model configured.")
     skipped = [p for p in settings.provider_chain if p not in chain]
@@ -226,7 +285,9 @@ def get_chat_model(
     return models[0].with_fallbacks(models[1:], exceptions_to_handle=FALLBACK_ERRORS)
 
 
-def _has_model(settings: Settings, provider: ProviderName, role: ModelRole) -> bool:
+def has_model(settings: Settings, provider: ProviderName, role: ModelRole) -> bool:
+    if role == "vision" and not CAPABILITIES[provider].vision:
+        return False
     try:
         settings.require_model_id(provider, role)
     except ConfigError:

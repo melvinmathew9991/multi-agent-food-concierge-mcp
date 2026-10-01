@@ -209,7 +209,8 @@ class ModelCallRecorder(BaseCallbackHandler):
             role=role,
             provider=last.provider if last else None,
             model=last.model if last else None,
-            fallback_used=answered and len(self.attempts) > 1,
+            # A repair retries the same provider; only an answer from another provider is a fallback.
+            fallback_used=answered and any(a.provider != self.attempts[-1].provider for a in self.attempts),
             attempts=len(self.attempts),
             input_tokens=self.input_tokens,
             output_tokens=self.output_tokens,

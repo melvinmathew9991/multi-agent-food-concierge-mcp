@@ -1,5 +1,7 @@
 """Contract tests for the model router over a mock HTTP transport (no network)."""
 
+import base64
+import io
 import json
 import logging
 from collections.abc import Callable
@@ -9,8 +11,9 @@ import boto3
 import httpx2
 import pytest
 from botocore.stub import Stubber
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
+from PIL import Image
 from pydantic import SecretStr
 
 from food_concierge import errors
@@ -391,3 +394,37 @@ def test_bedrock_reports_itself_as_bedrock() -> None:
     model = build_chat_model("bedrock", "chat", _bedrock_settings(), bedrock_client=_bedrock_client())
 
     assert model._get_ls_params()["ls_provider"] == "bedrock"
+
+
+def _photo_with_location() -> str:
+    exif = Image.Exif()
+    exif[0x010F] = "SecretPhone X"
+    exif.get_ifd(0x8825)[2] = (12.0, 58.0, 30.0)
+    buffer = io.BytesIO()
+    Image.new("RGB", (16, 16), "green").save(buffer, format="JPEG", exif=exif)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+def test_photos_are_sent_without_metadata(settings: Settings) -> None:
+    fake = FakeProviders(gemini=ok("a bowl of dal"))
+    photo = HumanMessage(content=[{"type": "image_url", "image_url": {"url": _photo_with_location()}}])
+
+    get_chat_model("vision", settings, http_client=fake.client()).invoke([photo])
+
+    sent = fake.body()["messages"][0]["content"][0]["image_url"]["url"]
+    sent_bytes = base64.b64decode(sent.split(",", 1)[1])
+    assert fake.hosts() == [GEMINI]
+    assert b"SecretPhone" not in sent_bytes
+    assert not Image.open(io.BytesIO(sent_bytes)).getexif()
+    assert fake.body()["temperature"] == 0.0
+
+
+def test_oversized_photo_is_refused_before_any_request(settings: Settings) -> None:
+    fake = FakeProviders()
+    small = settings.model_copy(update={"max_image_mb": 0.0001})
+    photo = HumanMessage(content=[{"type": "image_url", "image_url": {"url": _photo_with_location()}}])
+
+    with pytest.raises(errors.InputValidationError):
+        get_chat_model("vision", small, http_client=fake.client()).invoke([photo])
+
+    assert fake.requests == []

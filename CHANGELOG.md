@@ -21,9 +21,14 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - `TraceMeta`, one metadata shape for traced model calls, and `ModelCallRecorder`, a LangChain callback that records each provider attempt along the fallback chain (provider, model, error code, tokens), so a fallback is visible in traces and logs.
 - Log lines inside a sampled trace carry its `trace_id`.
 - `docker-compose.yml` for local Langfuse: pinned images, ports bound to 127.0.0.1, no default secrets (`.env.langfuse.example`), project and API keys created on first start.
+- Typed model output (`models/structured.py`): `get_structured_model(Schema, role)` returns validated pydantic objects along the fallback chain. An invalid reply, or one with no structured part, gets one repair turn (the validation problems and the model's own reply); if that fails too the next provider is tried, and when every provider fails the caller gets `ProviderResponseError` instead of a crash. Replies are validated in one place, so every provider takes the same repair path.
+- Provider capability table (`models/capabilities.py`): tools, structured-output method, vision, streaming, usage and seed per provider. Tool calling for Groq, Gemini and Bedrock; JSON schema for Ollama and OpenAI. Provisional until the model profile measures it.
+- Image cleaning (`models/images.py`): every inline image a model is sent is re-encoded without metadata (EXIF with GPS and device, XMP, ICC, text chunks), with its orientation applied. Only JPEG, PNG and WebP within `MAX_IMAGE_MB` and 40 MP are accepted; bad images are refused before any request.
+- `MODEL_SEED`: roles other than `chat` (routing, extraction, vision, judging) run at temperature 0 with a seed where the provider accepts one.
 - Nightly workflow: the real embedding model is checked against committed reference vectors, since fastembed cannot pin a model revision. A `model_download` test marker keeps model downloads out of PR CI.
 
 #### Changed
+- `ModelCallRecorder` counts a fallback only when another provider answered, so a repair on the same provider is not a fallback.
 - Model runs report their real provider (`groq`, `gemini`, `ollama`, `bedrock`) to callbacks and traces instead of `openai` for every OpenAI-compatible endpoint.
 - `langchain` (required by Langfuse's LangChain callback; brings LangGraph 1.2 for Phase 5) and `opentelemetry-api` are direct dependencies. `websockets` is pinned at 16.1.1, the cap set by `langgraph-sdk`.
 - Provider timeout lowered from 30 s to 4 s (Groq and Gemini have their own) and SDK retries from 2 to 0, applied only to the last provider: the old defaults allowed about three minutes per model call, and a retried 429 slept on Retry-After instead of moving to the next provider.

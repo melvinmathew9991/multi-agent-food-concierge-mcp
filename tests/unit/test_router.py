@@ -193,8 +193,9 @@ def test_roles_without_a_model_skip_that_provider(settings: Settings, caplog: py
 
 
 def test_no_model_for_the_role_is_a_config_error() -> None:
+    # Neither hosted provider has a default vision model (ADR-0006).
     with pytest.raises(errors.ConfigError, match="No provider"):
-        get_chat_model("chat", Settings(_env_file=None))
+        get_chat_model("vision", Settings(_env_file=None))
 
 
 def test_ollama_uses_its_local_endpoint_without_reasoning_effort() -> None:

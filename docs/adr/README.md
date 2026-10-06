@@ -12,6 +12,7 @@ One file per decision: `NNNN-short-title.md`, numbered in order and never renumb
 | 0004 | Default agent topology (single vs multi-agent), chosen from measurements | P6 | Planned |
 | 0005 | Boundaries between MCP (agent-to-tool) and A2A (agent-to-agent) | P8 | Planned |
 | [0006](0006-free-tier-models-and-fallback-order.md) | Free-tier models and fallback order, chosen from the Phase 1 model profile | P1 | Accepted |
+| 0007 | Vision model default, chosen from the Phase 2 measurement on catalog photos | P2 | Planned |
 
 ## Template
 

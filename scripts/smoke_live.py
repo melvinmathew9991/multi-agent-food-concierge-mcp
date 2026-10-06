@@ -17,7 +17,7 @@ The planted values are fake (example.com, a 555-01xx number, the standard 4111 t
     python scripts/smoke_live.py
     python scripts/smoke_live.py --photos path/to/photos
 
-Results go to ``eval/results/smoke_<date>.json`` (no keys, no file names); exit code 1 if any check fails.
+Results go to ``eval/results/smoke_<UTC time>.json`` (no keys, no file names); exit code 1 if any check fails.
 """
 
 from __future__ import annotations
@@ -66,6 +66,8 @@ PLANTED_MESSAGE = (
 # their production timeouts, since checking those is the point.
 OLLAMA_TIMEOUT_S = 90.0
 TRACE_WAIT_S = 45.0
+# Every field group of a Langfuse v2 observation, so a leak in any of them is seen.
+OBSERVATION_FIELDS = "core,basic,time,io,metadata,model,usage,prompt,metrics,trace_context"
 MAX_PHOTOS = 5
 PHOTO_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -205,16 +207,20 @@ def check_structured(telemetry: Telemetry, settings: Settings) -> Check:
 
 
 def fetch_trace(settings: Settings, trace_id: str, wait_s: float = TRACE_WAIT_S) -> str | None:
-    """The trace as stored by the Langfuse server, as JSON text; ``None`` if it never arrived."""
+    """The trace's observations as stored by the Langfuse server, as JSON text; ``None`` if they never arrived.
+
+    Langfuse v4 servers ("events_only" mode) no longer serve ``/api/public/traces``; observations are read
+    from the v2 endpoint, with every field group that can carry content.
+    """
     public = settings.langfuse_public_key.get_secret_value() if settings.langfuse_public_key else ""
     secret = settings.langfuse_secret_key.get_secret_value() if settings.langfuse_secret_key else ""
-    url = f"{settings.langfuse_host.rstrip('/')}/api/public/traces/{trace_id}"
+    params = {"traceId": trace_id, "fields": OBSERVATION_FIELDS, "expandMetadata": "request_id", "limit": "100"}
     deadline = time.monotonic() + wait_s
-    with httpx.Client(auth=(public, secret), timeout=10) as client:
+    with httpx.Client(base_url=settings.langfuse_host, auth=(public, secret), timeout=10) as client:
         while time.monotonic() < deadline:
-            response = client.get(url)
+            response = client.get("/api/public/v2/observations", params=params)
             # Ingestion is asynchronous: wait until the model run has arrived under the request span too.
-            if response.status_code == 200 and len(response.json().get("observations", [])) >= 2:
+            if response.status_code == 200 and len(response.json().get("data", [])) >= 2:
                 return response.text
             time.sleep(2)
     return None
@@ -290,11 +296,18 @@ def ollama_models(settings: Settings) -> set[str] | None:
 
 
 def _git_commit() -> str:
+    """The commit that produced the results, marked ``-dirty`` if tracked files had uncommitted changes."""
     try:
-        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True)  # noqa: S607
+        head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True)  # noqa: S607
+        changes = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+        )
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
-    return out.stdout.strip()
+    return head.stdout.strip() + ("-dirty" if changes.stdout.strip() else "")
 
 
 def metadata_trace_check_in_child() -> Check:
@@ -358,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--photos", type=Path, help="folder with up to five of your own food photos (optional)")
     parser.add_argument("--skip-ollama", action="store_true", help="skip the local Ollama checks")
-    parser.add_argument("--out", type=Path, help="results file (default eval/results/smoke_<date>.json)")
+    parser.add_argument("--out", type=Path, help="results file (default eval/results/smoke_<UTC time>.json)")
     parser.add_argument("--child-trace-check", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
@@ -405,7 +418,8 @@ def main(argv: list[str] | None = None) -> int:
         "status": status,
         "checks": [c.model_dump() for c in checks],
     }
-    out = args.out or RESULTS / f"smoke_{started:%Y-%m-%d}.json"
+    # A timestamp, not just the date: a second run the same day must not overwrite the first.
+    out = args.out or RESULTS / f"smoke_{started:%Y-%m-%dT%H%MZ}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     shown = out.relative_to(REPO_ROOT) if out.is_relative_to(REPO_ROOT) else out

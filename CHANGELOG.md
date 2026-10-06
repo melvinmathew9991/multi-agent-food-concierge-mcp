@@ -35,7 +35,7 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - traces read back from the Langfuse server, checking that planted fake contact and card details arrive masked with `TRACE_CONTENT=full`, and that no content arrives at all with `TRACE_CONTENT=metadata` (in a child process, since Langfuse keeps one client per key);
   - optionally, local vision on up to five of your own photos.
 
-  Results go to `eval/results/smoke_<date>.json`, without keys or file names.
+  Results go to `eval/results/smoke_<UTC time>.json`, without keys or file names, with the commit marked `-dirty` if tracked files had uncommitted changes. Traces are read back through the Langfuse v4 observations API (`/api/public/v2/observations`); v4 servers no longer serve `/api/public/traces`.
 
 #### Changed
 - `GROQ_CHAT_MODEL` and `GEMINI_CHAT_MODEL` default to the ADR-0006 models instead of blank.

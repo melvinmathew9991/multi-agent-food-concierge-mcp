@@ -124,3 +124,31 @@ def test_preflight_names_what_is_missing(smoke: ModuleType) -> None:
     health.mock(return_value=httpx.Response(200, json={"status": "OK"}))
     assert "GEMINI_API_KEY" in smoke.preflight(_live_settings(gemini_api_key=None))
     assert smoke.preflight(_live_settings()) is None
+
+
+@respx.mock
+def test_traces_are_read_from_the_v4_observations_endpoint(smoke: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(smoke.time, "sleep", lambda seconds: None)
+    route = respx.get("http://localhost:3000/api/public/v2/observations").mock(
+        side_effect=[
+            httpx.Response(200, json={"data": [{"name": "smoke.trace"}]}),  # the model run has not arrived yet
+            httpx.Response(200, json={"data": [{"name": "smoke.trace"}, {"name": "GuardedChatOpenAI"}]}),
+        ]
+    )
+
+    exported = smoke.fetch_trace(_live_settings(), "abc123")
+
+    assert exported is not None
+    assert "GuardedChatOpenAI" in exported
+    params = route.calls.last.request.url.params
+    assert params["traceId"] == "abc123"
+    assert set(params["fields"].split(",")) >= {"io", "metadata"}
+
+
+@respx.mock
+def test_a_trace_that_never_arrives_is_none(smoke: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(smoke.time, "sleep", lambda seconds: None)
+    empty = httpx.Response(200, json={"data": []})
+    respx.get("http://localhost:3000/api/public/v2/observations").mock(return_value=empty)
+
+    assert smoke.fetch_trace(_live_settings(), "abc123", wait_s=0.05) is None

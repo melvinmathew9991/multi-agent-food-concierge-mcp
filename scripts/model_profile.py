@@ -3,7 +3,8 @@
 Each candidate runs the 20 fixed prompts in ``eval/datasets/model_profile.yaml`` through the production
 code path (router, structured output with one repair, tool binding) and production settings, except that
 attempt timeouts are relaxed so true latency is measured; calls slower than the production timeout are
-counted instead. Requests are paced under the free-tier per-minute caps in settings.
+counted instead. Requests are paced under the free-tier per-minute caps in settings, and the production
+call and token caps (``models/usage.py``) apply, so a call they refuse is recorded as ``budget_exceeded``.
 
     python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite --probe
     python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite

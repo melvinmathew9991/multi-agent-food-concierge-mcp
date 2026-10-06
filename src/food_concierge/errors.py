@@ -39,12 +39,6 @@ class NotReadyError(AppError):
     default_message = "The search index is not ready yet."
 
 
-class BudgetExceededError(AppError):
-    code = "budget_exceeded"
-    http_status = 429
-    default_message = "Today's usage limit for this model has been reached."
-
-
 class RetrievalError(AppError):
     code = "retrieval_error"
     default_message = "Search failed."
@@ -81,6 +75,13 @@ class ProviderRateLimitedError(ProviderError):
     code = "provider_rate_limited"
     http_status = 429
     default_message = "The model service is busy. Please retry shortly."
+
+
+class BudgetExceededError(ProviderError):
+    # Our own cap on a provider (models/usage.py), reached before its quota is: another provider's quota is separate.
+    code = "budget_exceeded"
+    http_status = 429
+    default_message = "Today's usage limit for this model has been reached."
 
 
 class ProviderTimeoutError(ProviderError):

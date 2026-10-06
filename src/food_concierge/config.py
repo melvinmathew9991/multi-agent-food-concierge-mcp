@@ -119,14 +119,17 @@ class Settings(BaseSettings):
     max_image_mb: float = Field(default=5.0, gt=0)
     max_history_turns: int = Field(default=4, ge=0)
 
-    # Call caps per provider: paid ones bound cost, free ones stay under the published free-tier
-    # quotas (placeholders until measured in Phase 1 and recorded in ADR-0006). Local providers are uncapped.
+    # Caps per provider, enforced in models/usage.py: paid ones bound cost, free ones stay under the
+    # free-tier quotas. Groq's sit under its rate-limit headers (1,000 requests a day, 8,000 tokens a minute
+    # per model; ADR-0006); Gemini reports none, so its caps are conservative. Local providers are uncapped.
+    # 0 refuses every call to that provider.
     daily_call_limit_bedrock: int = Field(default=200, ge=0)
     daily_call_limit_openai: int = Field(default=200, ge=0)
     daily_call_limit_groq: int = Field(default=900, ge=0)
     daily_call_limit_gemini: int = Field(default=200, ge=0)
     minute_call_limit_groq: int = Field(default=25, ge=0)
     minute_call_limit_gemini: int = Field(default=8, ge=0)
+    minute_token_limit_groq: int = Field(default=8000, ge=0)
     cache_ttl_hours: int = Field(default=168, ge=0)
 
     # API access: one token per scope (public / agent / admin)
@@ -205,6 +208,10 @@ class Settings(BaseSettings):
             "groq": self.minute_call_limit_groq,
             "gemini": self.minute_call_limit_gemini,
         }.get(provider)
+
+    def minute_token_limit(self, provider: ProviderName) -> int | None:
+        """Tokens allowed per rolling minute where the provider limits tokens; ``None`` means uncapped."""
+        return {"groq": self.minute_token_limit_groq}.get(provider)
 
     def require_api_key(self, provider: KeyedProvider) -> str:
         key = {

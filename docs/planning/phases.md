@@ -44,7 +44,7 @@ Close-out (Phase 0 audit, 2026-09-25): settings aligned with `.env.example` (pai
 
 **DoD:** lint, strict type check, offline tests (100% coverage of `src/`), dependency audit and secret scan green in CI; `.env.example` and `Settings` checked against each other by a test; `main` accepts changes only through pull requests with green checks.
 
-## Phase 1 — Models, embeddings, telemetry · `feat/p1-*` (started as `feat/phase-1-models-telemetry`) · L
+## Phase 1 — Models, embeddings, telemetry ✅ `feat/p1-*` (started as `feat/phase-1-models-telemetry`) · L
 **Goal:** one model layer that every later phase calls: typed, with fallbacks, bounded by a request deadline, traced and masked. Plus a measured profile of what each free model can reliably do, which P3–P6 choices depend on. Provider selection, fallback order and `ALLOW_PAID_PROVIDERS` landed in the Phase 0 close-out; A20 and A24 are closed.
 
 Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 memory capped), Langfuse Cloud Hobby from the P4 demo; `uv` generates the lock files; `qwen2.5vl:7b` for local vision, `qwen2.5vl:3b` if it does not fit in 8 GB VRAM; heavy caches (fastembed, Docker volumes, Ollama) live outside the synced project folder.
@@ -76,7 +76,13 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 Calls after an idle stretch appear slow. So whether the fallback works inside the 8 s deadline is not settled, which is ADR-0006's revisit trigger. It is to be measured over a longer window before the P4 demo relies on it.
 
-**Open before the phase closes:** vision measured on own photos (no vision default until then).
+**Closed 2026-10-06.** Every DoD item is met except vision, which is **deferred to Phase 2 item 6** by the owner's decision: no own photos were available, and Phase 2 describes ~150 openly licensed catalog photos with the same local model, which is a larger and reproducible test set. No vision default is configured until then. `scripts/smoke_live.py --photos <folder>` still measures own photos whenever they are available.
+
+Carried forward:
+- Gemini latency after idle periods, to be measured over a longer window **before the P4 demo** relies on the fallback (ADR-0006 revisit trigger).
+- Larger routing and tool-call sets with a dev/test split **before P5** (audit M5).
+- Streamed token usage for the token cap, which needs a live probe before `stream_usage` is enabled.
+- Low-severity audit items as their code is touched.
 
 ## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · M
 **Goal:** trustworthy catalog, allergens and indexes, built by orchestrated flows.
@@ -86,7 +92,10 @@ Calls after an idle stretch appear slow. So whether the fallback works inside th
 3. SQLite catalog; `dish_key` de-duplication; semantic doc text (A14).
 4. `VectorStore` protocol with **FAISS** and **Qdrant (local mode)** backends; BM25; manifest; thumbnails.
 5. **Prefect flows** `ingest` and `build_index` (retries, input-hash caching); CLI wrappers.
-6. Name-free descriptions via local Ollama vision (A7); `docs/data-card.md` (sources, licences, synthetic-by-design fields, known gaps).
+6. Name-free descriptions via local Ollama vision (A7); `docs/data-card.md` (sources, licences, synthetic-by-design fields, known gaps). **Vision measurement deferred from Phase 1:**
+   - latency per image and description quality of `qwen2.5vl:7b` (`3b` if 8 GB VRAM is not enough) on the catalog photos;
+   - a hand-checked sample of descriptions;
+   - the vision default recorded in an ADR. Before any hosted vision model is considered, weigh Gemini's free-tier data terms (`docs/data-handling.md`).
 
 **DoD:** one-command flow run builds everything; re-run is a no-op; allergen tests green; property test: filtered search never returns a violating item on either backend.
 

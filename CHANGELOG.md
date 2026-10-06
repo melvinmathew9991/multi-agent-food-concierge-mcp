@@ -4,7 +4,15 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ## [Unreleased]
 
-### Phase 1: Models, embeddings, telemetry
+### Phase 1: Models, embeddings, telemetry (closed 2026-10-06)
+
+One model layer for every later phase:
+- Groq → Gemini through OpenAI-compatible endpoints, Ollama locally, and Bedrock and OpenAI only with `ALLOW_PAID_PROVIDERS`.
+- Typed output with one repair, a wall-clock request deadline, and free-tier call and token caps.
+- Local fastembed embeddings with a fingerprint that refuses a mismatched index.
+- Langfuse tracing: masked in development, metadata-only in production.
+
+Models were chosen from a measured profile (ADR-0006) and verified by a live smoke run. Vision is deferred to Phase 2.
 
 #### Added
 - Hash-checked lock files: `requirements.lock` (runtime) and `requirements-dev.lock` (CI), generated with `uv`. CI installs from the dev lock, fails when either lock no longer matches `pyproject.toml`, and audits both.

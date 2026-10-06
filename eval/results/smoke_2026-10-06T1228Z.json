@@ -1,0 +1,133 @@
+{
+ "run": {
+  "started": "2026-10-06T12:28:32+00:00",
+  "commit": "e0197b4",
+  "chain": [
+   "groq",
+   "gemini"
+  ],
+  "models": {
+   "groq": "openai/gpt-oss-20b",
+   "gemini": "gemini-3.5-flash-lite",
+   "ollama": "llama3.1:8b",
+   "ollama_vision": "qwen2.5vl:7b"
+  },
+  "timeouts_s": {
+   "groq": 3.0,
+   "gemini": 5.0,
+   "ollama": 90.0,
+   "deadline": 8.0
+  },
+  "langfuse": "local"
+ },
+ "status": "pass",
+ "checks": [
+  {
+   "name": "provider:groq",
+   "status": "pass",
+   "detail": {
+    "model": "openai/gpt-oss-20b",
+    "latency_ms": 539,
+    "error": null,
+    "reply": "ok",
+    "tokens": 96,
+    "trace_id": "6f121e5c0f222f27fe8e80f542bd0ba0"
+   }
+  },
+  {
+   "name": "provider:gemini",
+   "status": "pass",
+   "detail": {
+    "model": "gemini-3.5-flash-lite",
+    "latency_ms": 1870,
+    "error": null,
+    "reply": "ok",
+    "tokens": 9,
+    "trace_id": "4dee9797a5e0df4a23544e8614a7777e"
+   }
+  },
+  {
+   "name": "provider:ollama",
+   "status": "pass",
+   "detail": {
+    "model": "llama3.1:8b",
+    "latency_ms": 2418,
+    "error": null,
+    "reply": "ok",
+    "tokens": 19,
+    "trace_id": "7a8808a19480cb9978874861baa4712c"
+   }
+  },
+  {
+   "name": "fallback:groq->gemini",
+   "status": "pass",
+   "detail": {
+    "attempts": [
+     [
+      "groq",
+      "provider_auth_error"
+     ],
+     [
+      "gemini",
+      null
+     ]
+    ],
+    "fallback_used": true,
+    "ok": true,
+    "latency_ms": 1661,
+    "error": null,
+    "reply": "ok",
+    "trace_id": "eed4ed36cfdecc04e814e2be1cd7dc6f"
+   }
+  },
+  {
+   "name": "structured",
+   "status": "pass",
+   "detail": {
+    "answer": {
+     "diet": "vegan",
+     "max_calories": 600,
+     "exclude_allergens": [
+      "peanuts"
+     ]
+    },
+    "correct": true,
+    "model_calls": 1,
+    "provider": "groq",
+    "latency_ms": 545,
+    "error": null,
+    "trace_id": "4783ba9f0ee9444c328759b5c127c16b"
+   }
+  },
+  {
+   "name": "trace:full",
+   "status": "pass",
+   "detail": {
+    "leaked": [],
+    "masked": [
+     "card",
+     "email",
+     "phone"
+    ],
+    "content_kept": true,
+    "ok": true,
+    "trace_id": "c8e12fe87ba298ba942b84c9aca3f264",
+    "request_id_kept": true,
+    "model_error": null
+   }
+  },
+  {
+   "name": "trace:metadata",
+   "status": "pass",
+   "detail": {
+    "leaked": [],
+    "placeholder": true,
+    "content_absent": true,
+    "ok": true,
+    "trace_id": "e30722517290e400df733f851086c796",
+    "request_id_kept": true,
+    "model_error": null
+   }
+  }
+ ]
+}

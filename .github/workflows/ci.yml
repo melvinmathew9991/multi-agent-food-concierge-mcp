@@ -64,8 +64,8 @@ jobs:
           ruff format --check .
       - name: Type check
         run: mypy
-      - name: Test (offline)
-        run: pytest
+      - name: Test (offline, full coverage of src/)
+        run: pytest --cov=food_concierge --cov-report=term-missing --cov-fail-under=100
       - name: Audit dependencies
         run: |
           pip-audit --require-hashes --disable-pip -r requirements.lock

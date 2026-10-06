@@ -20,7 +20,7 @@ The same checks as CI:
 ```bash
 ruff check . && ruff format --check .
 mypy
-pytest
+pytest --cov=food_concierge --cov-fail-under=100
 pip-audit --skip-editable
 ```
 

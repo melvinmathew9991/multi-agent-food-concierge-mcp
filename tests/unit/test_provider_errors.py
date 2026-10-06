@@ -92,11 +92,19 @@ def test_app_errors_pass_through_unchanged() -> None:
     assert translate_provider_error(original, provider="groq") is original
 
 
-def test_only_request_errors_stop_the_fallback_chain() -> None:
-    # A rejected request would be rejected by the next provider too; every other failure may succeed elsewhere.
-    stops = [cls for cls in _provider_error_classes() if not cls.falls_back]
+def test_only_request_and_deadline_errors_stop_the_fallback_chain() -> None:
+    # A rejected request would be rejected by the next provider too, and with the deadline spent no provider
+    # can start; every other failure may succeed elsewhere.
+    stops = {cls for cls in _provider_error_classes() if not cls.falls_back}
 
-    assert stops == [errors.ProviderRequestError]
+    assert stops == {errors.ProviderRequestError, errors.DeadlineExceededError}
+
+
+def test_the_fallback_chain_catches_exactly_the_errors_that_fall_back() -> None:
+    # LangChain matches FALLBACK_ERRORS by isinstance, so a class that stops the chain must not inherit from one
+    # that falls back.
+    for cls in _provider_error_classes()[1:]:
+        assert issubclass(cls, FALLBACK_ERRORS) == cls.falls_back, cls.__name__
 
 
 def test_operator_problems_are_flagged() -> None:

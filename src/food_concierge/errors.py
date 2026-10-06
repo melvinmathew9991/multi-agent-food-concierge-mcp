@@ -89,6 +89,15 @@ class ProviderTimeoutError(ProviderError):
     default_message = "The model service took too long to respond."
 
 
+class DeadlineExceededError(ProviderError):
+    # Not a ProviderTimeoutError: the fallback chain matches by type, and with the deadline spent
+    # no later provider can start either.
+    code = "deadline_exceeded"
+    http_status = 504
+    default_message = "The request took too long."
+    falls_back = False
+
+
 class ProviderUnavailableError(ProviderError):
     code = "provider_unavailable"
     http_status = 503

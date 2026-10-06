@@ -36,6 +36,14 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - `langchain` (required by Langfuse's LangChain callback; brings LangGraph 1.2 for Phase 5) and `opentelemetry-api` are direct dependencies. `websockets` is pinned at 16.1.1, the cap set by `langgraph-sdk`.
 - Provider timeout lowered from 30 s to 4 s (Groq and Gemini have their own) and SDK retries from 2 to 0, applied only to the last provider: the old defaults allowed about three minutes per model call, and a retried 429 slept on Retry-After instead of moving to the next provider.
 - Unknown provider failures are treated as the provider being unavailable, so they move to the next provider.
+- CI fails when offline tests cover less than 100% of `src/` (the Phase 0 and Phase 1 definition of done; it was checked by hand before).
+
+#### Fixed
+- Typed output stays inside `REQUEST_DEADLINE_S`. The settings check covers one request per provider, but a repair makes two, so the default chain could take 16 s against an 8 s deadline. A wall-clock deadline (`models/deadline.py`, `model_deadline`) now wraps every typed call: each later attempt gets only the time left, and one with no time left is not started (`DeadlineExceededError`, which does not fall back). The agent and API can open the same deadline around a whole request.
+- An empty streamed reply now counts as a failed attempt, as an empty non-streamed reply already did. Chunks are held back until the first one with content, so the next provider can still take over.
+
+#### Security
+- The repair turn quotes the problems and the model's previous reply in marked data blocks, with block markers removed from the quoted text, so text echoed from the catalog or tools cannot pose as instructions (engineering rules §2.6b).
 
 ### Phase 0: Foundation
 

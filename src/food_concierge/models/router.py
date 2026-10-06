@@ -7,7 +7,9 @@ providers are allowed. Each provider model is wrapped so that it
 - raises application errors instead of SDK exceptions, which is what the
   fallback chain matches on (``FALLBACK_ERRORS``); a rejected request stops it;
 - treats an empty reply as a failed attempt, because thinking models can spend
-  the whole output budget on hidden reasoning and still return "success";
+  the whole output budget on hidden reasoning and still return "success"; a
+  stream is held back until its first chunk with content, so an empty stream
+  fails before anything is yielded and the next provider can still take over;
 - re-encodes every inline image without metadata before it is sent (``images.py``).
 
 Roles other than ``chat`` run at temperature 0, with a seed where the provider
@@ -16,13 +18,17 @@ accepts one. Typed output goes through ``models/structured.py``.
 The chain itself is LangChain's ``with_fallbacks``; there is no retry loop here.
 The next provider is the retry, so SDK retries apply only to the last provider.
 Each attempt has its provider's timeout (``Settings.timeout_for``), and settings
-validation keeps the whole chain inside ``request_deadline_s``. It is a per-attempt network timeout,
-so the API layer still enforces the deadline as a wall-clock limit.
+validation keeps one call along the whole chain inside ``request_deadline_s``.
+Inside a ``model_deadline`` (``deadline.py``), each OpenAI-compatible attempt is
+also cut to the time left, so calls that make several requests (typed output's
+repair, an agent run) still end on time. Bedrock's timeouts are fixed in its
+client config, so its attempt is only refused once no time is left.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import AsyncIterator, Generator, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -32,7 +38,7 @@ from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel, LangSmithParams, LanguageModelInput
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
@@ -41,6 +47,7 @@ from pydantic import SecretStr
 from food_concierge.config import PAID_PROVIDERS, ModelRole, ProviderName, Settings, get_settings
 from food_concierge.errors import AppError, ConfigError, ProviderError, ProviderResponseError
 from food_concierge.models.capabilities import CAPABILITIES
+from food_concierge.models.deadline import attempt_timeout, time_left
 from food_concierge.models.fake import ScriptedChatModel
 from food_concierge.models.images import clean_message_images
 from food_concierge.models.provider_errors import FALLBACK_ERRORS, translate_provider_error
@@ -74,14 +81,57 @@ def _log_failure(err: AppError, provider: str) -> None:
     )
 
 
+def _has_output(message: BaseMessage) -> bool:
+    if message.content:
+        return True
+    if isinstance(message, AIMessageChunk) and message.tool_call_chunks:
+        return True
+    return isinstance(message, AIMessage) and bool(message.tool_calls or message.invalid_tool_calls)
+
+
+def _empty_reply(provider: str) -> ProviderResponseError:
+    return ProviderResponseError("The model returned an empty reply.", provider=provider)
+
+
 def _require_output(result: ChatResult, provider: str) -> ChatResult:
-    for generation in result.generations:
-        message = generation.message
-        if message.content or (isinstance(message, AIMessage) and (message.tool_calls or message.invalid_tool_calls)):
-            return result
-    err = ProviderResponseError("The model returned an empty reply.", provider=provider)
-    _log_failure(err, provider)
-    raise err
+    if any(_has_output(generation.message) for generation in result.generations):
+        return result
+    raise _empty_reply(provider)
+
+
+def _require_streamed_output(chunks: Iterator[ChatGenerationChunk], provider: str) -> Iterator[ChatGenerationChunk]:
+    # Chunks before the first one with content (role, usage) are held back: the fallback chain
+    # moves on only if a stream fails before its first chunk.
+    held: list[ChatGenerationChunk] = []
+    started = False
+    for chunk in chunks:
+        if not started and not _has_output(chunk.message):
+            held.append(chunk)
+            continue
+        if not started:
+            started = True
+            yield from held
+        yield chunk
+    if not started:
+        raise _empty_reply(provider)
+
+
+async def _arequire_streamed_output(
+    chunks: AsyncIterator[ChatGenerationChunk], provider: str
+) -> AsyncIterator[ChatGenerationChunk]:
+    held: list[ChatGenerationChunk] = []
+    started = False
+    async for chunk in chunks:
+        if not started and not _has_output(chunk.message):
+            held.append(chunk)
+            continue
+        if not started:
+            started = True
+            for early in held:
+                yield early
+        yield chunk
+    if not started:
+        raise _empty_reply(provider)
 
 
 _DEFAULT_MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -99,6 +149,14 @@ class GuardedChatOpenAI(ChatOpenAI):
         params["ls_provider"] = self.provider_label
         return params
 
+    def _timed(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        # Outside a deadline the client's own timeout applies and the request is unchanged.
+        if time_left() is None:
+            return kwargs
+        # build_chat_model always sets a number; anything else is bounded by the deadline alone.
+        own = self.request_timeout if isinstance(self.request_timeout, int | float) else math.inf
+        return {**kwargs, "timeout": attempt_timeout(own, self.provider_label)}
+
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -108,8 +166,8 @@ class GuardedChatOpenAI(ChatOpenAI):
     ) -> ChatResult:
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            result = super()._generate(messages, stop, run_manager, **kwargs)
-        return _require_output(result, self.provider_label)
+            result = super()._generate(messages, stop, run_manager, **self._timed(kwargs))
+            return _require_output(result, self.provider_label)
 
     async def _agenerate(
         self,
@@ -120,8 +178,8 @@ class GuardedChatOpenAI(ChatOpenAI):
     ) -> ChatResult:
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            result = await super()._agenerate(messages, stop, run_manager, **kwargs)
-        return _require_output(result, self.provider_label)
+            result = await super()._agenerate(messages, stop, run_manager, **self._timed(kwargs))
+            return _require_output(result, self.provider_label)
 
     def _stream(
         self,
@@ -132,7 +190,8 @@ class GuardedChatOpenAI(ChatOpenAI):
     ) -> Iterator[ChatGenerationChunk]:
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            yield from super()._stream(messages, stop, run_manager, **kwargs)
+            chunks = super()._stream(messages, stop, run_manager, **self._timed(kwargs))
+            yield from _require_streamed_output(chunks, self.provider_label)
 
     async def _astream(
         self,
@@ -143,7 +202,8 @@ class GuardedChatOpenAI(ChatOpenAI):
     ) -> AsyncIterator[ChatGenerationChunk]:
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
-            async for chunk in super()._astream(messages, stop, run_manager, **kwargs):
+            chunks = super()._astream(messages, stop, run_manager, **self._timed(kwargs))
+            async for chunk in _arequire_streamed_output(chunks, self.provider_label):
                 yield chunk
 
 
@@ -157,6 +217,11 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
         params["ls_provider"] = "bedrock"
         return params
 
+    @staticmethod
+    def _check_deadline() -> None:
+        # Bedrock's timeouts are fixed in its client config: a deadline can only refuse to start an attempt.
+        attempt_timeout(math.inf, "bedrock")
+
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -166,8 +231,9 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
     ) -> ChatResult:
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated("bedrock"):
+            self._check_deadline()
             result = super()._generate(messages, stop, run_manager, **kwargs)
-        return _require_output(result, "bedrock")
+            return _require_output(result, "bedrock")
 
     def _stream(
         self,
@@ -178,7 +244,8 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
     ) -> Iterator[ChatGenerationChunk]:
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated("bedrock"):
-            yield from super()._stream(messages, stop, run_manager, **kwargs)
+            self._check_deadline()
+            yield from _require_streamed_output(super()._stream(messages, stop, run_manager, **kwargs), "bedrock")
 
 
 def build_chat_model(

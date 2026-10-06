@@ -99,7 +99,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 2. Prompt-injection hygiene: user and catalog text in delimited blocks; tool outputs treated as data; the verifier checks the final output regardless.
 3. MCP HTTP transport: read-only tools, rate limits, body limits; no tool touches the filesystem or network beyond the catalog and the configured vision model.
 4. Uploads never persisted; the UI shows a free-tier data-use notice and an AI-interaction disclosure.
-5. Traces are masked (image bytes, emails, phone numbers) before export.
+5. Traces are masked (image bytes, emails, card and phone numbers) before export, and in production carry metadata only, no message content (`TRACE_CONTENT`). Data inventory, destinations and retention: `docs/data-handling.md`.
 6. Tokens for MCP/A2A/API are scoped, stored only in platform secrets, rotatable, and never logged.
 
 ## 8. Git

@@ -29,3 +29,5 @@ def test_embeddings_match_the_committed_reference() -> None:
     assert cosines.min() >= MIN_COSINE, f"document vectors drifted: {cosines.round(4)}; now {fingerprint}"
     query_cosine = float(query @ np.asarray(reference["query_vector"]))
     assert query_cosine >= MIN_COSINE, f"query vector drifted: {query_cosine:.4f}; now {fingerprint}"
+    # Same vectors but a new snapshot or file hash still makes every built index refuse to load.
+    assert fingerprint == reference["fingerprint"], f"the model files changed upstream; now {fingerprint}"

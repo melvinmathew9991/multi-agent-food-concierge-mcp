@@ -3,6 +3,7 @@
 import hashlib
 from collections.abc import Iterable, Iterator
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -27,10 +28,17 @@ class StubTextEmbedding:
 
     embedding_size = 3
 
-    def __init__(self, model_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        model_dir: Path | None = None,
+        model_file: str | None = "model_optimized.onnx",
+        additional_files: tuple[str, ...] = (),
+    ) -> None:
         self.passages: list[tuple[list[str], int]] = []
         self.queries: list[list[str]] = []
-        self.model = type("Inner", (), {"_model_dir": str(model_dir) if model_dir else None})()
+        # fastembed's inner ONNX model: the snapshot directory and the description of the files it loads.
+        description = SimpleNamespace(model_file=model_file, additional_files=list(additional_files))
+        self.model = SimpleNamespace(_model_dir=str(model_dir) if model_dir else None, model_description=description)
 
     def passage_embed(self, texts: Iterable[str], batch_size: int = 256) -> Iterator[np.ndarray]:
         texts = list(texts)
@@ -102,12 +110,36 @@ def test_fingerprint_records_the_downloaded_snapshot(settings: Settings, snapsho
     assert fingerprint.query_prefix == settings.embed_query_prefix
 
 
-def test_fingerprint_without_a_known_snapshot(settings: Settings, tmp_path: Path) -> None:
-    unknown = FastEmbedder(settings, model=StubTextEmbedding(None)).fingerprint
-    no_onnx = FastEmbedder(settings, model=StubTextEmbedding(tmp_path)).fingerprint
+def test_fingerprint_hashes_the_loaded_file_and_its_extra_files(settings: Settings, snapshot: Path) -> None:
+    # The model file fastembed loads may sit in a subfolder, next to other ONNX files it doesn't load.
+    (snapshot / "onnx").mkdir()
+    (snapshot / "onnx" / "model.onnx").write_bytes(b"weights")
+    (snapshot / "onnx" / "model.onnx_data").write_bytes(b"external data")
+    (snapshot / "aaa_unused.onnx").write_bytes(b"not loaded")
+    stub = StubTextEmbedding(snapshot, model_file="onnx/model.onnx", additional_files=("onnx/model.onnx_data",))
 
-    assert (unknown.revision, unknown.model_sha256) == ("unknown", "")
-    assert no_onnx.model_sha256 == ""
+    fingerprint = FastEmbedder(settings, model=stub).fingerprint
+
+    assert fingerprint.model_sha256 == hashlib.sha256(b"weights" + b"external data").hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("model_dir", "model_file", "message"),
+    [
+        (None, "model_optimized.onnx", "could not be identified"),
+        ("snapshot", None, "could not be identified"),
+        ("snapshot", "onnx/missing.onnx", r"\(onnx/missing\.onnx missing\)"),
+    ],
+    ids=["no-snapshot-dir", "no-model-file", "file-not-downloaded"],
+)
+def test_an_unidentifiable_model_is_refused(
+    settings: Settings, snapshot: Path, model_dir: str | None, model_file: str | None, message: str
+) -> None:
+    # A fingerprint that can't tell two models apart would let an index load under the wrong one.
+    stub = StubTextEmbedding(snapshot if model_dir else None, model_file=model_file)
+
+    with pytest.raises(errors.NotReadyError, match=message):
+        FastEmbedder(settings, model=stub)
 
 
 def test_empty_document_list(settings: Settings, snapshot: Path) -> None:

@@ -84,20 +84,97 @@ Carried forward:
 - Streamed token usage for the token cap, which needs a live probe before `stream_usage` is enabled.
 - Low-severity audit items as their code is touched.
 
-## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · M
-**Goal:** trustworthy catalog, allergens and indexes, built by orchestrated flows.
-0. **Own catalog v2 (publishable):** ~150 dishes across ~15 restaurants authored for this project: Atwater-consistent nutrition, hand-verified allergen ground truth, and a separate "restaurant-provided labels" column with documented, deliberate gaps (synthetic by design). One openly licensed photo per dish (e.g. Wikimedia Commons CC0/CC BY/CC BY-SA) fetched by script, with author, licence and source URL in `data/raw/attributions.csv`. Image descriptions generated with local Ollama vision ($0).
-1. Loader + normalisation (diet semantics + `eggless`; categories vs cuisines; serves; Atwater check) (A11, A13).
-2. Allergens EU-14 ∪ Big-9 from label ∪ lexicon ∪ vision; `contains` / `may_contain` / `unverified` (A1, A2, A12); hand-checked labels for all 50 items + table-driven test.
-3. SQLite catalog; `dish_key` de-duplication; semantic doc text (A14).
-4. `VectorStore` protocol with **FAISS** and **Qdrant (local mode)** backends; BM25; manifest; thumbnails.
-5. **Prefect flows** `ingest` and `build_index` (retries, input-hash caching); CLI wrappers.
-6. Name-free descriptions via local Ollama vision (A7); `docs/data-card.md` (sources, licences, synthetic-by-design fields, known gaps). **Vision measurement deferred from Phase 1:**
-   - latency per image and description quality of `qwen2.5vl:7b` (`3b` if 8 GB VRAM is not enough) on the catalog photos;
-   - a hand-checked sample of descriptions;
-   - the vision default recorded in an ADR. Before any hosted vision model is considered, weigh Gemini's free-tier data terms (`docs/data-handling.md`).
+## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · L
+**Goal:** a trustworthy, publishable catalog with safety-checked allergen tags, built into SQLite and search indexes by orchestrated, repeatable flows. Phase 3 measures retrieval on this data, and Phases 4–5 enforce constraints with it.
 
-**DoD:** one-command flow run builds everything; re-run is a no-op; allergen tests green; property test: filtered search never returns a violating item on either backend.
+Decisions (2026-10-06):
+- **Cuisines:** mainly Indian, about 70% across regions, with the rest from other cuisines (see item 1).
+- **Photos:** Wikimedia Commons only.
+- **Images not committed:** they are fetched by script and pinned by SHA-256, so the repository stays small and every file's licence is checked at fetch time.
+- **Vision measurement:** deferred from Phase 1 to item 7.
+- **Size:** L rather than M: the catalog and its hand-checked allergen ground truth are real authoring work.
+
+1. **Own catalog (`data/raw/`, tracked, synthetic by design).**
+   - **Scope:** ~150 dishes across ~15 fictional restaurants, about 10 of them Indian: North Indian, South Indian, Mumbai street food, Hyderabadi/Mughlai, Bengali, Gujarati thali, Kerala, Punjabi dhaba, Indo-Chinese, mithai and desserts. The other ~5: a café, a pizzeria, a bakery, a healthy-bowl kitchen and a pan-Asian kitchen.
+   - **Restaurants and prices:** names are invented and checked not to match a real business, and prices are in INR.
+   - **Files:**
+     - `restaurants.csv` (id, name, cuisine, city area, rating);
+     - `menu.csv`, with one row per dish at a restaurant: name, description, category, cuisine, ingredients, diet, serves, price, kcal, protein/carbs/fat g, rating and review count;
+     - `label_allergens`: what the restaurant "declares", with deliberate, documented gaps (~30% unlabelled) because real menus are like that;
+     - `true_allergens`: hand-checked ground truth, used only by tests and evaluation, never by the system.
+   - **Nutrition:** plausible per-serving values, not measurements. Each passes the Atwater check (4P + 4C + 9F within 25%). The data card says so.
+   - **Variation on purpose:** some dishes appear at more than one restaurant, to exercise `dish_key` de-duplication (A13).
+   - **Review:** drafted in batches, and the owner reviews every `true_allergens` entry before the batch merges. That review is the ground truth's authority.
+2. **Photos (Wikimedia Commons).**
+   - **Candidates:** `scripts/fetch_photos.py` queries the Commons API per dish and keeps only CC0, public domain, CC BY and CC BY-SA files. NC, ND, GFDL-only and unknown licences are refused.
+   - **Review:** candidates are written to `data/raw/photo_review.csv`. The owner approves one per dish or marks it as having no suitable photo, which is allowed and recorded.
+   - **Attribution:** approved photos go to `data/raw/attributions.csv` with file page URL, author, licence, licence URL, SHA-256 and original size.
+   - **Fetch:** downloads use a descriptive User-Agent with the repo URL (Commons API policy), are paced, and are verified against the hash. A mismatch fails.
+   - **Storage:** images are cached outside the repo, next to the model cache (a new setting), never in the synced project folder.
+   - **Thumbnails:** WebP ≤ 480 px, built locally, never committed.
+   - **Attribution display:** the UI shows author and licence wherever a photo appears (P7).
+3. **Loader and normalisation (`ingestion/`).**
+   - **Validation:** pydantic row schemas for every CSV. Every bad row is reported, not just the first. Every photo needs an attribution row.
+   - **Normalisation:**
+     - diet: `vegan`, `vegetarian` (lacto-ovo) or `non_vegetarian`, plus `contains_egg`, which drives `eggless` (A11);
+     - cuisine vs category;
+     - `serves` becomes min/max;
+     - the Atwater check.
+   - **Rejections:** a dish whose diet contradicts its ingredients (an egg in a vegan dish) is an ingestion error, not a warning.
+4. **Allergens (`ingestion/allergens.py`, A1, A2, A12).**
+   - **Taxonomy:** EU-14 ∪ US Big-9 as 15 keys: `gluten`, `wheat`, `crustaceans`, `molluscs`, `fish`, `eggs`, `milk`, `peanuts`, `tree_nuts`, `soy`, `sesame`, `mustard`, `celery`, `lupin`, `sulphites`. User terms map onto them: "shellfish" → crustaceans + molluscs, "dairy"/"lactose" → milk, "coeliac"/"celiac" → gluten.
+   - **Three sources, each tag stored with source and level:**
+     - `label` → `contains`;
+     - a versioned ingredient lexicon (`data/lexicon/allergens.yaml`; covers Indian terms such as ghee, paneer, khoya, maida, besan, atta, hing (often wheat-based), kaju, badam, til, sarson) → `contains`;
+     - vision description terms → `may_contain`.
+   - **Opaque ingredients** (masala mixes, "gravy base", namkeen, chutneys without a listed recipe) set `unverified`.
+   - **Safety property (the gate):** for every dish, every `true_allergens` entry is tagged `contains` or `may_contain`, or the dish is `unverified`. Recall is 100%: no allergen goes unflagged. Precision per allergen is reported, not gated (P9 builds confusion matrices from it).
+5. **SQLite catalog (`storage/`, A13, A14).**
+   - **Schema:** restaurants, dishes and items (a dish at a restaurant), `allergen_tags` (item, allergen, source, level), images, descriptions.
+   - **De-duplication:** `dish_key` groups the same dish across restaurants.
+   - **Filtering:** indexed columns serve `candidate_ids(constraints)`.
+   - **Document text:** semantic only (description, name, cuisine, ingredients, diet); numbers stay in SQL.
+   - **Build:** written to a temporary file and swapped in atomically.
+6. **Indexes (`services/retrieval`, `storage/`).**
+   - **One interface:** a `VectorStore` protocol with FAISS (`IndexIDMap2(IndexFlatIP)`) and Qdrant (local mode, payload filters) backends; BM25 (`rank-bm25`) over the same text.
+   - **Manifest:** embedder fingerprint, dimension, item count, data SHA-256, `doc_text_version`, created at. Loading under a different fingerprint or data hash fails (the P1 fingerprint, used).
+   - **No pickle:** FAISS's native format plus JSON (defect #11).
+7. **Descriptions and vision measurement (A7, deferred from P1).**
+   - **Generation:** local `qwen2.5vl:7b` (`3b` if 8 GB of VRAM is not enough) writes a **name-free** description per photo (for P3's image queries) and a name-conditioned one (for comparison).
+   - **Caching:** descriptions are cached by image SHA-256 in `data/processed/image_descriptions.jsonl`. That file is tracked, so CI and the HF build never need Ollama.
+   - **Measurement:** latency p50/p95 per image. A hand-checked sample of 30 descriptions is scored for dish type, visible ingredients and allergens claimed that aren't in the photo.
+   - **Decision:** the vision default goes in **ADR-0007**, after weighing Gemini's free-tier data terms (`docs/data-handling.md`) before any hosted vision model.
+8. **Flows (`flows/`, Prefect OSS, local).**
+   - **Flows:** `ingest` (validate, normalise, allergens, descriptions for new photos only, catalog) and `build_index` (embed, FAISS + Qdrant + BM25, manifest).
+   - **Behaviour:** tasks retry only on transient failures and are cached by input hash, so a second run with unchanged inputs does nothing. CLI wrappers are provided.
+   - **Tests:** in-process (`prefect_test_harness`) on a 12-dish fixture catalog.
+   - **Nightly:** the existing nightly workflow runs `build_index` with the real embedder (model download allowed there only).
+9. **Dependencies:** `qdrant-client`, `rank-bm25` (runtime) and `prefect` (the `ingest` extra, so the API image stays small). All three are already approved in rules §1; the locks are regenerated in the PR that first uses them.
+10. **`docs/data-card.md`:**
+    - **Sources:** authored text, Commons photos with licences.
+    - **Disclosures:** which fields are synthetic and how; the deliberate label gaps; known limitations (not medical-grade, nutrition approximate, Indian-centric).
+    - **Lineage:** data hash → manifest → evaluation runs.
+
+Workstreams (one PR each, in order; the owner reviews before each merge):
+
+| Branch | Delivers | Owner input |
+|---|---|---|
+| `feat/p2-catalog-schema` | row schemas, taxonomy and user-term map, loader, normalisation, Atwater and diet checks, all on a 12-dish fixture | — |
+| `feat/p2-catalog-data` | `restaurants.csv`, `menu.csv` with labels and ground truth, in 3 batches of ~50 | **review `true_allergens`** per batch |
+| `feat/p2-allergens` | lexicon, three-source tagger, safety-recall gate and precision report | review lexicon additions |
+| `feat/p2-photos` | Commons fetch, review sheet, attributions, hash-pinned download, thumbnails | **approve photos** (`photo_review.csv`) |
+| `feat/p2-storage` | SQLite schema and builder, `dish_key`, document text | — |
+| `feat/p2-indexes` | `VectorStore`, FAISS, Qdrant, BM25, manifest, property test | — |
+| `feat/p2-descriptions` | name-free and named descriptions, the vision measurement and ADR-0007 | **run** the local vision job (or let it run on this machine) |
+| `feat/p2-flows` | Prefect flows, CLI, nightly `build_index`, data card | — |
+
+**DoD:**
+- One command builds the catalog, tags, descriptions (from cache), SQLite and both indexes, and a second run is a no-op.
+- The allergen safety gate passes: 100% recall against the owner-reviewed ground truth on every dish, with precision per allergen reported.
+- Property test on both backends: filtered search never returns a dish that violates diet, allergen, calorie, price or cuisine filters.
+- Every photo has a licence record, and no NC or ND file is present.
+- The vision measurement is committed and ADR-0007 accepted.
+- `docs/data-card.md` is published, and offline tests stay at 100% coverage.
 
 ## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · M
 **Goal:** the "before" numbers and a CI gate, before any agent logic (A5).

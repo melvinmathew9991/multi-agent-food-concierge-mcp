@@ -82,7 +82,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 
 ## 6. Testing
 
-1. Unit: normalisation, allergen tagging (all 50 items hand-checked in a table-driven test), constraint merge/verify, nutrition totals, retrieval with a fake embedder, error mapping.
+1. Unit: normalisation, allergen tagging (every catalog dish checked against owner-reviewed ground truth; safety recall must be 100%), constraint merge/verify, nutrition totals, retrieval with a fake embedder, error mapping.
 2. **MCP:** in-memory client–server tests per tool/resource/prompt; schema snapshot tests; error-path tests (`isError`).
 3. **Agent:** scripted fake chat model (deterministic tool-call sequences) testing graph paths: fast path, tool loop, verifier repair, budget exhaustion, interrupt/resume, provider fallback, prompt-injection fixture. Assert **zero violations** on every path.
 4. Providers: contract tests with an injected `httpx2.MockTransport` (OpenAI-compatible; respx cannot intercept `openai` ≥ 3) and botocore Stubber (Bedrock). respx remains for plain `httpx` clients.

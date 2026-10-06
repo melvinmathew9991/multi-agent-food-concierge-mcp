@@ -28,6 +28,14 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - Model profile (`scripts/model_profile.py`, live, never in CI): 20 fixed prompts (`eval/datasets/model_profile.yaml`: constraint extraction, routing, tool calls) through the production code path, scoring structured-output validity on the first try and after repair, correctness, tool accuracy, latency against the production timeout, tokens and rate-limit headers, with Wilson 95% intervals. Results in `eval/results/`.
 - ADR-0006: Groq `openai/gpt-oss-20b` then Gemini `gemini-3.5-flash-lite` are the default chat models, chosen from two profile runs (40/40 and 39/40 correct, p95 0.73 s and 1.25 s, no 429 or 503). Gemini 3.5/3.8 Flash ran out of free quota within minutes, 3.1 Flash-Lite returned 503s, Gemini 2.5 Flash-Lite returned 404, Gemma rejects `reasoning_effort`, and local Llama models produced valid but wrong output (8/20). No vision default yet.
 - Nightly workflow: the real embedding model is checked against committed reference vectors, since fastembed cannot pin a model revision. A `model_download` test marker keeps model downloads out of PR CI.
+- Live smoke test (`scripts/smoke_live.py`, run by hand, never in CI) for the Phase 1 definition of done:
+  - one real call each to Groq, Gemini and Ollama;
+  - a forced Groq authentication failure answered by Gemini, with the fallback recorded;
+  - one typed-output call;
+  - traces read back from the Langfuse server, checking that planted fake contact and card details arrive masked with `TRACE_CONTENT=full`, and that no content arrives at all with `TRACE_CONTENT=metadata` (in a child process, since Langfuse keeps one client per key);
+  - optionally, local vision on up to five of your own photos.
+
+  Results go to `eval/results/smoke_<date>.json`, without keys or file names.
 
 #### Changed
 - `GROQ_CHAT_MODEL` and `GEMINI_CHAT_MODEL` default to the ADR-0006 models instead of blank.

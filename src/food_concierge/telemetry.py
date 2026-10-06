@@ -3,8 +3,14 @@
 Observability never breaks a request (engineering rules §5): without keys, or
 with tracing switched off, every call here is a no-op, and a Langfuse failure is
 logged and swallowed. Everything Langfuse records passes through
-``mask_trace_data`` first, so image data, bytes, emails and phone numbers never
-leave the process, while prices, calories, dates and IDs stay readable.
+``mask_trace_data`` first, so image data, bytes, emails, phone numbers and card
+numbers never leave the process, while prices, calories, dates and IDs stay
+readable. Masking finds patterns; it does not find names, addresses or health
+details such as allergies, which are in almost every request. So with
+``TRACE_CONTENT=metadata`` (the production default) no input or output is
+exported at all, only names, timings, models, usage, levels and metadata
+(``metadata_only_spans``). What each field may hold, where it goes and how long
+it stays is in ``docs/data-handling.md``.
 
 Langfuse uploads base64 images to its media store *before* its mask hook runs,
 so ``init_telemetry`` switches media upload off; masking alone would not keep
@@ -13,6 +19,7 @@ user photos in-process.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -33,6 +40,7 @@ from food_concierge.errors import AppError
 
 if TYPE_CHECKING:
     from langfuse import Langfuse
+    from langfuse.types import MaskOtelSpansParams, MaskOtelSpansResult
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -53,10 +61,28 @@ _DATA_URI = re.compile(r"data:[\w/+.-]+;base64,[A-Za-z0-9+/=]+")
 # Long unbroken base64 runs are image or file content even without a data: prefix.
 _BASE64_RUN = re.compile(r"[A-Za-z0-9+/]{256,}={0,2}")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# A payment card: 13-19 digits, optionally in groups split by single spaces or dashes; masked only if the
+# Luhn checksum holds, so other long numbers are left to the phone pattern or kept.
+_CARD = re.compile(r"(?<![\w.+/#-])\d(?:[ -]?\d){12,18}(?![\w:/]|[.-]\d)")
 # A phone number: 10-15 digits, optionally led by +, with single spaces, dots, dashes or brackets between them.
 # It may not start or end inside a word, ID, decimal or path, nor run into a time ("2026-10-01 12:30").
 _PHONE = re.compile(r"(?<![\w.+/#-])\+?\(?\d(?:[ .()-]{0,2}\d){9,14}(?![\w:/]|[.-]\d)")
 _DATE_PREFIX = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _luhn_valid(digits: str) -> bool:
+    total = 0
+    for position, char in enumerate(reversed(digits)):
+        digit = int(char)
+        if position % 2:
+            digit = digit * 2 - 9 if digit > 4 else digit * 2
+        total += digit
+    return total % 10 == 0
+
+
+def _mask_card(match: re.Match[str]) -> str:
+    candidate = match.group(0)
+    return "[card]" if _luhn_valid(re.sub(r"\D", "", candidate)) else candidate
 
 
 def _mask_phone(match: re.Match[str]) -> str:
@@ -65,10 +91,12 @@ def _mask_phone(match: re.Match[str]) -> str:
 
 
 def mask_text(text: str) -> str:
-    """Replace image data, emails and phone numbers in ``text``, then cut it to ``MAX_TEXT_CHARS``."""
+    """Replace image data, emails, card and phone numbers in ``text``, then cut it to ``MAX_TEXT_CHARS``."""
     text = _DATA_URI.sub("[image]", text)
     text = _BASE64_RUN.sub("[binary]", text)
     text = _EMAIL.sub("[email]", text)
+    # Cards before phones: a 16-digit card would otherwise be cut into a "phone" and leftover digits.
+    text = _CARD.sub(_mask_card, text)
     text = _PHONE.sub(_mask_phone, text)
     if len(text) > MAX_TEXT_CHARS:
         text = f"{text[:MAX_TEXT_CHARS]}…[+{len(text) - MAX_TEXT_CHARS} chars]"
@@ -116,6 +144,68 @@ def mask_trace_data(*, data: Any, **_: Any) -> Any:
     except Exception:
         logger.warning("trace masking failed; payload dropped", exc_info=True)
         return "[masking failed]"
+
+
+# Exported unchanged when TRACE_CONTENT=metadata: structure, timing, model, usage and our own metadata,
+# which by rule never carries user text. Every other attribute is dropped, so content that a future SDK or
+# instrumentation adds under a new name is not exported by default.
+_STRUCTURAL_ATTRIBUTES = frozenset(
+    {
+        "langfuse.trace.name",
+        "langfuse.trace.tags",
+        "langfuse.trace.public",
+        "user.id",
+        "session.id",
+        "langfuse.observation.type",
+        "langfuse.observation.level",
+        "langfuse.observation.status_message",
+        "langfuse.observation.completion_start_time",
+        "langfuse.observation.model.name",
+        "langfuse.observation.model.parameters",
+        "langfuse.observation.usage_details",
+        "langfuse.observation.cost_details",
+        "langfuse.observation.prompt.name",
+        "langfuse.observation.prompt.version",
+        "langfuse.environment",
+        "langfuse.release",
+        "langfuse.version",
+        "langfuse.internal.as_root",
+        "langfuse.internal.is_app_root",
+        "langfuse.experiment.id",
+        "langfuse.experiment.name",
+        "langfuse.experiment.dataset.id",
+        "langfuse.experiment.item.id",
+        "langfuse.experiment.item.root_observation_id",
+    }
+)
+_METADATA_PREFIXES = ("langfuse.trace.metadata", "langfuse.observation.metadata")
+# Replaced rather than dropped, so a trace shows that content existed and was withheld on purpose.
+_CONTENT_ATTRIBUTES = frozenset(
+    {"langfuse.trace.input", "langfuse.trace.output", "langfuse.observation.input", "langfuse.observation.output"}
+)
+CONTENT_PLACEHOLDER = "[content not exported]"
+
+
+def _exported_as_is(key: str) -> bool:
+    return key in _STRUCTURAL_ATTRIBUTES or key.startswith(_METADATA_PREFIXES)
+
+
+def metadata_only_spans(*, params: MaskOtelSpansParams) -> MaskOtelSpansResult:
+    """Langfuse ``mask_otel_spans`` hook for ``TRACE_CONTENT=metadata``: no input, output or unknown attribute leaves.
+
+    It runs on the final span attributes just before export. If it raises, Langfuse drops the whole batch,
+    so it fails closed like ``mask_trace_data``.
+    """
+    from langfuse.types import MaskOtelSpansResult, OtelSpanPatch
+
+    placeholder = json.dumps(CONTENT_PLACEHOLDER)
+    patches = {}
+    for identifier, span in params.spans.items():
+        replace = {key: placeholder for key in span.attributes if key in _CONTENT_ATTRIBUTES}
+        drop = tuple(key for key in span.attributes if key not in replace and not _exported_as_is(key))
+        if replace or drop:
+            patches[identifier] = OtelSpanPatch(set_attributes=replace, delete_attributes=drop)
+    return MaskOtelSpansResult(span_patches=patches)
 
 
 # ---------------------------------------------------------------------------
@@ -397,6 +487,7 @@ def _build_client(
         return None
     # Read by the Langfuse client when it starts; see the module docstring.
     os.environ["LANGFUSE_MEDIA_UPLOAD_ENABLED"] = "false"
+    content = settings.exported_trace_content()
     try:
         from langfuse import Langfuse
 
@@ -408,11 +499,15 @@ def _build_client(
             release=__version__,
             sample_rate=settings.trace_sample_rate,
             mask=mask_trace_data,
+            mask_otel_spans=metadata_only_spans if content == "metadata" else None,
             tracer_provider=tracer_provider,
             span_exporter=span_exporter,
         )
     except Exception:
         _swallow("init")
         return None
-    logger.info("tracing on", extra={"host": settings.langfuse_host, "sample_rate": settings.trace_sample_rate})
+    logger.info(
+        "tracing on",
+        extra={"host": settings.langfuse_host, "sample_rate": settings.trace_sample_rate, "content": content},
+    )
     return client

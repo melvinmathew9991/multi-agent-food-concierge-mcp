@@ -44,6 +44,10 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - An empty streamed reply now counts as a failed attempt, as an empty non-streamed reply already did. Chunks are held back until the first one with content, so the next provider can still take over.
 
 #### Security
+- Production traces carry no message content. Masking finds emails, phones and images, but not names, addresses or allergies, and allergies are in almost every request. New `TRACE_CONTENT` (`full` | `metadata`; blank means `metadata` in production and `full` elsewhere). In `metadata` mode an export-stage hook replaces inputs and outputs with `[content not exported]` and keeps only an allow-list of structural attributes (names, timings, model, usage, level, status, metadata), so content an SDK adds under a new name is dropped by default.
+- Payment card numbers (13–19 digits, Luhn-checked) are masked as `[card]`. Before, a spaced 16-digit card came out as `[phone] 1111`, mislabelled and with its last digits kept.
+- `docs/data-handling.md`: what user data the service touches, where each piece goes (Groq, Gemini's free tier, Langfuse), the providers' training and retention terms, retention and deletion per destination, and a GDPR / DPDP Act mapping. Langfuse Cloud Hobby has no configurable retention, and Gemini's free tier may use prompts to improve Google's products; both are recorded there with sources.
+- Docs no longer say "PII masked": README, PRD F27, architecture and engineering rules §7.5 now say what is masked and that production traces are metadata-only.
 - The repair turn quotes the problems and the model's previous reply in marked data blocks, with block markers removed from the quoted text, so text echoed from the catalog or tools cannot pose as instructions (engineering rules §2.6b).
 
 ### Phase 0: Foundation

@@ -284,7 +284,7 @@ Tasks retry on transient failures and are cached by input hash (unchanged data �
 | Tools | per-agent allow-lists; MCP/A2A **scoped tokens** (`public`: search and read resources; `agent`: + `describe_image` and agent runs; `admin`: ingestion flows); rate limits per token and global |
 | Output | deterministic verifier; numeric-claim check; allergen disclaimer; AI-interaction disclosure |
 | Audit | every tool call is a Langfuse span with caller scope and agent; denied calls are logged as security events |
-| Governance | trace **masking** (image bytes, emails, phone numbers) via the Langfuse mask hook; uploads never stored; preferences viewable and deletable; data lineage via manifests (data hash → index → eval run); `docs/data-card.md` |
+| Governance | trace **masking** (image bytes, emails, card and phone numbers) via the Langfuse mask hook, and **metadata-only traces in production** (`TRACE_CONTENT`); data inventory and retention in `docs/data-handling.md`; uploads never stored; preferences viewable and deletable; data lineage via manifests (data hash → index → eval run); `docs/data-card.md` |
 | Red-team | `eval/datasets/redteam.yaml`: direct and indirect injection (e.g. a poisoned dish description in a fixture catalog), tool-escalation attempts, allergen-override attempts. Metric: attack success rate (CI gate). |
 
 ## 17. Responsible AI (`docs/responsible-ai/`)

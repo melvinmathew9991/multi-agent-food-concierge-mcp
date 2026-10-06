@@ -94,7 +94,7 @@ Priority: **M** must, **S** should, **C** could.
 | F24 | **Prompt-injection defence:** local classifier + delimiting/spotlighting of untrusted tool and catalog text + red-team suite with attack-success-rate gate | M |
 | F25 | **Content-safety screening** of user input (Llama Guard-class model; local or free tier) | S |
 | F26 | **Tool access control:** scoped tokens for MCP/A2A (`public`: search/read; `agent`: + describe_image and runs; `admin`: ingestion); per-agent tool allow-lists; tool-call audit trail | M |
-| F27 | **Data governance:** PII/image masking in traces, no upload retention, preference view/delete, lineage via manifests, data card | M |
+| F27 | **Data governance:** masking of images and contact details in traces, metadata-only traces in production, no upload retention, preference view/delete, lineage via manifests, data card | M |
 | F28 | **Responsible AI review:** fairness (restaurant exposure, popularity bias), counterfactual consistency, confusion matrices (allergen tagger, router, injection classifier), complexity/cost profile, system card, compliance mapping, AI-interaction disclosure | M |
 
 ## 7. Non-functional requirements
@@ -127,7 +127,7 @@ Priority: **M** must, **S** should, **C** could.
 | Item | Mitigation |
 |---|---|
 | Free tiers have rate limits and may change terms | Fallback chain, retrieval-only mode, per-session + global rate limits; verify terms at each phase |
-| Free-tier providers may use inputs for training | UI notice; no personal data; uploads not stored |
+| Free-tier providers may use inputs for training | UI notice; no personal data required; uploads not stored; `docs/data-handling.md` |
 | Bedrock not run live | README states it plainly; stub tests prove the integration contract |
 | Synthetic catalog (own, ~150 dishes) | Stated in the README and data card; metrics describe system behaviour, not real-world accuracy |
 | Free hosts are ephemeral | Durable data (traces, scores, datasets) lives in Langfuse; SQLite holds rebuildable or demo-only state |

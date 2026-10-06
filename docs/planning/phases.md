@@ -59,7 +59,24 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **DoD:** offline tests green at 100% coverage with lint, strict types, both lock audits and the secret scan; CI installs from the lock; live smoke on Groq, Gemini and Ollama visible as masked traces in local Langfuse; a forced Groq failure served by Gemini; Bedrock stub contract passes; ADR-0006 accepted with measured numbers.
 
-**Status (2026-10-01):** items 1–7 built; ADR-0006 accepted (Groq `openai/gpt-oss-20b` → Gemini `gemini-3.5-flash-lite`). Open before the phase closes: the live smoke with masked traces in local Langfuse and a forced Groq failure served by Gemini; vision measured on own photos (no vision default until then).
+**Status (2026-10-01):** items 1–7 built; ADR-0006 accepted (Groq `openai/gpt-oss-20b` → Gemini `gemini-3.5-flash-lite`).
+
+**Status (2026-10-06):** the Phase 1 audit's high and medium findings are fixed except M5 (PRs #12–#15: coverage gate, request deadline, enforced call and token caps, metadata-only production traces, embedder fingerprint).
+
+**Live smoke passed** (`scripts/smoke_live.py`; `eval/results/smoke_2026-10-06T1228Z.json`, commit `e0197b4`):
+- Groq, Gemini and Ollama each answer.
+- A forced Groq authentication failure is served by Gemini, with the fallback recorded.
+- Typed output validates.
+- Traces in local Langfuse 4.48 arrive masked with `TRACE_CONTENT=full`, and with no content at all with `TRACE_CONTENT=metadata`.
+
+**Negative result, same day.** On the first run, Gemini hit its 5 s attempt timeout on both of its calls (5.1 s and 5.2 s), so the forced fallback failed too. That run's results file was overwritten by a later one (since fixed), so these numbers come from its console output.
+- Direct probes straight afterwards took 12.7 s and 7.7 s.
+- A paced series of six then had a median of 2.0 s and a maximum of 6.3 s; 5 of 6 were under 5 s.
+- The profile's p95 on 2026-10-01 was 1.25 s.
+
+Calls after an idle stretch appear slow. So whether the fallback works inside the 8 s deadline is not settled, which is ADR-0006's revisit trigger. It is to be measured over a longer window before the P4 demo relies on it.
+
+**Open before the phase closes:** vision measured on own photos (no vision default until then).
 
 ## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · M
 **Goal:** trustworthy catalog, allergens and indexes, built by orchestrated flows.

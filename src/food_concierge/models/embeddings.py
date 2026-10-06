@@ -7,7 +7,9 @@ L2-normalised, which inner-product search (FAISS ``IndexFlatIP``) relies on.
 
 Every index records the ``EmbedderFingerprint`` it was built with and refuses
 to load under a different one. fastembed cannot pin a model revision, so the
-fingerprint records the downloaded snapshot and a hash of the model file.
+fingerprint records the downloaded snapshot and a hash of the files fastembed
+loads; a model whose files can't be identified is refused, not fingerprinted
+as "unknown".
 """
 
 from __future__ import annotations
@@ -209,27 +211,39 @@ def _load(model_cls: Any, model_name: str, settings: Settings) -> Any:
         raise NotReadyError(f"Model '{model_name}' could not be loaded.") from exc
 
 
-def _model_dir(model: Any) -> Path | None:
-    # fastembed keeps the downloaded snapshot directory on the inner ONNX model; private, so read defensively.
+def _model_files(model: Any) -> tuple[Path, list[Path]]:
+    """The downloaded snapshot directory and the files fastembed loads from it, model file first.
+
+    fastembed keeps both on the inner ONNX model: the directory privately (``_model_dir``), the file names in
+    its model description, which may point into a subfolder (``onnx/model.onnx``) and list extra files such as
+    external weights. If they can't be read, a fingerprint could not tell two models apart, so this refuses
+    rather than fingerprinting the model as "unknown".
+    """
     inner = getattr(model, "model", model)
     directory = getattr(inner, "_model_dir", None)
-    return Path(directory) if directory else None
+    description = getattr(inner, "model_description", None)
+    model_file = getattr(description, "model_file", None)
+    if not directory or not model_file:
+        raise NotReadyError("The embedding model's files could not be identified; check the fastembed version.")
+    snapshot = Path(directory)
+    files = [snapshot / name for name in (model_file, *getattr(description, "additional_files", []))]
+    missing = [path.relative_to(snapshot).as_posix() for path in files if not path.is_file()]
+    if missing:
+        raise NotReadyError(f"The embedding model is incomplete ({', '.join(missing)} missing); download it again.")
+    return snapshot, files
 
 
 def _snapshot_revision(model: Any) -> str:
-    directory = _model_dir(model)
-    return directory.name if directory else "unknown"
+    snapshot, _ = _model_files(model)
+    return snapshot.name
 
 
 def _model_file_sha256(model: Any) -> str:
-    directory = _model_dir(model)
-    if directory is None:
-        return ""
-    onnx_files = sorted(directory.glob("*.onnx"))
-    if not onnx_files:
-        return ""
+    """SHA-256 over the model file, then any additional files, in the order fastembed lists them."""
+    _, files = _model_files(model)
     digest = hashlib.sha256()
-    with onnx_files[0].open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
+    for path in files:
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(block)
     return digest.hexdigest()

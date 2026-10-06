@@ -355,6 +355,65 @@ async def test_async_streaming_yields_chunks(settings: Settings) -> None:
     assert "".join([str(chunk.content) async for chunk in model.astream("hi")]) == "hello"
 
 
+def test_chunks_before_the_first_content_are_kept_in_order(settings: Settings) -> None:
+    fake = FakeProviders(groq=_sse("", "hel", "lo"))
+    model = build_chat_model("groq", "chat", settings, http_client=fake.client())
+
+    assert [str(chunk.content) for chunk in model.stream("hi")][:3] == ["", "hel", "lo"]
+
+
+async def test_async_chunks_before_the_first_content_are_kept_in_order(settings: Settings) -> None:
+    fake = FakeProviders(groq=_sse("", "hel", "lo"))
+    model = build_chat_model("groq", "chat", settings, http_async_client=fake.async_client())
+
+    assert [str(chunk.content) async for chunk in model.astream("hi")][:3] == ["", "hel", "lo"]
+
+
+def test_empty_stream_falls_back_before_anything_is_yielded(settings: Settings) -> None:
+    fake = FakeProviders(groq=_sse("", ""), gemini=_sse("hel", "lo"))
+
+    chunks = list(get_chat_model("chat", settings, http_client=fake.client()).stream("hi"))
+
+    assert "".join(str(chunk.content) for chunk in chunks) == "hello"
+    assert fake.hosts() == [GROQ, GEMINI]
+
+
+async def test_empty_async_stream_falls_back_too(settings: Settings) -> None:
+    fake = FakeProviders(groq=_sse(""), gemini=_sse("hello"))
+
+    model = get_chat_model("chat", settings, http_async_client=fake.async_client())
+    chunks = [chunk async for chunk in model.astream("hi")]
+
+    assert "".join(str(chunk.content) for chunk in chunks) == "hello"
+    assert fake.hosts() == [GROQ, GEMINI]
+
+
+def test_empty_stream_from_the_last_provider_is_an_error(settings: Settings) -> None:
+    fake = FakeProviders(groq=_sse(""))
+    model = build_chat_model("groq", "chat", settings, http_client=fake.client())
+
+    with pytest.raises(errors.ProviderResponseError, match="empty reply"):
+        list(model.stream("hi"))
+
+
+def test_streamed_tool_calls_count_as_output(settings: Settings) -> None:
+    call = {"index": 0, "id": "call-1", "type": "function", "function": {"name": "search", "arguments": "{}"}}
+    delta = {"role": "assistant", "content": None, "tool_calls": [call]}
+    body = {"id": "c1", "object": "chat.completion.chunk", "created": 0, "model": "m"}
+    events = [
+        {**body, "choices": [{"index": 0, "delta": delta, "finish_reason": None}]},
+        {**body, "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]},
+    ]
+    stream = "".join(f"data: {json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
+    fake = FakeProviders(groq=lambda request: httpx2.Response(200, text=stream))
+    model = build_chat_model("groq", "chat", settings, http_client=fake.client())
+
+    chunks = list(model.stream("find something"))
+
+    assert chunks[0].tool_call_chunks[0]["name"] == "search"
+    assert fake.hosts() == [GROQ]
+
+
 def test_app_errors_from_the_sdk_layer_pass_through(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
     def over_budget(*args: Any, **kwargs: Any) -> Any:
         raise errors.BudgetExceededError()

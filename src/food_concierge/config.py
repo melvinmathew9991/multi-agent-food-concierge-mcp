@@ -151,7 +151,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _chain_fits_deadline(self) -> Settings:
-        # Worst case: every provider times out once, and the last one also uses its retries.
+        # Worst case for one model request: every provider times out once, and the last one also uses its
+        # retries. Calls that make several requests (typed output's repair) are bounded at run time instead,
+        # by models/deadline.py.
         timeouts = [self.timeout_for(provider) for provider in self.provider_chain]
         worst_case = sum(timeouts) + timeouts[-1] * self.provider_max_retries
         if worst_case > self.request_deadline_s:

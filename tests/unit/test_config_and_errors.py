@@ -1,10 +1,11 @@
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from pydantic import ValidationError
 
 from food_concierge import errors
-from food_concierge.config import PAID_PROVIDERS, REPO_ROOT, KeyedProvider, Settings, get_settings
+from food_concierge.config import PAID_PROVIDERS, REPO_ROOT, KeyedProvider, Settings, TraceContent, get_settings
 
 
 @pytest.fixture
@@ -196,3 +197,24 @@ def test_provider_error_keeps_provider_name() -> None:
     err = errors.ProviderTimeoutError(provider="bedrock")
     assert err.provider == "bedrock"
     assert isinstance(err, errors.ProviderError)
+
+
+Environment = Literal["development", "ci", "production"]
+
+
+@pytest.mark.parametrize(
+    ("environment", "explicit", "exported"),
+    [
+        ("development", None, "full"),
+        ("ci", None, "full"),
+        ("production", None, "metadata"),
+        ("production", "full", "full"),
+        ("development", "metadata", "metadata"),
+    ],
+)
+def test_production_traces_carry_metadata_only_by_default(
+    environment: Environment, explicit: TraceContent | None, exported: TraceContent
+) -> None:
+    s = Settings(_env_file=None, environment=environment, trace_content=explicit)
+
+    assert s.exported_trace_content() == exported

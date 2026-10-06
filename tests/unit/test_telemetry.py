@@ -304,20 +304,29 @@ def exporter() -> InMemorySpanExporter:
     return InMemorySpanExporter()
 
 
-@pytest.fixture
-def tracer(monkeypatch: pytest.MonkeyPatch, exporter: InMemorySpanExporter) -> Iterator[Telemetry]:
+def _traced(monkeypatch: pytest.MonkeyPatch, exporter: InMemorySpanExporter, environment: str) -> Iterator[Telemetry]:
     # Restored after the test; init_telemetry must switch media upload off itself.
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "true")
     # Langfuse keeps one client per public key, so each test gets its own.
     settings = _settings(
         langfuse_public_key=SecretStr(f"pk-lf-{uuid.uuid4()}"),
         langfuse_secret_key=SecretStr("sk-lf-test"),
-        environment="ci",
+        environment=environment,
     )
     traced = init_telemetry(settings, tracer_provider=TracerProvider(), span_exporter=exporter)
     yield traced
     traced.shutdown()
     monkeypatch.setattr(telemetry, "_telemetry", Telemetry())
+
+
+@pytest.fixture
+def tracer(monkeypatch: pytest.MonkeyPatch, exporter: InMemorySpanExporter) -> Iterator[Telemetry]:
+    yield from _traced(monkeypatch, exporter, "ci")
+
+
+@pytest.fixture
+def production_tracer(monkeypatch: pytest.MonkeyPatch, exporter: InMemorySpanExporter) -> Iterator[Telemetry]:
+    yield from _traced(monkeypatch, exporter, "production")
 
 
 def _exported(tracer: Telemetry, exporter: InMemorySpanExporter) -> list[ReadableSpan]:
@@ -487,3 +496,107 @@ def test_an_explicit_trace_id_is_kept() -> None:
         TraceContextFilter().filter(record)
 
     assert getattr(record, "trace_id", None) == "given"
+
+
+# ---------------------------------------------------------------------------
+# Card numbers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "card",
+    ["4111 1111 1111 1111", "4111-1111-1111-1111", "5500005555555559", "3782 822463 10005"],
+    ids=["visa-spaced", "visa-dashed", "mastercard", "amex"],
+)
+def test_card_numbers_are_masked_whole(card: str) -> None:
+    assert mask_text(f"pay with {card} today") == "pay with [card] today"
+
+
+def test_numbers_failing_the_luhn_check_are_not_called_cards() -> None:
+    # Not a card, so not "[card]"; the phone pattern may still mask part of it, which errs on the safe side.
+    assert "[card]" not in mask_text("order 1234 5678 9012 3456")
+    assert mask_text("barcode 8901234567893210123") == "barcode 8901234567893210123"
+
+
+# ---------------------------------------------------------------------------
+# Metadata-only export (TRACE_CONTENT=metadata)
+# ---------------------------------------------------------------------------
+
+
+def _span_params(attributes: dict[str, Any]) -> Any:
+    from langfuse.types import MaskOtelSpansParams, OtelSpanData, OtelSpanIdentifier
+
+    identifier = OtelSpanIdentifier(trace_id="a" * 32, span_id="b" * 16)
+    span = OtelSpanData(
+        trace_id="a" * 32,
+        span_id="b" * 16,
+        parent_span_id=None,
+        name="request",
+        instrumentation_scope_name="langfuse-sdk",
+        instrumentation_scope_version=None,
+        attributes=attributes,
+        resource_attributes={},
+    )
+    return MaskOtelSpansParams(spans={identifier: span})
+
+
+def test_metadata_mode_keeps_structure_and_drops_everything_else() -> None:
+    attributes = {
+        "langfuse.observation.input": '"I am allergic to peanuts"',
+        "langfuse.trace.output": '"Try the dal"',
+        "langfuse.observation.metadata.request_id": "req-1",
+        "langfuse.observation.model.name": "groq-chat",
+        "langfuse.observation.usage_details": '{"input": 5}',
+        "langfuse.observation.level": "ERROR",
+        "langfuse.experiment.item.expected_output": '"peanut-free dal"',
+        "gen_ai.prompt.0.content": "I am allergic to peanuts",
+    }
+
+    result = telemetry.metadata_only_spans(params=_span_params(attributes))
+
+    (patch,) = result.span_patches.values()
+    assert patch is not None
+    placeholder = json.dumps(telemetry.CONTENT_PLACEHOLDER)
+    assert dict(patch.set_attributes) == {
+        "langfuse.observation.input": placeholder,
+        "langfuse.trace.output": placeholder,
+    }
+    # Unknown and content-bearing attributes are dropped, including ones no rule names.
+    assert set(patch.delete_attributes) == {"langfuse.experiment.item.expected_output", "gen_ai.prompt.0.content"}
+
+
+def test_metadata_mode_leaves_clean_spans_alone() -> None:
+    result = telemetry.metadata_only_spans(params=_span_params({"langfuse.observation.type": "span"}))
+
+    assert dict(result.span_patches) == {}
+
+
+def test_production_exports_no_content(production_tracer: Telemetry, exporter: InMemorySpanExporter) -> None:
+    model = ScriptedChatModel(script=[AIMessage("Try the dal at Spice Route, Priya")])
+    question = "I'm Priya, allergic to peanuts, at 12 MG Road"
+
+    with production_tracer.observe(
+        "request", input=question, meta=TraceMeta(request_id="req-1", provider="groq")
+    ) as observation:
+        model.invoke([HumanMessage(question)], config={"callbacks": production_tracer.callbacks()})
+        observation.update(output="Try the dal at Spice Route, Priya")
+
+    spans = _exported(production_tracer, exporter)
+    exported = _attributes_text(spans)
+    assert len(spans) >= 2  # the request and the model run are still traced
+    for content in ("Priya", "peanuts", "MG Road", "Try the dal"):
+        assert content not in exported
+    assert telemetry.CONTENT_PLACEHOLDER in exported
+    for kept in ("req-1", "groq", "production"):
+        assert kept in exported
+
+
+def test_tracing_logs_what_it_exports(
+    monkeypatch: pytest.MonkeyPatch, exporter: InMemorySpanExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="food_concierge.telemetry"):
+        for traced in _traced(monkeypatch, exporter, "production"):
+            assert traced.enabled
+
+    record = next(r for r in caplog.records if r.message == "tracing on")
+    assert record.content == "metadata"  # type: ignore[attr-defined]

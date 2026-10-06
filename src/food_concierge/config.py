@@ -26,6 +26,8 @@ KeyedProvider = Literal["groq", "gemini", "openai"]
 # justify a separate one; callers ask by role so that change stays inside config.
 ModelRole = Literal["chat", "vision", "router", "judge"]
 ReasoningEffort = Literal["low", "medium", "high"]
+# What exported traces contain: masked inputs and outputs, or names, timings, models, usage and metadata only.
+TraceContent = Literal["full", "metadata"]
 
 PAID_PROVIDERS: frozenset[str] = frozenset({"openai", "bedrock"})
 
@@ -95,6 +97,9 @@ class Settings(BaseSettings):
     tracing_enabled: bool = True
     trace_sample_rate: float = Field(default=1.0, ge=0, le=1)
     environment: Literal["development", "ci", "production"] = "development"
+    # Blank: "metadata" in production, where public users' messages carry health details (allergies, diet)
+    # that masking cannot find, and "full" elsewhere (docs/data-handling.md).
+    trace_content: TraceContent | None = None
 
     # Model calls. The deadline bounds one model call across the whole fallback chain and matches the
     # PRD p95 target. The next provider is the retry: SDK retries (default 0) apply only to the last
@@ -212,6 +217,12 @@ class Settings(BaseSettings):
     def minute_token_limit(self, provider: ProviderName) -> int | None:
         """Tokens allowed per rolling minute where the provider limits tokens; ``None`` means uncapped."""
         return {"groq": self.minute_token_limit_groq}.get(provider)
+
+    def exported_trace_content(self) -> TraceContent:
+        """What traces export: ``TRACE_CONTENT`` if set, otherwise metadata only in production."""
+        if self.trace_content is not None:
+            return self.trace_content
+        return "metadata" if self.environment == "production" else "full"
 
     def require_api_key(self, provider: KeyedProvider) -> str:
         key = {

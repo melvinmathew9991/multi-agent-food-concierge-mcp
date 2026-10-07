@@ -1,0 +1,5 @@
+restaurant_id,name,cuisines,area,rating
+fx_dhaba,Fixture Dhaba,North Indian; Punjabi,Test Nagar,4.3
+fx_udupi,Fixture Udupi Bhavan,South Indian,Sample Layout,4.5
+fx_cafe,Fixture Bowl Cafe,Continental; Mediterranean,Example Road,4.1
+fx_wok,Fixture Wok,Indo-Chinese,Demo Market,3.9

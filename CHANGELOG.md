@@ -4,6 +4,26 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ## [Unreleased]
 
+### Phase 2: Data, safety and ingestion flows (in progress)
+
+#### Added
+- Catalog vocabularies (`ingestion/taxonomy.py`):
+  - 15 allergen keys: the union of EU-14 and US Big-9;
+  - one table mapping free-text terms onto the keys, where a term maps to every key it may mean ("nuts" → peanuts and tree nuts, "shellfish" → crustaceans and molluscs);
+  - wheat implies gluten;
+  - diets (vegan, vegetarian as lacto-ovo, non-vegetarian), cuisines and menu categories as closed sets, so a typo is an error rather than a new value.
+- Catalog row schemas (`ingestion/schemas.py`) for `restaurants.csv` and `menu.csv`:
+  - serves as a range;
+  - a `contains_egg` flag behind the `eggless` filter;
+  - restaurant allergen labels that tell "not labelled" (blank) apart from "declared none";
+  - a hand-checked `true_allergens` column that accepts canonical keys only and stays out of the menu items the system uses.
+- Catalog loader (`ingestion/loader.py`). It checks every row before raising and reports each problem with file, line and column. Errors include:
+  - a diet that contradicts the ingredients (ghee in a vegan dish, chicken in a vegetarian one, an unflagged egg);
+  - unknown allergen terms and duplicate or orphaned rows;
+  - header mismatches.
+  Calories more than 25% away from 4P + 4C + 9F are warnings.
+- A 12-dish fixture catalog (`tests/fixtures/catalog/`) with fictional restaurants, deliberate label gaps and a dish served at two restaurants.
+
 ### Phase 1: Models, embeddings, telemetry (closed 2026-10-06)
 
 One model layer for every later phase:

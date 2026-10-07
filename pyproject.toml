@@ -74,7 +74,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PT"]
 ignore = ["S101"]  # assert is idiomatic in pytest
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S105", "S106"]  # fake credentials in tests
+"tests/**" = ["S105", "S106", "S311"]  # fake credentials; seeded random for property tests
 
 [tool.mypy]
 python_version = "3.11"

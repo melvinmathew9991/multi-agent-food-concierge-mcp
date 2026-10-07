@@ -17,7 +17,7 @@
 | Local LLM | **Ollama** (llama3.1:8b chat, Qwen2.5-VL 7B vision) | Free development, offline evaluation, LLM-as-judge |
 | Bedrock | `langchain-aws` provider, **stub-tested only**, off by default | Shows AWS integration without spend |
 | Embeddings | **fastembed** `BAAI/bge-small-en-v1.5` (ONNX, 384-d) in-process | $0, no torch, same model in dev, CI and prod, so indexes never mismatch |
-| Vector search | FAISS `IndexIDMap2(IndexFlatIP)` + **BM25** + hybrid RRF + **cross-encoder reranker**; **Qdrant** (local mode) as a benchmarked alternative backend | FAISS is in the brief; the lexical baseline is required by the audit; the reranker and Qdrant are adopted only on evidence |
+| Vector search | FAISS `IndexIDMap2(IndexFlatIP)` + **BM25** + hybrid RRF + **cross-encoder reranker**; **Qdrant** (in memory, loaded from the saved vectors) as a benchmarked alternative backend | FAISS is in the brief; the lexical baseline is required by the audit; the reranker and Qdrant are adopted only on evidence |
 | Metadata / state | SQLite (catalog, allergens, LangGraph checkpoints, preference store, cache) | Zero-cost, file-based, rebuildable |
 | LLMOps | **Langfuse** (free Hobby cloud for the demo; self-host via Docker locally) | Traces, prompt registry, datasets, experiments, scores; durable storage off the ephemeral host |
 | Guardrails | Local injection classifier (ONNX) + spotlighting + content-safety model + deterministic verifier | Defence in depth; nothing safety-critical depends on the LLM |
@@ -56,7 +56,7 @@ flowchart LR
 
 ## 3. Offline ingestion pipeline
 
-`python -m food_concierge.ingestion build` — idempotent, manifest-bound.
+`python -m food_concierge.flows build` — idempotent (each step skips when its output matches its inputs' hash), manifest-bound. Built in Phase 2: `ingestion/` (loader, taxonomy, normalize, allergens, photos, build), `storage/catalog_db.py`, `storage/indexes.py`, `flows/`.
 
 1. **Load and validate** `data/raw/menu.csv` and `data/raw/attributions.csv` (pydantic row schemas; report every bad row; every image must have a licence record).
 2. **Normalise:**
@@ -71,8 +71,8 @@ flowchart LR
    - Opaque ingredients (`vegan dressing`, `plant-based patty`, `spices`, `spring roll wrappers`) → `unverified = 1`.
 4. **Descriptions:** generated with the local Ollama vision model ($0) for new/changed images only, cached by sha256 in `data/processed/image_descriptions.jsonl`. A **name-free** description variant is generated with local Ollama (free) for the evaluation in Phase 3 (audit #7).
 5. **Thumbnails:** WebP ≤ 480 px (RGBA → RGB) for UI and MCP image resources.
-6. **Document text (semantic only):** description + dish name + cuisine + ingredients + diet. Numbers stay in SQL (audit #14).
-7. **Indexes:** fastembed vectors → FAISS (`IndexIDMap2(IndexFlatIP)`, ids = `item_rowid`); BM25 over the same text; `manifest.json` {embedder, dim, n_items, data_sha256, doc_text_version, created_at}.
+6. **Document text (semantic only):** dish name + description + cuisine + category + ingredients + diet (`DOC_TEXT_VERSION` 1). Numbers stay in SQL (audit #14).
+7. **Indexes:** fastembed vectors → `vectors.npy` (pickling disabled) + `item_ids.json` + FAISS (`IndexIDMap2(IndexFlatIP)`, ids = row positions); BM25 over the same text; `manifest.json` {embedder, dim, n_items, data_sha256, doc_text_version, created_at, file hashes}. Qdrant is rebuilt in memory at load from `vectors.npy`: its on-disk local mode persists points with pickle (rules §1).
 8. **Duplicates:** the same dish at several restaurants is grouped by `dish_key` so results de-duplicate (audit #13).
 
 ## 4. Domain services (`food_concierge/services/`)
@@ -82,7 +82,7 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 | Service | Responsibility | Complexity |
 |---|---|---|
 | `catalog` | SQLite reads; `candidate_ids(constraints)` | Indexed SQL, O(log N + \|C\|) |
-| `retrieval` | `VectorStore` protocol with FAISS and Qdrant (local mode, payload filters) backends; BM25; hybrid RRF; optional cross-encoder rerank of top-20; de-duplication | O(\|C\|·d) exact; HNSW behind the same interface beyond ~10⁵ items |
+| `retrieval` | `VectorStore` protocol with FAISS and Qdrant backends; BM25; hybrid RRF; optional cross-encoder rerank of top-20; de-duplication. Hard filters are decided once in SQL (`candidate_ids`); each backend only restricts its search to those ids (FAISS id selector, Qdrant id filter, BM25 mask) | O(\|C\|·d) exact; HNSW behind the same interface beyond ~10⁵ items |
 | `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified | O(k) |
 | `nutrition` | `meal_totals(dish_ids)`: calories, macros, price, serves | O(k) exact arithmetic |
 | `constraints` | Parse, merge (allergens: union; caps: min; diet: strictest) and **verify** a proposal | O(k) |
@@ -218,8 +218,8 @@ multi-agent-food-concierge-mcp/
 ├── src/food_concierge/
 │   ├── config.py  errors.py  logging_setup.py  telemetry.py
 │   ├── models/          # router: Groq/Gemini/Ollama (OpenAI-compatible), Bedrock (stubbed), fake; fastembed wrapper
-│   ├── ingestion/       # loader, normalize, allergens, describe, thumbnails, build, fetch_images
-│   ├── storage/         # sqlite catalog, schema.sql, cache
+│   ├── ingestion/       # loader, schemas, taxonomy, normalize, allergens, photos, build, describe
+│   ├── storage/         # catalog_db (SQLite schema, builder, filters), indexes (build, manifest, load)
 │   ├── services/        # catalog, retrieval, allergens, nutrition, constraints, vision  (no LLM imports)
 │   ├── mcp_server/      # FastMCP server: tools, resources, prompts; __main__ (stdio)
 │   ├── agent/           # LangGraph: supervisor, specialists, verifier, memory, single-agent baseline
@@ -247,7 +247,7 @@ multi-agent-food-concierge-mcp/
 | Language | Python 3.11 |
 | Agent | `langgraph`, `langgraph-checkpoint-sqlite`, `langchain-core`, `langchain-openai` (OpenAI-compatible: Groq, Gemini, Ollama), `langchain-aws` (Bedrock, stubbed), `langchain-mcp-adapters` |
 | Protocol | `mcp` (official SDK, FastMCP) |
-| Retrieval | `faiss-cpu`, `qdrant-client` (local mode), `fastembed` (embeddings + cross-encoder rerank), `rank-bm25`, `numpy`, SQLite |
+| Retrieval | `faiss-cpu`, `qdrant-client` (in memory), `fastembed` (embeddings + cross-encoder rerank), `rank-bm25`, `numpy`, SQLite |
 | Interop | `a2a-sdk` |
 | Workflows | `prefect` (OSS) |
 | Guardrails | `onnxruntime` + `tokenizers` + `huggingface-hub` (local injection classifier); Llama Guard-class model via Ollama (dev) / free tier if available |
@@ -273,7 +273,7 @@ multi-agent-food-concierge-mcp/
 | `evaluate` | retrieval eval → gates → Langfuse experiment | after `build_index`; nightly |
 | `report` | render `docs/evaluation.md` tables + Responsible AI metrics | after `evaluate` |
 
-Tasks retry on transient failures and are cached by input hash (unchanged data → skipped). Flows run locally (`prefect server start` for the UI) and on a **GitHub Actions nightly schedule** (free; no live LLM calls; the fastembed model download is allowed in scheduled jobs only). No Prefect Cloud dependency.
+Tasks retry only on transient failures. Unchanged inputs are skipped by explicit hash checks (`ingestion/build.py`): the catalog records its source hash, and the index manifest binds to it and to the embedder. Prefect's result cache is not used, because its default serializer is pickle; task results are not persisted. Prefect's anonymous server analytics are switched off. Flows run locally (`prefect server start` for the UI) and on a **GitHub Actions nightly schedule** (free; no live LLM calls; the fastembed model download is allowed in scheduled jobs only). No Prefect Cloud dependency.
 
 ## 16. Guardrails, access control and data governance
 

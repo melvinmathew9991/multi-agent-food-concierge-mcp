@@ -23,6 +23,13 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - header mismatches.
   Calories more than 25% away from 4P + 4C + 9F are warnings.
 - A 12-dish fixture catalog (`tests/fixtures/catalog/`) with fictional restaurants, deliberate label gaps and a dish served at two restaurants.
+- Allergen tagging (`ingestion/allergens.py`) from three sources, each tag stored with its source, level and evidence:
+  - the restaurant label → `contains`;
+  - a versioned ingredient lexicon (`data/lexicon/allergens.yaml`, with Indian terms such as ghee, maida, hing, khoya and kasundi) → `contains`;
+  - the photo description → `may_contain`.
+
+  At each position the longest phrase wins, so peanut butter is peanuts and makki atta is not wheat. Opaque ingredients (masala mixes, chutneys, unnamed sauces) mark a dish unverified.
+- The allergen safety gate (Phase 2 DoD), in the tests: every hand-checked allergen of every dish is tagged, or the dish is unverified, with unverified capped at 25% of dishes. `scripts/allergen_report.py` prints precision per allergen.
 - The authored catalog (`data/raw/`): 150 dishes at 15 fictional restaurants, two thirds of them Indian, with prices in INR. It was written in three batches, and the owner reviewed each batch's allergen ground truth.
   - Nutrition is invented and consistent with 4P + 4C + 9F.
   - About a third of dishes have no restaurant label, and some labels are deliberately wrong.

@@ -13,10 +13,8 @@ from food_concierge.config import REPO_ROOT
 from food_concierge.errors import NotReadyError
 from food_concierge.ingestion.allergens import DishAllergens, load_lexicon, tag_item
 from food_concierge.ingestion.loader import CatalogLoad, load_catalog
-from food_concierge.ingestion.schemas import MenuItem
 from food_concierge.ingestion.taxonomy import Allergen, Cuisine, Diet
 from food_concierge.storage.catalog_db import (
-    ALLOWED_DIETS,
     DOC_TEXT_VERSION,
     CatalogStore,
     Filters,
@@ -143,20 +141,6 @@ def test_data_hash_binds_names_and_bytes(tmp_path: Path) -> None:
     assert data_sha256([a, b]) != first
 
 
-def satisfies(item: MenuItem, tags: DishAllergens, filters: Filters) -> bool:
-    """The filters restated in plain Python: the oracle for the SQL."""
-    excluded = set(filters.exclude_allergens) | ({A.EGGS} if filters.eggless else set())
-    return (
-        (filters.diet is None or item.diet in ALLOWED_DIETS[filters.diet])
-        and not (filters.eggless and item.contains_egg)
-        and not (excluded & tags.flagged)
-        and not (excluded and tags.unverified and not filters.include_unverified)
-        and (filters.max_kcal is None or item.kcal <= filters.max_kcal)
-        and (filters.max_price_inr is None or item.price_inr <= filters.max_price_inr)
-        and (not filters.cuisines or item.cuisine in filters.cuisines)
-    )
-
-
 def random_filters(rng: random.Random) -> Filters:
     return Filters(
         diet=rng.choice([None, *Diet]),
@@ -170,11 +154,12 @@ def random_filters(rng: random.Random) -> Filters:
 
 
 def test_candidates_match_the_oracle(store: CatalogStore, loaded: CatalogLoad, tags: dict[str, DishAllergens]) -> None:
-    # Property test: for many random filter combinations, SQL returns exactly the items that satisfy every filter.
+    # Property test: for many random filter combinations, SQL returns exactly the items Filters.admits accepts,
+    # the plain-Python statement of the same rules.
     rng = random.Random(20261007)
     for _ in range(400):
         filters = random_filters(rng)
-        expected = sorted(i.item_id for i in loaded.catalog.items if satisfies(i, tags[i.item_id], filters))
+        expected = sorted(i.item_id for i in loaded.catalog.items if filters.admits(i, tags[i.item_id]))
         assert store.candidate_ids(filters) == expected, filters
 
 

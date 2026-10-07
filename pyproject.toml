@@ -30,6 +30,8 @@ dependencies = [
     "opentelemetry-api>=1.30,<2",  # trace_id in log lines; Langfuse v4 is built on it
     "fastembed>=0.8,<0.9",
     "faiss-cpu>=1.8",
+    "qdrant-client>=1.12,<2",  # in-memory only: its on-disk local mode persists with pickle (rules §1)
+    "rank-bm25>=0.2,<0.3",
     "numpy>=1.26,<3",
     "Pillow>=10.4",
 ]

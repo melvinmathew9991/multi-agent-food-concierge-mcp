@@ -181,6 +181,19 @@ class Filters(BaseModel):
     # matter, unless the caller will ask the user to confirm (Phase 5).
     include_unverified: bool = False
 
+    def admits(self, item: MenuItem, tags: DishAllergens) -> bool:
+        """The same rules as ``CatalogStore.candidate_ids``, in Python, for re-checking a proposed dish."""
+        excluded = set(self.exclude_allergens) | ({Allergen.EGGS} if self.eggless else set())
+        return (
+            (self.diet is None or item.diet in ALLOWED_DIETS[self.diet])
+            and not (self.eggless and item.contains_egg)
+            and not (excluded & tags.flagged)
+            and not (excluded and tags.unverified and not self.include_unverified)
+            and (self.max_kcal is None or item.kcal <= self.max_kcal)
+            and (self.max_price_inr is None or item.price_inr <= self.max_price_inr)
+            and (not self.cuisines or item.cuisine in self.cuisines)
+        )
+
 
 class CatalogStore:
     """Read-only access to a built catalog database."""

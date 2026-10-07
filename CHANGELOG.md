@@ -40,6 +40,13 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - The document text for search is semantic only (name, description, cuisine, category, ingredients, diet); prices and calories stay in indexed columns.
   - A `meta` table records the document-text version, lexicon version and source-data hash. The hand-checked ground truth never enters the database.
   - `CatalogStore.candidate_ids(filters)` applies diet, eggless, excluded allergens, maximum calories, maximum price and cuisine as SQL. When allergens matter, unverified dishes are left out unless the caller asks for them. A property test checks 400 random filter combinations against a plain-Python oracle.
+- Search indexes. FAISS (`IndexIDMap2(IndexFlatIP)`), Qdrant and BM25 sit behind one search interface in `services/retrieval.py`.
+  - Hard filters are decided once in SQL; each backend only restricts its search to those ids.
+  - `storage/indexes.py` writes vectors (`.npy`, pickling disabled), item ids and the FAISS index with a manifest: embedder fingerprint, dimension, item count, catalog data hash, document-text version and file hashes. Loading refuses an index built with another embedder, from other data, or with changed files.
+  - Qdrant runs in memory, because its on-disk local mode persists with pickle.
+  - A property test runs 300 random filter combinations on all three backends: no hit violates a filter, and none is missed.
+- New dependencies `qdrant-client` and `rank-bm25`, approved in the engineering rules; both lock files were regenerated.
+- `Filters.admits`, the hard filters restated in Python, for re-checking a proposed dish.
 - The authored catalog (`data/raw/`): 150 dishes at 15 fictional restaurants, two thirds of them Indian, with prices in INR. It was written in three batches, and the owner reviewed each batch's allergen ground truth.
   - Nutrition is invented and consistent with 4P + 4C + 9F.
   - About a third of dishes have no restaurant label, and some labels are deliberately wrong.

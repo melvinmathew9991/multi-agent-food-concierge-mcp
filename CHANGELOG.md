@@ -35,6 +35,11 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - Approved photos are recorded in `data/raw/attributions.csv` with author, licence and SHA-256, and the loader validates them.
   - Files are fetched into a new `PHOTO_CACHE_DIR` outside the repository, verified against their hash, and thumbnailed to WebP of at most 480 px.
   - Requests carry a User-Agent naming the project, and are paced to one per second.
+- The SQLite catalog (`storage/catalog_db.py`): restaurants, dishes, items, allergen tags with source and level, images, and descriptions. It is built into a temporary file and swapped in atomically.
+  - `dish_key` groups the same dish across restaurants.
+  - The document text for search is semantic only (name, description, cuisine, category, ingredients, diet); prices and calories stay in indexed columns.
+  - A `meta` table records the document-text version, lexicon version and source-data hash. The hand-checked ground truth never enters the database.
+  - `CatalogStore.candidate_ids(filters)` applies diet, eggless, excluded allergens, maximum calories, maximum price and cuisine as SQL. When allergens matter, unverified dishes are left out unless the caller asks for them. A property test checks 400 random filter combinations against a plain-Python oracle.
 - The authored catalog (`data/raw/`): 150 dishes at 15 fictional restaurants, two thirds of them Indian, with prices in INR. It was written in three batches, and the owner reviewed each batch's allergen ground truth.
   - Nutrition is invented and consistent with 4P + 4C + 9F.
   - About a third of dishes have no restaurant label, and some labels are deliberately wrong.

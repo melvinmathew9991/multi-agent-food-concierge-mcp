@@ -47,6 +47,13 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - A property test runs 300 random filter combinations on all three backends: no hit violates a filter, and none is missed.
 - New dependencies `qdrant-client` and `rank-bm25`, approved in the engineering rules; both lock files were regenerated.
 - `Filters.admits`, the hard filters restated in Python, for re-checking a proposed dish.
+- The offline build as Prefect flows (`flows/`): `ingest` (validate, tag allergens, build the catalog), `build_index` (embed, build the indexes) and `build` (both), run with `python -m food_concierge.flows build`.
+  - Each step is skipped when its output matches its inputs, so a re-run with unchanged inputs does nothing.
+  - Index steps retry only on transient network failures.
+  - Task results are not persisted, so Prefect pickles nothing, and Prefect's anonymous analytics are switched off.
+  - The nightly workflow runs the build with the real embedder and checks that a second run does nothing.
+- `prefect` in the `ingest` extra, approved in the engineering rules; the API's runtime lock is unchanged.
+- `docs/data-card.md`: sources, what is synthetic and how, derived data, lineage from source hash to index manifest, and known limitations.
 - The authored catalog (`data/raw/`): 150 dishes at 15 fictional restaurants, two thirds of them Indian, with prices in INR. It was written in three batches, and the owner reviewed each batch's allergen ground truth.
   - Nutrition is invented and consistent with 4P + 4C + 9F.
   - About a third of dishes have no restaurant label, and some labels are deliberately wrong.

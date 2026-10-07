@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ingest = ["pandas>=2.2", "pyyaml>=6.0", "scipy>=1.13"]
+ingest = ["pandas>=2.2", "pyyaml>=6.0", "scipy>=1.13", "prefect>=3.4,<4"]  # prefect: offline flows only
 ui = ["streamlit>=1.40", "httpx>=0.27"]
 dev = [
     "multi-agent-food-concierge-mcp[ingest,ui]",

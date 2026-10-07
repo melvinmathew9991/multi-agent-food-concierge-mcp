@@ -28,3 +28,11 @@ jobs:
       - name: Embedding model matches the committed reference
         # A fresh download every run, on purpose: the check exists to notice upstream model changes.
         run: pytest -m model_download
+      - name: Build the catalog and indexes with the real embedder, then confirm a re-run does nothing
+        env:
+          PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+        run: |
+          python -m food_concierge.flows build
+          python -m food_concierge.flows build | tee second-run.txt
+          grep -q "^catalog: up to date" second-run.txt
+          grep -q "^index: up to date" second-run.txt

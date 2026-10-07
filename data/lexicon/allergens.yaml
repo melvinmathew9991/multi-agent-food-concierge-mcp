@@ -1,0 +1,283 @@
+# Allergen ingredient lexicon (Phase 2, item 4). Reviewed by the owner; bump `version` on every change.
+#
+# Each term is matched as a whole word, with an optional plural "s"/"es", case-insensitively. At each position the
+# longest known phrase wins, so "peanut butter" is peanuts (not milk) and "makki atta" is neutral (not wheat).
+# A term listed under several allergens maps to all of them. Wheat implies gluten, which is added automatically.
+#
+# - allergens: terms whose presence means the dish contains that allergen (level "contains").
+# - neutral: phrases that look like an allergen term but aren't one; they map to nothing.
+# - opaque: composite ingredients whose recipe can't be seen; a dish listing one is "unverified". A term may also
+#   appear under allergens, when its usual recipe is known to contain something (farsan: peanuts).
+#
+# Negations such as "dairy-free" or "eggless" are deliberately not understood: for safety, a false alarm beats a miss.
+# Recipe assumptions for composite ingredients are recorded in data/raw/README.md.
+
+version: 1
+
+allergens:
+  gluten:
+    - gluten
+    - barley
+    - rye
+    - oats
+    - oat milk
+    - granola
+  wheat:
+    - wheat
+    - atta
+    - maida
+    - flour
+    - rava
+    - suji
+    - sooji
+    - semolina
+    - dalia
+    - bread
+    - breadcrumbs
+    - croutons
+    - panko
+    - bun
+    - baguette
+    - pita
+    - sourdough
+    - naan
+    - roti
+    - rotli
+    - chapati
+    - paratha
+    - parotta
+    - puri
+    - luchi
+    - kulcha
+    - pav
+    - dough
+    - pastry
+    - noodles
+    - pasta
+    - penne
+    - spaghetti
+    - macaroni
+    - fettuccine
+    - lasagne
+    - ditalini
+    - savoiardi
+    - biscuit
+    - seitan
+    - muthia
+    - hing
+    - asafoetida
+    - sambar powder
+    - soy sauce
+    - soy dipping sauce
+    - teriyaki
+    - teriyaki sauce
+    - gochujang
+    - peanut sauce
+    - curry roux
+  crustaceans:
+    - prawn
+    - shrimp
+    - jhinga
+    - crab
+    - lobster
+    - krill
+    - kimchi
+  molluscs:
+    - squid
+    - calamari
+    - octopus
+    - cuttlefish
+    - clam
+    - mussel
+    - oyster
+    - scallop
+  fish:
+    - fish
+    - fish sauce
+    - anchovy
+    - tuna
+    - salmon
+    - basa
+    - bhetki
+    - hilsa
+    - ilish
+    - seer
+    - surmai
+    - pomfret
+    - rohu
+    - mackerel
+    - sardine
+    - cod
+    - tilapia
+    - karimeen
+    - worcestershire
+    - caesar dressing
+    - kimchi
+  eggs:
+    - egg
+    - mayonnaise
+    - mayo
+    - meringue
+    - savoiardi
+    - caesar dressing
+    - tartare sauce
+  milk:
+    - milk
+    - ghee
+    - butter
+    - cream
+    - cheese
+    - paneer
+    - curd
+    - dahi
+    - yogurt
+    - yoghurt
+    - buttermilk
+    - chaas
+    - lassi
+    - khoya
+    - khoa
+    - mawa
+    - malai
+    - chhena
+    - rabri
+    - whey
+    - mozzarella
+    - cheddar
+    - parmesan
+    - feta
+    - mascarpone
+    - ricotta
+    - ice cream
+    - kulfi
+    - shrikhand
+    - kadhi
+    - khaman
+    - tikka
+    - tandoori
+    - shawarma
+    - chocolate
+    - curry roux
+    - caesar dressing
+  peanuts:
+    - nuts
+    - peanut
+    - groundnut
+    - moongphali
+    - peanut butter
+    - peanut sauce
+    - dry garlic chutney
+    - farsan
+    - gujarati dal
+  tree_nuts:
+    - nuts
+    - almond
+    - almond milk
+    - almond butter
+    - almond flour
+    - badam
+    - cashew
+    - kaju
+    - pistachio
+    - pista
+    - walnut
+    - akhrot
+    - hazelnut
+    - pecan
+    - macadamia
+    - brazil nut
+    - praline
+    - marzipan
+  soy:
+    - soy
+    - soya
+    - soybean
+    - soy milk
+    - soy sauce
+    - soy dipping sauce
+    - soy lecithin
+    - tofu
+    - edamame
+    - miso
+    - tempeh
+    - teriyaki
+    - teriyaki sauce
+    - gochujang
+    - peanut sauce
+    - chocolate
+    - curry roux
+  sesame:
+    - sesame
+    - til
+    - tahini
+    - gingelly
+    - hummus
+  mustard:
+    - mustard
+    - kasundi
+    - wasabi
+    - caesar dressing
+    - tartare sauce
+  celery:
+    - celery
+    - celeriac
+  lupin:
+    - lupin
+    - lupini
+  sulphites:
+    - sulphite
+    - sulfite
+    - wine
+    - balsamic vinegar
+    - dried apricot
+    - candied fruit
+    - tutti frutti
+
+neutral:
+  - coconut milk
+  - coconut cream
+  - cocoa butter
+  - butternut
+  - eggplant
+  - rice noodles
+  - rice flour
+  - rice ada
+  - glutinous rice
+  - makki atta
+  - buckwheat
+  - gram flour
+  - chickpea flour
+  - corn flour
+  - coconut flour
+  - ragi flour
+  - jowar flour
+  - bajra flour
+  - cream of tartar
+  - garam masala
+  - ginger garlic paste
+  - tomato sauce
+
+opaque:
+  - masala
+  - pav bhaji masala
+  - chutney
+  - dry garlic chutney
+  - sauce
+  - peanut sauce
+  - dressing
+  - filling
+  - patty
+  - gravy
+  - curry paste
+  - chilli paste
+  - sambar powder
+  - farsan
+  - namkeen
+  - papad
+  - pickle
+  - falafel
+  - granola
+  - kadhi
+  - khaman
+  - gujarati dal
+  - sabzi

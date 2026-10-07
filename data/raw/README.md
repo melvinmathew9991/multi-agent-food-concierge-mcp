@@ -56,3 +56,18 @@ Composite ingredients are opaque in the ingredient list. The ground truth assume
 | kadhi, khaman, shrikhand (in the thali) | milk | Made with curd |
 | chicken tikka | milk | Marinated in curd |
 | poppy seeds, fruit salt, papad | nothing | Not in the 15 keys (papad is urad dal) |
+| balsamic vinegar | sulphites | Wine vinegar contains sulphites |
+| candied fruit, tutti frutti | sulphites | Usually preserved with sulphur dioxide |
+| puff pastry | wheat, gluten | Indian bakery puff pastry is made with vegetable fat, not butter |
+| teriyaki sauce, gochujang, peanut satay sauce, soy dipping sauce | soy, wheat, gluten | Made with soy sauce or wheat |
+| Japanese curry roux | wheat, gluten, soy, milk | Flour-based roux with soy and milk powder |
+| kimchi | fish, crustaceans | Fish sauce and salted shrimp |
+| fish sauce | fish | Fermented fish |
+| chilli paste (tom yum) | crustaceans | Contains dried shrimp |
+| wasabi | mustard | Served wasabi is mostly horseradish with mustard |
+| granola | gluten (not wheat) | Oats are a gluten cereal |
+| glutinous rice | nothing | "Glutinous" refers to stickiness; rice has no gluten |
+| vegetarian green curry paste | nothing | Made without shrimp paste |
+| falafel, hummus base, garlic toum | nothing besides sesame in tahini | Chickpeas, herbs, garlic and oil |
+| chicken shawarma | milk | Marinated in yogurt |
+| silver varq | nothing | Pure silver leaf |

@@ -71,6 +71,13 @@ class CatalogValidationError(AppError):
         self.issues = tuple(issues)
 
 
+class PhotoSourceError(AppError):
+    # Fetching catalog photos from Wikimedia Commons failed, or a file no longer matches its pinned hash.
+    code = "photo_source_error"
+    http_status = 502
+    default_message = "The photo source returned an error."
+
+
 class ProviderError(AppError):
     code = "provider_error"
     http_status = 502

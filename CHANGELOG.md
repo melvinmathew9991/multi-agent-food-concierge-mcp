@@ -30,6 +30,11 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
   At each position the longest phrase wins, so peanut butter is peanuts and makki atta is not wheat. Opaque ingredients (masala mixes, chutneys, unnamed sauces) mark a dish unverified.
 - The allergen safety gate (Phase 2 DoD), in the tests: every hand-checked allergen of every dish is tagged, or the dish is unverified, with unverified capped at 25% of dishes. `scripts/allergen_report.py` prints precision per allergen.
+- Catalog photos from Wikimedia Commons (`ingestion/photos.py`, `scripts/fetch_photos.py`). Only CC0, public domain, CC BY and CC BY-SA files are kept; NC, ND, GFDL-only, non-free, restricted and unknown licences are refused.
+  - Candidates are written to `data/raw/photo_review.csv`, with a local review page for choosing one photo per dish or "no suitable photo".
+  - Approved photos are recorded in `data/raw/attributions.csv` with author, licence and SHA-256, and the loader validates them.
+  - Files are fetched into a new `PHOTO_CACHE_DIR` outside the repository, verified against their hash, and thumbnailed to WebP of at most 480 px.
+  - Requests carry a User-Agent naming the project, and are paced to one per second.
 - The authored catalog (`data/raw/`): 150 dishes at 15 fictional restaurants, two thirds of them Indian, with prices in INR. It was written in three batches, and the owner reviewed each batch's allergen ground truth.
   - Nutrition is invented and consistent with 4P + 4C + 9F.
   - About a third of dishes have no restaurant label, and some labels are deliberately wrong.

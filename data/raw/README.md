@@ -10,6 +10,14 @@ The catalog is written in reviewed batches of about 50 dishes and validated by `
 |---|---|---|
 | `restaurants.csv` | restaurant | `cuisines` is a `;`-separated list from the closed set in `ingestion/taxonomy.py` |
 | `menu.csv` | dish at a restaurant | the same dish at two restaurants is two rows |
+| `photo_review.csv` | photo candidate for a dish | Wikimedia Commons files under accepted licences, plus a `none` row per dish; the owner marks one row per dish `yes` in `approved` |
+| `attributions.csv` | approved photo | file page, file URL, author, licence, licence URL, SHA-256 and size; written by `scripts/fetch_photos.py approve` |
+
+## Photos
+
+Photos come from Wikimedia Commons only, under CC0, public domain, CC BY or CC BY-SA. NC, ND, GFDL-only, non-free and unknown licences are refused, and so are files with restrictions such as trademarks or personality rights. The owner approves one photo per dish, or marks the dish as having no suitable photo.
+
+The image files are not committed. `scripts/fetch_photos.py sync` downloads each one into the photo cache outside the repository, checks it against its pinned SHA-256, and builds a WebP thumbnail of at most 480 px. Wherever a photo is shown, its author and licence are shown with it.
 
 ## `menu.csv` columns
 

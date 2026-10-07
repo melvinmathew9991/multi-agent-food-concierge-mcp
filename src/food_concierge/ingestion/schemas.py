@@ -184,5 +184,31 @@ class MenuRow(MenuItem):
         return MenuItem.model_validate(data)
 
 
+# Licences accepted for catalog photos (Phase 2 plan, item 2): no NC, ND or GFDL-only files.
+LICENCE_PATTERN = r"^(CC0 1\.0|Public domain|CC BY(-SA)? \d\.\d)$"
+
+
+class Photo(_Record):
+    """An ``attributions.csv`` row: the approved Commons photo of one menu item, pinned by its SHA-256."""
+
+    item_id: str = Field(pattern=ID_PATTERN)
+    file_page_url: str = Field(pattern=r"^https://commons\.wikimedia\.org/wiki/File:\S+$")
+    file_url: str = Field(pattern=r"^https://upload\.wikimedia\.org/\S+\.(jpe?g|png|webp)$")
+    author: Text = Field(min_length=1, max_length=200)
+    licence: str = Field(pattern=LICENCE_PATTERN)
+    licence_url: str = Field(pattern=r"^(https://\S+)?$")  # blank for public domain
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+    bytes: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _licence_url_unless_public_domain(self) -> Photo:
+        if not self.licence_url and self.licence != "Public domain":
+            raise ValueError(f"{self.licence} needs a licence_url")
+        return self
+
+
 RESTAURANT_COLUMNS: tuple[str, ...] = tuple(Restaurant.model_fields)
 MENU_COLUMNS: tuple[str, ...] = tuple(MenuRow.model_fields)
+PHOTO_COLUMNS: tuple[str, ...] = tuple(Photo.model_fields)

@@ -20,13 +20,22 @@ from pydantic import BaseModel, ValidationError
 from food_concierge.config import get_settings
 from food_concierge.errors import CatalogIssue, CatalogValidationError
 from food_concierge.ingestion.normalize import ATWATER_TOLERANCE, atwater_deviation
-from food_concierge.ingestion.schemas import MENU_COLUMNS, RESTAURANT_COLUMNS, MenuItem, MenuRow, Restaurant
+from food_concierge.ingestion.schemas import (
+    MENU_COLUMNS,
+    PHOTO_COLUMNS,
+    RESTAURANT_COLUMNS,
+    MenuItem,
+    MenuRow,
+    Photo,
+    Restaurant,
+)
 from food_concierge.ingestion.taxonomy import Allergen
 
 logger = logging.getLogger(__name__)
 
 RESTAURANTS_FILE = "restaurants.csv"
 MENU_FILE = "menu.csv"
+ATTRIBUTIONS_FILE = "attributions.csv"  # optional: a dish may have no suitable photo
 
 _Model = TypeVar("_Model", bound=BaseModel)
 
@@ -35,6 +44,7 @@ _Model = TypeVar("_Model", bound=BaseModel)
 class Catalog:
     restaurants: tuple[Restaurant, ...]
     items: tuple[MenuItem, ...]
+    photos: tuple[Photo, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -87,14 +97,29 @@ def load_catalog(raw_dir: Path | None = None) -> CatalogLoad:
         items[menu_row.item_id] = menu_row.to_item()
         truth[menu_row.item_id] = menu_row.true_allergens
 
+    photos: dict[str, Photo] = {}
+    if (raw_dir / ATTRIBUTIONS_FILE).exists():
+        for line, row in _read_rows(raw_dir / ATTRIBUTIONS_FILE, PHOTO_COLUMNS, issues):
+            photo = _validate(Photo, ATTRIBUTIONS_FILE, line, row, issues)
+            if photo is None:
+                continue
+            if photo.item_id not in items:
+                issues.append(_issue(ATTRIBUTIONS_FILE, line, "item_id", f"no menu item {photo.item_id}"))
+            elif photo.item_id in photos:
+                issues.append(_issue(ATTRIBUTIONS_FILE, line, "item_id", f"{photo.item_id} has two photos"))
+            else:
+                photos[photo.item_id] = photo
+
     if issues:
         raise CatalogValidationError(issues)
     logger.info(
         "catalog loaded",
-        extra={"restaurants": len(restaurants), "items": len(items), "warnings": len(warnings)},
+        extra={"restaurants": len(restaurants), "items": len(items), "photos": len(photos), "warnings": len(warnings)},
     )
     return CatalogLoad(
-        catalog=Catalog(restaurants=tuple(restaurants.values()), items=tuple(items.values())),
+        catalog=Catalog(
+            restaurants=tuple(restaurants.values()), items=tuple(items.values()), photos=tuple(photos.values())
+        ),
         true_allergens=truth,
         warnings=tuple(warnings),
     )

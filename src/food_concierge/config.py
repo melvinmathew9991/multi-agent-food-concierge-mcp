@@ -42,10 +42,18 @@ def _default_cors_origins() -> list[str]:
     return ["http://localhost:8501"]
 
 
-def _default_model_cache_dir() -> Path:
-    # Outside the repository: model files are large and the checkout may sit in a synced folder.
+def _cache_base() -> Path:
+    # Outside the repository: model files and photos are large and the checkout may sit in a synced folder.
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
-    return Path(base) / "food-concierge" / "models"
+    return Path(base) / "food-concierge"
+
+
+def _default_model_cache_dir() -> Path:
+    return _cache_base() / "models"
+
+
+def _default_photo_cache_dir() -> Path:
+    return _cache_base() / "photos"
 
 
 class Settings(BaseSettings):
@@ -147,6 +155,7 @@ class Settings(BaseSettings):
     # Paths
     data_dir: Path = REPO_ROOT / "data"
     model_cache_dir: Path = Field(default_factory=_default_model_cache_dir)
+    photo_cache_dir: Path = Field(default_factory=_default_photo_cache_dir)  # catalog photos and thumbnails
     log_level: str = "INFO"
 
     @field_validator("fallback_providers", "cors_origins", mode="before")

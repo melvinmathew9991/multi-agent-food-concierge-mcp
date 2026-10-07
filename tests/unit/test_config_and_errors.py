@@ -151,8 +151,9 @@ def test_trace_sample_rate_is_a_probability(monkeypatch: pytest.MonkeyPatch) -> 
         Settings(_env_file=None)
 
 
-def test_model_cache_lives_outside_the_repository(settings: Settings) -> None:
+def test_caches_live_outside_the_repository(settings: Settings) -> None:
     assert not settings.model_cache_dir.is_relative_to(REPO_ROOT)
+    assert not settings.photo_cache_dir.is_relative_to(REPO_ROOT)
 
 
 def test_model_cache_falls_back_to_home(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -160,6 +161,7 @@ def test_model_cache_falls_back_to_home(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
 
     assert Settings(_env_file=None).model_cache_dir == Path.home() / ".cache" / "food-concierge" / "models"
+    assert Settings(_env_file=None).photo_cache_dir == Path.home() / ".cache" / "food-concierge" / "photos"
 
 
 def test_derived_paths_and_limits(settings: Settings) -> None:

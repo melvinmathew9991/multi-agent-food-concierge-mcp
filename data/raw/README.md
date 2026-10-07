@@ -1,0 +1,48 @@
+# Catalog source files
+
+The restaurant catalog authored for this project. It is **synthetic by design**: the restaurants are fictional, and the dishes, prices, ratings and nutrition are plausible but invented. Metrics computed on it describe how the system behaves, not real-world accuracy.
+
+The catalog is written in reviewed batches of about 50 dishes and validated by `food_concierge.ingestion.loader`.
+
+## Files
+
+| File | One row per | Notes |
+|---|---|---|
+| `restaurants.csv` | restaurant | `cuisines` is a `;`-separated list from the closed set in `ingestion/taxonomy.py` |
+| `menu.csv` | dish at a restaurant | the same dish at two restaurants is two rows |
+
+## `menu.csv` columns
+
+- **Lists** (`ingredients`, allergen columns) are separated by `;`.
+- **`diet`:** `vegan`, `vegetarian` (lacto-ovo: may contain milk and eggs) or `non_vegetarian`.
+- **`contains_egg`:** `yes` or `no`. It drives the `eggless` filter, and is `yes` for hidden egg too (mayonnaise, Caesar dressing, tartare sauce).
+- **`serves`:** a number of people (`2`) or a range (`1-2`).
+- **`price_inr`:** whole rupees.
+- **`kcal`, `protein_g`, `carbs_g`, `fat_g`:** per serving, plausible values, not measurements. Calories agree with 4P + 4C + 9F within 25%.
+- **`label_allergens`:** what the restaurant declares, in everyday words ("dairy", "nuts").
+  - A blank cell means the dish is **not labelled**. About 30% of dishes are left that way on purpose, because real menus are like that.
+  - `none` means the restaurant **declares** the dish allergen-free.
+  - Some labels are deliberately incomplete or wrong (for example, a dish declared `none` whose sambar powder contains wheat-based hing). The system must never trust labels alone.
+- **`true_allergens`:** the hand-checked allergens of the full recipe, including what is inside composite ingredients such as sauces, chutneys and spice mixes.
+  - Only the 15 canonical keys are accepted, `none` when there are none, and wheat must be listed with gluten.
+  - This column is used **only by tests and evaluation**: the loader keeps it out of the records the system uses.
+  - The owner reviews every entry before a batch merges, and that review is the ground truth's authority.
+
+## Recipe assumptions behind `true_allergens`
+
+Composite ingredients are opaque in the ingredient list. The ground truth assumes these recipes:
+
+| Ingredient | Assumed to contain | Why |
+|---|---|---|
+| hing (asafoetida), sambar powder | wheat, gluten | Commercial compounded hing is usually cut with wheat flour; sambar powder includes it |
+| soy sauce | soy, wheat, gluten | Brewed with wheat |
+| pav, bun, bread, puri, maida, atta, rava, semolina, noodles, pasta | wheat, gluten | Wheat flour |
+| egg noodles, mayonnaise, Caesar dressing, tartare sauce | eggs | Egg or egg yolk |
+| Caesar dressing | fish, mustard, milk | Anchovy, mustard and parmesan |
+| tartare sauce | mustard | Mayonnaise-based with mustard |
+| dry garlic chutney, farsan | peanuts | Mumbai-style recipes include roasted peanuts |
+| gingelly oil | sesame | Unrefined sesame oil |
+| chocolate | milk, soy | Milk solids and soy lecithin |
+| coconut, coconut oil | nothing | Coconut is not treated as a tree nut |
+| chilli sauce, vinegar | nothing | Assumed free of added sulphites |
+| biryani masala, chaat masala, pav bhaji masala, misal masala, green and tamarind chutneys | nothing | Spices, herbs and fruit only |

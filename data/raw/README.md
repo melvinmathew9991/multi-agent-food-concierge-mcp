@@ -43,6 +43,16 @@ Composite ingredients are opaque in the ingredient list. The ground truth assume
 | dry garlic chutney, farsan | peanuts | Mumbai-style recipes include roasted peanuts |
 | gingelly oil | sesame | Unrefined sesame oil |
 | chocolate | milk, soy | Milk solids and soy lecithin |
-| coconut, coconut oil | nothing | Coconut is not treated as a tree nut |
+| coconut, coconut oil, coconut milk | nothing | Coconut is not treated as a tree nut, and coconut milk is not milk |
 | chilli sauce, vinegar | nothing | Assumed free of added sulphites |
-| biryani masala, chaat masala, pav bhaji masala, misal masala, green and tamarind chutneys | nothing | Spices, herbs and fruit only |
+| biryani masala, chaat masala, pav bhaji masala, misal masala, chole masala, green and tamarind chutneys | nothing | Spices, herbs and fruit only |
+| mustard greens (sarson), kasundi | mustard | Mustard plant and mustard sauce |
+| barley | gluten (not wheat) | A gluten cereal that is not wheat |
+| makki atta (maize), rice flour, rice ada | nothing | Gluten-free grains |
+| dried apricots | sulphites | Usually preserved with sulphur dioxide |
+| raisins | nothing | Dark raisins, assumed unsulphited |
+| paratha, rotli, methi muthia | wheat, gluten | Wheat flour (muthia mixes wheat and gram flour) |
+| Gujarati dal | peanuts | Traditionally cooked with peanuts |
+| kadhi, khaman, shrikhand (in the thali) | milk | Made with curd |
+| chicken tikka | milk | Marinated in curd |
+| poppy seeds, fruit salt, papad | nothing | Not in the 15 keys (papad is urad dal) |

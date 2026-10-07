@@ -76,7 +76,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 Calls after an idle stretch appear slow. So whether the fallback works inside the 8 s deadline is not settled, which is ADR-0006's revisit trigger. It is to be measured over a longer window before the P4 demo relies on it.
 
-**Closed 2026-10-06.** Every DoD item is met except vision, which is **deferred to Phase 2 item 6** by the owner's decision: no own photos were available, and Phase 2 describes ~150 openly licensed catalog photos with the same local model, which is a larger and reproducible test set. No vision default is configured until then. `scripts/smoke_live.py --photos <folder>` still measures own photos whenever they are available.
+**Closed 2026-10-06.** Every DoD item is met except vision, which is **deferred to Phase 2 item 7** by the owner's decision: no own photos were available, and Phase 2 describes ~150 openly licensed catalog photos with the same local model, which is a larger and reproducible test set. No vision default is configured until then. `scripts/smoke_live.py --photos <folder>` still measures own photos whenever they are available.
 
 Carried forward:
 - Gemini latency after idle periods, to be measured over a longer window **before the P4 demo** relies on the fallback (ADR-0006 revisit trigger).
@@ -175,6 +175,33 @@ Workstreams (one PR each, in order; the owner reviews before each merge):
 - Every photo has a licence record, and no NC or ND file is present.
 - The vision measurement is committed and ADR-0007 accepted.
 - `docs/data-card.md` is published, and offline tests stay at 100% coverage.
+
+**Status (2026-10-07):** seven of eight workstreams merged (PRs #20–#28); photo approval and descriptions remain.
+
+| Workstream | PR | Result |
+|---|---|---|
+| `feat/p2-catalog-schema` | #20 | schemas, 15-key taxonomy, loader reporting every bad row, diet and Atwater checks |
+| `feat/p2-catalog-data` | #21–#23 | 150 dishes at 15 fictional restaurants (67% Indian); 31% unlabelled on purpose; ground truth reviewed by the owner per batch |
+| `feat/p2-allergens` | #24 | lexicon v1 and three-source tagger; **safety gate passes** (no untagged true allergen on a verified dish); 25 of 150 unverified (17%), capped at 25% |
+| `feat/p2-photos` | #25 | Commons tooling; 696 licence-checked candidates for all 150 dishes; **owner approval pending** |
+| `feat/p2-storage` | #26 | SQLite catalog; `dish_key` (6 dishes at two restaurants); semantic `doc_text`; SQL filters checked against `Filters.admits` on 400 random combinations |
+| `feat/p2-indexes` | #27 | FAISS, Qdrant and BM25 with a manifest; **property test passes**: no filtered search on any backend returns a violating dish (300 random combinations) |
+| `feat/p2-flows` | #28 | `python -m food_concierge.flows build`; a second run is a no-op (also checked nightly with the real embedder); `docs/data-card.md` |
+| `feat/p2-descriptions` | — | waits for approved photos |
+
+DoD so far:
+- One-command build and no-op re-run: met (descriptions not yet part of it).
+- Allergen safety gate: met.
+- Property test on both backends: met.
+- Data card, and 100% coverage (463 tests): met.
+- Open: photo licence records (after approval), the vision measurement and ADR-0007.
+
+Deviations from the plan above, each recorded in the PR that made it:
+- Qdrant runs in memory, rebuilt from the saved vectors at load: its on-disk local mode persists points with pickle (rules §1).
+- Hard filters are decided once in SQL; backends restrict to those ids instead of each applying payload filters, so the rules live in one place.
+- "Re-run is a no-op" comes from explicit input-hash checks, not Prefect's result cache, whose default serializer is pickle.
+- `doc_text` adds the menu category to the plan's fields (`DOC_TEXT_VERSION` 1).
+- The allergen precision figures are in-sample: the lexicon was written against this catalog.
 
 ## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · M
 **Goal:** the "before" numbers and a CI gate, before any agent logic (A5).

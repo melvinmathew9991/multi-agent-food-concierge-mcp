@@ -9,7 +9,7 @@
 **Approved (runtime):**
 - **Agent:** `langgraph`, `langgraph-checkpoint-sqlite`, `langchain-core`, `langchain-openai`, `langchain-aws`, `langchain-mcp-adapters`
 - **Protocol:** `mcp`
-- **Retrieval:** `faiss-cpu`, `qdrant-client` (local mode only), `fastembed` (embeddings + cross-encoder rerank), `rank-bm25`, `numpy`
+- **Retrieval:** `faiss-cpu`, `qdrant-client` (in memory only: its on-disk local mode persists with pickle), `fastembed` (embeddings + cross-encoder rerank), `rank-bm25`, `numpy`
 - **Interop:** `a2a-sdk`
 - **Workflows:** `prefect` (OSS; no Prefect Cloud dependency)
 - **Guardrails:** `onnxruntime`, `tokenizers`, `huggingface-hub` (local classifier; model licence must permit redistribution/use)

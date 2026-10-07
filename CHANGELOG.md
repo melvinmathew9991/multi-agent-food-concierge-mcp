@@ -60,6 +60,10 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - Six dishes are served at two restaurants.
   - `data/raw/README.md` documents the columns, the label gaps, and the recipe assumptions behind the ground truth, such as hing and soy sauce containing wheat, and kimchi containing fish and shrimp.
 
+#### Changed
+- Engineering rules §1: `qdrant-client` is used in memory only, because its on-disk local mode persists with pickle.
+- Architecture and data-handling documents updated to match what Phase 2 built: the build command, in-memory Qdrant, filtering through SQL candidate ids, `doc_text` with category, hash-checked re-runs, Wikimedia Commons as an offline source, and Prefect analytics off.
+
 ### Phase 1: Models, embeddings, telemetry (closed 2026-10-06)
 
 One model layer for every later phase:

@@ -8,6 +8,23 @@ the chained ``__cause__`` and the logs.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class CatalogIssue:
+    """One problem found in a catalog file; ``line`` and ``column`` are None when they don't apply."""
+
+    file: str
+    line: int | None
+    column: str | None
+    message: str
+
+    def __str__(self) -> str:
+        where = self.file if self.line is None else f"{self.file}:{self.line}"
+        return f"{where} {self.column}: {self.message}" if self.column else f"{where}: {self.message}"
+
 
 class AppError(Exception):
     code: str = "internal_error"
@@ -42,6 +59,16 @@ class NotReadyError(AppError):
 class RetrievalError(AppError):
     code = "retrieval_error"
     default_message = "Search failed."
+
+
+class CatalogValidationError(AppError):
+    # Raised by ingestion after every row has been checked, so one run reports every problem in the files.
+    code = "catalog_invalid"
+    default_message = "The catalog files are invalid."
+
+    def __init__(self, issues: Sequence[CatalogIssue]) -> None:
+        super().__init__(f"The catalog files have {len(issues)} problem(s).")
+        self.issues = tuple(issues)
 
 
 class ProviderError(AppError):

@@ -23,6 +23,11 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - header mismatches.
   Calories more than 25% away from 4P + 4C + 9F are warnings.
 - A 12-dish fixture catalog (`tests/fixtures/catalog/`) with fictional restaurants, deliberate label gaps and a dish served at two restaurants.
+- The authored catalog (`data/raw/`): 150 dishes at 15 fictional restaurants, two thirds of them Indian, with prices in INR. It was written in three batches, and the owner reviewed each batch's allergen ground truth.
+  - Nutrition is invented and consistent with 4P + 4C + 9F.
+  - About a third of dishes have no restaurant label, and some labels are deliberately wrong.
+  - Six dishes are served at two restaurants.
+  - `data/raw/README.md` documents the columns, the label gaps, and the recipe assumptions behind the ground truth, such as hing and soy sauce containing wheat, and kimchi containing fish and shrimp.
 
 ### Phase 1: Models, embeddings, telemetry (closed 2026-10-06)
 

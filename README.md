@@ -31,7 +31,14 @@ python -m food_concierge.flows build   # validate, tag allergens, build SQLite a
 python scripts/allergen_report.py      # the allergen safety gate and per-allergen precision
 ```
 
-The first build downloads the local embedding model (fastembed, cached outside the repository). Outputs go to `data/processed/` and are git-ignored. The catalog is synthetic by design; see [`docs/data-card.md`](docs/data-card.md) and [`data/raw/README.md`](data/raw/README.md).
+The first build downloads the local embedding model (fastembed, cached outside the repository). The catalog database and indexes go to `data/processed/` and are git-ignored; the photo descriptions there (`image_descriptions.jsonl`) are tracked, so the build never needs a vision model.
+
+Catalog photos are maintained by hand, never by CI:
+
+```bash
+python scripts/fetch_photos.py sync    # fetch the approved Commons photos into the local cache and verify their hashes
+python scripts/describe_photos.py      # describe new photos with the local Ollama vision model (qwen2.5vl:7b)
+``` The catalog is synthetic by design; see [`docs/data-card.md`](docs/data-card.md) and [`data/raw/README.md`](data/raw/README.md).
 
 ## Tracing (optional)
 

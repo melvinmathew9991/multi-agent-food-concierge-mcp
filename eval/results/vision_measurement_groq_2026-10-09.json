@@ -1,11 +1,11 @@
 {
  "run": {
-  "created": "2026-10-09T15:44:50+00:00",
-  "commit": "90f1ddf",
+  "created": "2026-10-09T15:57:44+00:00",
+  "commit": "d8ed1fe",
   "provider": "groq",
   "dataset": "eval/datasets/vision_sample_groq.yaml",
-  "dataset_sha256": "e0e65827faa0f25fdcd0e04032861951fdd679d137e0f64f0036c4f6a6042ff9",
-  "reviewed": false,
+  "dataset_sha256": "2c638618eca310269b039b0475c10ddd511e305cecee40d28e9044502243506e",
+  "reviewed": true,
   "models": [
    "qwen/qwen3.8-27b"
   ],

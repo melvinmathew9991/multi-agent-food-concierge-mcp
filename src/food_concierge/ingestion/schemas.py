@@ -193,7 +193,7 @@ class Photo(_Record):
 
     item_id: str = Field(pattern=ID_PATTERN)
     file_page_url: str = Field(pattern=r"^https://commons\.wikimedia\.org/wiki/File:\S+$")
-    file_url: str = Field(pattern=r"^https://upload\.wikimedia\.org/\S+\.(jpe?g|png|webp)$")
+    file_url: str = Field(pattern=r"^https://upload\.wikimedia\.org/\S+\.(?i:jpe?g|png|webp)$")  # Commons keeps ".JPG"
     author: Text = Field(min_length=1, max_length=200)
     licence: str = Field(pattern=LICENCE_PATTERN)
     licence_url: str = Field(pattern=r"^(https://\S+)?$")  # blank for public domain

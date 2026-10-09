@@ -34,6 +34,7 @@ USER_AGENT = (
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 MIN_WIDTH = 480
 THUMBNAIL_PX = 480
+CATALOG_MAX_PIXELS = 250_000_000  # the largest approved original is 200 MP
 NONE = "none"  # the review-sheet candidate meaning "no suitable photo for this dish"
 
 REVIEW_COLUMNS = (
@@ -51,8 +52,14 @@ class Licence:
     url: str
 
 
+def https(url: str) -> str:
+    """Commons still gives some licence links as ``http://``; every licence host serves https."""
+    return "https://" + url.removeprefix("http://") if url.startswith("http://") else url
+
+
 def classify_licence(code: str | None, url: str | None) -> Licence | None:
     """Map a Commons ``License`` code to an accepted licence, or None when the file must be refused."""
+    url = https(url) if url else url
     key = re.sub(r"\s+", "-", (code or "").strip().lower())
     if key in {"cc0", "cc0-1.0", "cc-zero"}:
         return Licence("CC0 1.0", url or "https://creativecommons.org/publicdomain/zero/1.0/")
@@ -197,10 +204,20 @@ def _write_atomically(path: Path, data: bytes) -> None:
 
 
 def make_thumbnail(data: bytes, max_px: int = THUMBNAIL_PX) -> bytes:
-    """A WebP no larger than ``max_px`` on either side, RGB, without metadata."""
-    with Image.open(io.BytesIO(data)) as image:
-        image.thumbnail((max_px, max_px))
-        rgb = image.convert("RGB")
+    """A WebP no larger than ``max_px`` on either side, RGB, without metadata.
+
+    Commons originals reach 200 MP, past Pillow's bomb limit. These files are owner-approved and hash-pinned, so the
+    limit is raised to ``CATALOG_MAX_PIXELS`` here only (offline, single-threaded), and JPEGs decode at reduced scale.
+    Uploads keep the default limit (``models/images.py``).
+    """
+    default, Image.MAX_IMAGE_PIXELS = Image.MAX_IMAGE_PIXELS, CATALOG_MAX_PIXELS
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.draft("RGB", (max_px, max_px))
+            image.thumbnail((max_px, max_px))
+            rgb = image.convert("RGB")
+    finally:
+        Image.MAX_IMAGE_PIXELS = default
     out = io.BytesIO()
     rgb.save(out, format="WEBP", quality=82, method=6)
     return out.getvalue()
@@ -275,20 +292,25 @@ def read_approvals(rows: Iterable[Mapping[str, str]]) -> Approvals:
     return Approvals(chosen, frozenset(no_photo), unreviewed, tuple(problems))
 
 
-def approve(item_id: str, row: Mapping[str, str], client: CommonsClient, cache_dir: Path) -> Photo:
-    """Download an approved candidate, pin its hash, cache it and return its attribution."""
-    data = client.download(row["file_url"])
-    photo = Photo(
+def attribution(item_id: str, row: Mapping[str, str], digest: str, size: int) -> Photo:
+    """The attribution for an approved review-sheet row; raises ValidationError when the row cannot be one."""
+    return Photo(
         item_id=item_id,
         file_page_url=row["file_page_url"],
         file_url=row["file_url"],
         author=row["author"],
         licence=row["licence"],
-        licence_url=row["licence_url"],
-        sha256=sha256(data),
+        licence_url=https(row["licence_url"]),
+        sha256=digest,
         width=int(row["width"]),
         height=int(row["height"]),
-        bytes=len(data),
+        bytes=size,
     )
+
+
+def approve(item_id: str, row: Mapping[str, str], client: CommonsClient, cache_dir: Path) -> Photo:
+    """Download an approved candidate, pin its hash, cache it and return its attribution."""
+    data = client.download(row["file_url"])
+    photo = attribution(item_id, row, sha256(data), len(data))
     _write_atomically(original_path(cache_dir, photo), data)
     return photo

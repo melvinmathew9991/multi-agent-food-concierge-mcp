@@ -22,7 +22,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from food_concierge.errors import NotReadyError
-from food_concierge.ingestion.allergens import DishAllergens
+from food_concierge.ingestion.allergens import DishAllergens, Level
 from food_concierge.ingestion.descriptions import ImageDescription
 from food_concierge.ingestion.loader import Catalog
 from food_concierge.ingestion.schemas import MenuItem
@@ -193,7 +193,7 @@ class Filters(BaseModel):
         return (
             (self.diet is None or item.diet in ALLOWED_DIETS[self.diet])
             and not (self.eggless and item.contains_egg)
-            and not (excluded & tags.flagged)
+            and not (excluded & tags.contains)
             and not (excluded and tags.unverified and not self.include_unverified)
             and (self.max_kcal is None or item.kcal <= self.max_kcal)
             and (self.max_price_inr is None or item.price_inr <= self.max_price_inr)
@@ -235,11 +235,12 @@ class CatalogStore:
             where.append("contains_egg = 0")
             excluded.add(Allergen.EGGS)
         if excluded:
+            # Only "contains" hides a dish; vision's "may_contain" is shown, not filtered on (ADR-0007).
             where.append(
-                "NOT EXISTS (SELECT 1 FROM allergen_tags t WHERE t.item_id = items.item_id "  # noqa: S608
+                "NOT EXISTS (SELECT 1 FROM allergen_tags t WHERE t.item_id = items.item_id AND t.level = ? "  # noqa: S608
                 f"AND t.allergen IN ({', '.join('?' * len(excluded))}))"
             )
-            params += sorted(excluded)
+            params += [Level.CONTAINS.value, *sorted(excluded)]
             if not filters.include_unverified:
                 where.append("unverified = 0")
         if filters.max_kcal is not None:

@@ -15,6 +15,19 @@
 
    This prints the summary and writes eval/results/vision_measurement_<date>.json. Every entry must be scored.
 
+A hosted model is measured on the same 30 photos, for the runtime vision default (ADR-0007). It is live, so never
+run in CI; the photos are the catalog's Commons files, never user data:
+
+       python scripts/vision_measurement.py describe --provider groq
+       python scripts/vision_measurement.py sample --provider groq
+       python scripts/vision_measurement.py report --provider groq
+
+``describe`` sends each sampled photo through the production code path (``describe`` in ingestion/descriptions.py:
+the same prompt, 1024 px, no metadata) and writes eval/datasets/vision_descriptions_<provider>.jsonl, saving after
+each photo. Attempt timeouts are relaxed to 30 s, and calls slower than the production timeout are counted. Calls
+are paced under the provider's tokens-a-minute cap. ``sample`` and ``report`` then work as above, on
+eval/datasets/vision_sample_<provider>.yaml.
+
 Scores per description:
 
 - ``dish_type``: ``correct`` (the kind of dish is right), ``partial`` (the right family, wrong specifics: "a soup"
@@ -36,6 +49,7 @@ import math
 import random
 import subprocess
 import sys
+import time
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -43,8 +57,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import Field
 
-from food_concierge.config import REPO_ROOT, get_settings
+from food_concierge.config import REPO_ROOT, ProviderName, Settings, get_settings
+from food_concierge.errors import ProviderRateLimitedError, ProviderTimeoutError
 from food_concierge.ingestion.allergens import Lexicon, load_lexicon
 from food_concierge.ingestion.descriptions import (
     DESCRIPTIONS_FILE,
@@ -52,22 +68,63 @@ from food_concierge.ingestion.descriptions import (
     DescriptionKey,
     ImageDescription,
     Variant,
+    describe,
+    prompt_for,
     read_descriptions,
 )
 from food_concierge.ingestion.loader import load_catalog
+from food_concierge.ingestion.photos import CommonsClient, ensure_cached
 from food_concierge.ingestion.taxonomy import with_implied
+from food_concierge.models.router import build_chat_model
+from food_concierge.models.usage import get_usage_ledger
 
 DATASET = REPO_ROOT / "eval" / "datasets" / "vision_sample.yaml"
 RESULTS = REPO_ROOT / "eval" / "results"
 SAMPLE_SIZE = 30
 SEED = 20261009
 DISH_TYPES = ("correct", "partial", "wrong")
+LOCAL = "ollama"  # the tracked description cache, written by scripts/describe_photos.py
+# Hosted vision models to measure. Found by a probe on 2026-10-09: Groq names no vision model, but qwen3.8-27b
+# accepts images.
+HOSTED_MODELS: dict[str, str] = {"groq": "qwen/qwen3.8-27b"}
+HOSTED_TIMEOUT_S = 30.0
+RATE_LIMIT_WAIT_S = 60.0
 SCORE_FIELDS = ("dish_type", "seen", "not_seen", "not_visible", "note")
 HEADER = """\
 # Hand-checked sample of name-free photo descriptions (Phase 2 plan, item 7), scored against each photo.
 # Drawn by `python scripts/vision_measurement.py sample`; scoring rules are in that script's docstring.
 # Drafted by looking at each thumbnail; `reviewed: true` records that the owner has checked every score.
 """
+
+
+class HostedDescription(ImageDescription):
+    """A hosted model's description, with the tokens its reply reported: images dominate the token budget."""
+
+    tokens: int = Field(default=0, ge=0)
+    failed_attempts: int = Field(default=0, ge=0)  # timeouts and 429s before the reply that was kept
+
+
+def dataset_path(provider: str) -> Path:
+    return DATASET if provider == LOCAL else DATASET.with_name(f"vision_sample_{provider}.yaml")
+
+
+def hosted_cache_path(provider: str) -> Path:
+    return DATASET.with_name(f"vision_descriptions_{provider}.jsonl")
+
+
+def read_hosted(path: Path) -> dict[DescriptionKey, HostedDescription]:
+    if not path.exists():
+        return {}
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    found = (HostedDescription.model_validate_json(line) for line in lines)
+    return {(d.sha256, d.variant): d for d in found}
+
+
+def write_hosted(path: Path, cache: Mapping[DescriptionKey, HostedDescription]) -> None:
+    """Sorted by hash, LF line ends, so the file diffs cleanly."""
+    lines = [json.dumps(cache[key].model_dump(mode="json"), ensure_ascii=False) for key in sorted(cache)]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8", newline="\n")
 
 
 def draw(shas: Sequence[str], size: int = SAMPLE_SIZE, seed: int = SEED) -> list[str]:
@@ -162,6 +219,8 @@ def latency(cache: Mapping[DescriptionKey, ImageDescription]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for variant in Variant:
         values = [d.latency_ms for (_, v), d in cache.items() if v is variant]
+        if not values:  # hosted runs describe the name-free variant only
+            continue
         out[variant.value] = {"n": len(values), "p50_ms": percentile(values, 0.5), "p95_ms": percentile(values, 0.95)}
     return out
 
@@ -267,15 +326,111 @@ def write_dataset(path: Path, dataset: Mapping[str, Any]) -> None:
     path.write_text(HEADER + body, encoding="utf-8", newline="\n")
 
 
+def hosted_settings(settings: Settings, provider: ProviderName) -> Settings:
+    """Production settings with the measured model and a relaxed attempt timeout, so slow calls are counted."""
+    return settings.model_copy(
+        update={
+            f"{provider}_vision_model": HOSTED_MODELS[provider],
+            f"{provider}_timeout_s": HOSTED_TIMEOUT_S,
+            "request_deadline_s": HOSTED_TIMEOUT_S * 2,
+        }
+    )
+
+
+def wait_for_token_budget(settings: Settings, provider: ProviderName, expected: int) -> None:
+    """Sleep until a call of about ``expected`` tokens fits under the provider's tokens-a-minute cap."""
+    cap = settings.minute_token_limit(provider)
+    ledger = get_usage_ledger()
+    while cap is not None and ledger.usage(provider).tokens_last_minute + expected > cap:
+        time.sleep(2)
+
+
+def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDescription]:
+    """Describe the local sample's photos with ``provider``'s model (name-free), skipping those already described."""
+    sample = read_dataset(DATASET)["entries"]
+    if not sample:
+        raise SystemExit("no local sample yet; run `sample` first")
+    photos = {photo.sha256: photo for photo in load_catalog(settings.raw_dir).catalog.photos}
+    path = hosted_cache_path(provider)
+    cache = read_hosted(path)
+    measured = hosted_settings(settings, provider)
+    model = build_chat_model(provider, "vision", measured)
+    client = CommonsClient()
+    ledger = get_usage_ledger()
+    new: list[HostedDescription] = []
+    expected = 0  # the most tokens one photo has cost so far
+    for entry in sample:
+        sha = entry["sha256"]
+        found = cache.get((sha, Variant.NAME_FREE))
+        if found is not None and found.prompt_version == PROMPT_VERSION:
+            continue
+        image = ensure_cached(photos[sha], client, settings.photo_cache_dir).read_bytes()
+        wait_for_token_budget(measured, provider, expected)
+        before = ledger.usage(provider).tokens_last_minute
+        failed = 0
+        try:
+            text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
+        except (ProviderRateLimitedError, ProviderTimeoutError) as error:  # recorded, then one retry after a wait
+            print(f"{entry['item_id']}: {error.code}; retrying in {RATE_LIMIT_WAIT_S:g} s")
+            failed = 1
+            time.sleep(RATE_LIMIT_WAIT_S)
+            before = ledger.usage(provider).tokens_last_minute
+            text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
+        tokens = max(0, ledger.usage(provider).tokens_last_minute - before)
+        expected = max(expected, tokens)
+        cache[(sha, Variant.NAME_FREE)] = description = HostedDescription(
+            sha256=sha,
+            variant=Variant.NAME_FREE,
+            model=HOSTED_MODELS[provider],
+            prompt_version=PROMPT_VERSION,
+            text=text,
+            latency_ms=latency_ms,
+            tokens=tokens,
+            failed_attempts=failed,
+        )
+        new.append(description)
+        write_hosted(path, cache)
+        print(f"{entry['item_id']}: {latency_ms} ms, {tokens} tokens")
+    return new
+
+
+def hosted_usage(cache: Mapping[DescriptionKey, HostedDescription], timeout_s: float) -> dict[str, Any]:
+    """Tokens per photo, and the calls that would have missed the production attempt timeout."""
+    tokens = [d.tokens for d in cache.values()]
+    return {
+        "tokens_per_photo": {"n": len(tokens), "p50": percentile(tokens, 0.5), "max": max(tokens, default=None)},
+        "over_production_timeout": {
+            "timeout_s": timeout_s,
+            "k": sum(d.latency_ms > timeout_s * 1000 for d in cache.values()),
+            "n": len(cache),
+        },
+        "failed_attempts": sum(d.failed_attempts for d in cache.values()),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("sample", "report"))
+    parser.add_argument("command", choices=("describe", "sample", "report"))
+    parser.add_argument("--provider", choices=(LOCAL, *HOSTED_MODELS), default=LOCAL)
     parser.add_argument("--out", type=Path, help="results file (default eval/results/vision_measurement_<date>.json)")
     args = parser.parse_args(argv)
 
     settings = get_settings()
-    cache = read_descriptions(settings.processed_dir / DESCRIPTIONS_FILE)
-    dataset = read_dataset(DATASET)
+    provider = args.provider
+    if args.command == "describe":
+        if provider == LOCAL:
+            raise SystemExit("local descriptions come from scripts/describe_photos.py")
+        new = describe_sample(settings, provider)
+        print(f"{len(new)} descriptions written to {hosted_cache_path(provider).relative_to(REPO_ROOT)}")
+        return 0
+
+    cache: Mapping[DescriptionKey, ImageDescription] = (
+        read_descriptions(settings.processed_dir / DESCRIPTIONS_FILE)
+        if provider == LOCAL
+        else read_hosted(hosted_cache_path(provider))
+    )
+    path = dataset_path(provider)
+    dataset = read_dataset(path)
 
     if args.command == "sample":
         catalog = load_catalog(settings.raw_dir).catalog
@@ -283,15 +438,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         dishes: dict[str, tuple[str, str]] = {}
         for photo in catalog.photos:  # a photo shared by two dishes is described under the first
             dishes.setdefault(photo.sha256, (photo.item_id, names[photo.item_id]))
+        if provider != LOCAL:  # the same photos as the local sample
+            dishes = {entry["sha256"]: dishes[entry["sha256"]] for entry in read_dataset(DATASET)["entries"]}
         previous = {entry["sha256"]: entry for entry in dataset["entries"]}
         dataset["entries"] = build_entries(cache, dishes, load_lexicon(), previous)
         dataset.update(seed=SEED, prompt_version=PROMPT_VERSION)
-        write_dataset(
-            DATASET, {key: dataset[key] for key in ("version", "seed", "prompt_version", "reviewed", "entries")}
-        )
-        page = settings.photo_cache_dir / "vision_review.html"
+        write_dataset(path, {key: dataset[key] for key in ("version", "seed", "prompt_version", "reviewed", "entries")})
+        suffix = "" if provider == LOCAL else f"_{provider}"
+        page = settings.photo_cache_dir / f"vision_review{suffix}.html"
         page.write_text(review_page(dataset["entries"]), encoding="utf-8")
-        print(f"wrote {DATASET.relative_to(REPO_ROOT)} ({len(dataset['entries'])} entries) and {page}")
+        print(f"wrote {path.relative_to(REPO_ROOT)} ({len(dataset['entries'])} entries) and {page}")
         return 0
 
     found = problems(dataset["entries"], cache)
@@ -302,12 +458,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     timing = latency(cache)
     print(render(summary, timing, bool(dataset["reviewed"])))
     models = sorted({d.model for d in cache.values()})
-    results = {
+    results: dict[str, Any] = {
         "run": {
             "created": datetime.now(UTC).isoformat(timespec="seconds"),
             "commit": _git_commit(),
-            "dataset": str(DATASET.relative_to(REPO_ROOT)).replace("\\", "/"),
-            "dataset_sha256": hashlib.sha256(DATASET.read_bytes()).hexdigest(),
+            "provider": provider,
+            "dataset": str(path.relative_to(REPO_ROOT)).replace("\\", "/"),
+            "dataset_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "reviewed": bool(dataset["reviewed"]),
             "models": models,
             "prompt_version": dataset["prompt_version"],
@@ -315,7 +472,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         "summary": summary,
         "latency": timing,
     }
-    out = args.out or RESULTS / f"vision_measurement_{datetime.now(UTC):%Y-%m-%d}.json"
+    if provider != LOCAL:
+        usage = hosted_usage(read_hosted(hosted_cache_path(provider)), settings.timeout_for(provider))
+        results["usage"] = usage
+        tokens, slow = usage["tokens_per_photo"], usage["over_production_timeout"]
+        print(
+            f"Tokens per photo: p50 {tokens['p50']}, max {tokens['max']}; "
+            f"over the {slow['timeout_s']:g} s production timeout: {slow['k']}/{slow['n']}; "
+            f"failed attempts (timeouts, 429s): {usage['failed_attempts']}."
+        )
+    name = "vision_measurement" if provider == LOCAL else f"vision_measurement_{provider}"
+    out = args.out or RESULTS / f"{name}_{datetime.now(UTC):%Y-%m-%d}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     print(f"wrote {out}")

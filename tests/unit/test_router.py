@@ -90,6 +90,8 @@ def settings() -> Settings:
         gemini_api_key=SecretStr("gemini-test"),
         groq_chat_model="groq-chat",
         gemini_chat_model="gemini-chat",
+        # Groq without a vision model, so vision tests exercise skipping a provider; the defaults are tested below.
+        groq_vision_model="",
         gemini_vision_model="gemini-vision",
     )
 
@@ -193,9 +195,20 @@ def test_roles_without_a_model_skip_that_provider(settings: Settings, caplog: py
 
 
 def test_no_model_for_the_role_is_a_config_error() -> None:
-    # Neither hosted provider has a default vision model (ADR-0006).
     with pytest.raises(errors.ConfigError, match="No provider"):
-        get_chat_model("vision", Settings(_env_file=None))
+        get_chat_model("vision", Settings(_env_file=None, groq_vision_model=""))
+
+
+def test_by_default_a_photo_goes_to_groq_and_never_falls_back_to_gemini() -> None:
+    # ADR-0007: Gemini's free tier may use what it is sent, so it has no default vision model.
+    defaults = Settings(_env_file=None, groq_api_key=SecretStr("gsk-test"), gemini_api_key=SecretStr("gemini-test"))
+    fake = FakeProviders(groq=status(429))
+
+    with pytest.raises(errors.ProviderRateLimitedError):
+        get_chat_model("vision", defaults, http_client=fake.client()).invoke("describe")
+
+    assert fake.hosts() == [GROQ]
+    assert fake.body()["model"] == "qwen/qwen3.8-27b"
 
 
 def test_ollama_uses_its_local_endpoint_without_reasoning_effort() -> None:

@@ -9,9 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from food_concierge.config import REPO_ROOT
+from food_concierge.config import REPO_ROOT, get_settings
 from food_concierge.errors import NotReadyError
 from food_concierge.ingestion.allergens import DishAllergens, load_lexicon, tag_item
+from food_concierge.ingestion.descriptions import DESCRIPTIONS_FILE, read_descriptions, vision_texts
 from food_concierge.ingestion.loader import CatalogLoad, load_catalog
 from food_concierge.ingestion.taxonomy import Allergen, Cuisine, Diet
 from food_concierge.storage.catalog_db import (
@@ -35,8 +36,11 @@ def loaded() -> CatalogLoad:
 
 @pytest.fixture(scope="module")
 def tags(loaded: CatalogLoad) -> dict[str, DishAllergens]:
+    # With the tracked photo descriptions, so the filters see vision's may_contain tags as the build stores them.
     lexicon = load_lexicon(REPO_ROOT / "data" / "lexicon" / "allergens.yaml")
-    return {item.item_id: tag_item(item, lexicon) for item in loaded.catalog.items}
+    cache = read_descriptions(get_settings().processed_dir / DESCRIPTIONS_FILE)
+    vision = vision_texts(loaded.catalog.photos, cache)
+    return {item.item_id: tag_item(item, lexicon, vision.get(item.item_id)) for item in loaded.catalog.items}
 
 
 @pytest.fixture(scope="module")
@@ -169,7 +173,7 @@ def test_specific_filters(store: CatalogStore) -> None:
     assert "k05" not in vegetarian  # chicken tikka masala
 
     no_gluten = set(store.candidate_ids(Filters(exclude_allergens=frozenset({A.GLUTEN}))))
-    assert "s02" in no_gluten  # makki di roti
+    assert "s02" in no_gluten  # makki di roti, though its photo description adds may_contain gluten (ADR-0007)
     assert "a10" in no_gluten  # mango sticky rice: glutinous rice has no gluten
     assert "k03" not in no_gluten  # butter naan
     assert "h02" not in no_gluten  # haleem: barley and wheat
@@ -182,3 +186,14 @@ def test_specific_filters(store: CatalogStore) -> None:
     assert "f03" not in eggless  # caesar salad: egg in the dressing
 
     assert store.candidate_ids(Filters()) == sorted(store.doc_texts())
+
+
+def test_only_contains_hides_a_dish_and_may_contain_is_kept_for_display(
+    store: CatalogStore, tags: dict[str, DishAllergens]
+) -> None:
+    assert tags["s02"].may_contain == {A.GLUTEN, A.WHEAT}  # makki di roti: maize, called bread in its description
+    assert tags["h04"].may_contain == {A.FISH}  # bagara baingan: aubergines described as whole fish
+
+    assert "s02" in store.candidate_ids(Filters(exclude_allergens=frozenset({A.GLUTEN})))
+    assert "h04" in store.candidate_ids(Filters(exclude_allergens=frozenset({A.FISH})))
+    assert "k03" not in store.candidate_ids(Filters(exclude_allergens=frozenset({A.GLUTEN})))  # contains gluten

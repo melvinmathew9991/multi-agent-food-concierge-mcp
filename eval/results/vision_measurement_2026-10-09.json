@@ -1,0 +1,95 @@
+{
+ "run": {
+  "created": "2026-10-09T13:55:31+00:00",
+  "commit": "40d0f14",
+  "dataset": "eval/datasets/vision_sample.yaml",
+  "dataset_sha256": "a40edc7a1ceff52325dc541a1df516300478947216c3cf43c101ce2241dd7937",
+  "reviewed": false,
+  "models": [
+   "qwen2.5vl:7b"
+  ],
+  "prompt_version": 1
+ },
+ "summary": {
+  "descriptions": 30,
+  "dish_type": {
+   "counts": {
+    "correct": 23,
+    "partial": 6,
+    "wrong": 1
+   },
+   "correct": {
+    "rate": 0.767,
+    "k": 23,
+    "n": 30,
+    "ci95": [
+     0.591,
+     0.882
+    ]
+   },
+   "correct_or_partial": {
+    "rate": 0.967,
+    "k": 29,
+    "n": 30,
+    "ci95": [
+     0.833,
+     0.994
+    ]
+   }
+  },
+  "ingredients": {
+   "named": 98,
+   "precision": {
+    "rate": 0.837,
+    "k": 82,
+    "n": 98,
+    "ci95": [
+     0.751,
+     0.897
+    ]
+   },
+   "descriptions_with_an_unseen_ingredient": {
+    "rate": 0.433,
+    "k": 13,
+    "n": 30,
+    "ci95": [
+     0.274,
+     0.608
+    ]
+   }
+  },
+  "allergen_terms": {
+   "found": 26,
+   "not_visible": {
+    "rate": 0.192,
+    "k": 5,
+    "n": 26,
+    "ci95": [
+     0.085,
+     0.379
+    ]
+   },
+   "descriptions_with_a_false_term": {
+    "rate": 0.133,
+    "k": 4,
+    "n": 30,
+    "ci95": [
+     0.053,
+     0.297
+    ]
+   }
+  }
+ },
+ "latency": {
+  "name_free": {
+   "n": 127,
+   "p50_ms": 3835,
+   "p95_ms": 4804
+  },
+  "named": {
+   "n": 127,
+   "p50_ms": 3849,
+   "p95_ms": 4737
+  }
+ }
+}

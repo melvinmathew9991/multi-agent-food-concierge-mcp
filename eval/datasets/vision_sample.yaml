@@ -1,0 +1,565 @@
+# Hand-checked sample of name-free photo descriptions (Phase 2 plan, item 7), scored against each photo.
+# Drawn by `python scripts/vision_measurement.py sample`; scoring rules are in that script's docstring.
+# Drafted by looking at each thumbnail; `reviewed: true` records that the owner has checked every score.
+version: 1
+seed: 20261009
+prompt_version: 1
+reviewed: false
+entries:
+- sha256: 185ae6eff803b98c0dee4f4b85f039e355c4afe60c2f521acc062f1f3d526d6f
+  item_id: h03
+  dish: Mirchi ka Salan
+  description: The image shows a red rectangular plate filled with a dish that appears to be a curry or stew. The
+    curry is a rich, dark green color, suggesting the use of spices and possibly coconut milk. Visible ingredients
+    include green chili peppers, red chilies, and curry leaves, which are commonly used in South Asian cuisine.
+    The dish is garnished with black pepper and possibly some small seeds. On the side, there are pieces of coconut,
+    both in its white flesh and brown shell, and a sprig of curry leaves, which are likely used as a garnish or
+    ingredient in the dish. The plate is set on a vibrant pink and yellow patterned cloth.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - green chillies
+  - red chillies
+  - curry leaves
+  - coconut
+  not_seen:
+  - coconut milk
+  - black pepper
+  not_visible: []
+  note: Coconut milk is a guess from the colour; the dark specks cannot be told apart as pepper.
+- sha256: 1b019f56394c69147a767f2ed797558e68478892945f43fe0922ead7372be586
+  item_id: a04
+  dish: Vegetable Sushi Roll
+  description: The image shows a plate of sushi rolls and a side of rice. The sushi rolls are wrapped in nori (seaweed)
+    and filled with various vegetables, including cucumber, carrot, and what appears to be pickled ginger. The rice
+    is topped with sesame seeds. The side of rice is garnished with shredded carrot and cucumber.
+  allergen_terms:
+    sesame:
+    - sesame
+  dish_type: correct
+  seen:
+  - nori
+  - rice
+  - cucumber
+  - carrot
+  - sesame seeds
+  not_seen:
+  - pickled ginger
+  not_visible: []
+  note: The yellow filling is pickled radish or mango, not ginger; lettuce and red pepper are not mentioned.
+- sha256: 20b8b7c79787794a170abea18897f087962622e0f209792ecd13508ad6c8cc8a
+  item_id: k09
+  dish: Gulab Jamun
+  description: The image shows a white plate with two round, glossy, golden-brown food items that appear to be coated
+    in a syrupy sauce. A silver spoon rests on the plate, partially submerged in the sauce. The food items have
+    a smooth, slightly textured surface and are placed in a pool of liquid that seems to be caramel or honey.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - syrup
+  not_seen:
+  - caramel or honey
+  not_visible: []
+  note: Fried balls in syrup, right; the syrup is sugar syrup, not caramel or honey.
+- sha256: 2f6fad6bf413b3ec9ea9b765f9aab62b8b7afeba8651dd38bf4d345e655eac7d
+  item_id: b07
+  dish: Kolkata Fish Fry
+  description: The image shows three whole fish, likely cooked and served on a wooden cutting board. The fish appear
+    to be grilled or roasted, as indicated by the charred and crispy skin. The fish are arranged side by side, with
+    their heads pointing to the left and their tails to the right. The skin has a golden-brown color with some darker,
+    charred areas, suggesting they were cooked over heat. There is a small amount of liquid, possibly oil or juices
+    from the fish, pooling on the cutting board beneath them.
+  allergen_terms:
+    fish:
+    - fish
+  dish_type: correct
+  seen:
+  - whole fish
+  - oil
+  not_seen: []
+  not_visible: []
+  note: Says grilled or roasted; the fish are pan-fried, close enough for the dish type.
+- sha256: 309e7289075099fc3b9004fa4105e098916a60ea8e14be0dc7e714f383cb8fb7
+  item_id: y07
+  dish: Nankhatai
+  description: The image shows a metal bowl containing several round, golden-brown cookies. The cookies appear to
+    be slightly cracked on the surface, suggesting they are baked. Some of the cookies have visible pieces of what
+    looks like chopped nuts or dried fruit embedded in them. The bowl is placed on a dark, speckled countertop.
+  allergen_terms:
+    nuts:
+    - peanuts
+    - tree_nuts
+  dish_type: correct
+  seen:
+  - cookies
+  - chopped nuts
+  not_seen: []
+  not_visible: []
+  note: Nuts on top are visible.
+- sha256: 3ca7d388ac2a349d010ae56279accf040bc650a8a8b96c83aae7f23fcfaae314
+  item_id: g09
+  dish: Kesar Pista Shrikhand
+  description: The image shows a dish served in a glass bowl. It appears to be a creamy, white substance, possibly
+    a type of yogurt or cream, topped with chopped nuts and scattered with dried rose petals. The dish is garnished
+    with these decorative elements, creating a visually appealing presentation.
+  allergen_terms:
+    yogurt:
+    - milk
+    cream:
+    - milk
+    nuts:
+    - peanuts
+    - tree_nuts
+  dish_type: correct
+  seen:
+  - yogurt or cream
+  - chopped nuts
+  - rose petals
+  not_seen: []
+  not_visible: []
+  note: Pistachio and saffron are not visible, so neither is mentioned.
+- sha256: 4c609dc3bb805d1729e74a41c062f02bf75cce11024036f870ea2f359dfb68c4
+  item_id: t05
+  dish: Rava Upma
+  description: The image shows a close-up of a dish served in a white bowl. The dish appears to be a type of porridge
+    or mashed food, with a light, fluffy texture. Visible ingredients include small pieces of orange carrot, white
+    shredded coconut, and black mustard seeds scattered throughout. There is also a dark green leaf, possibly a
+    curry leaf, placed on top of the dish.
+  allergen_terms:
+    mustard:
+    - mustard
+  dish_type: correct
+  seen:
+  - carrot
+  - mustard seeds
+  not_seen:
+  - shredded coconut
+  - curry leaf
+  not_visible: []
+  note: Porridge-like texture is right for upma; no coconut or green leaf is in the photo.
+- sha256: 5918e385c3d32fa894f7b684e32df859c90b2a2814885919ca806c13ff56c4dd
+  item_id: k01
+  dish: Paneer Butter Masala
+  description: The image shows a bowl of a thick, orange-colored dish, likely a soup or stew, served in a white
+    bowl with a dark rim. The dish appears to be garnished with small pieces of green herbs and possibly some spices
+    or small chunks of meat or vegetables. A spoon is resting inside the bowl, and the surface around the bowl is
+    a dark, textured material.
+  allergen_terms: {}
+  dish_type: partial
+  seen:
+  - green herbs
+  not_seen:
+  - chunks of meat or vegetables
+  not_visible: []
+  note: Calls it a soup or stew; it is a curry. No pieces of paneer or anything else are distinct in the gravy.
+- sha256: 64ba3bd6f5e0d9b6dcb139ab7eece66c18484b7202a03d933a6246d22c97f9f9
+  item_id: a07
+  dish: Kimchi Fried Rice
+  description: The image shows a dish served in a black bowl. It consists of a bed of orange-colored rice, topped
+    with a fried egg that has a runny yolk. The rice is garnished with finely chopped green onions. The dish appears
+    to be served on a white plate, and there is a blurred background that suggests a dining setting.
+  allergen_terms:
+    egg:
+    - eggs
+  dish_type: correct
+  seen:
+  - rice
+  - fried egg
+  - green onions
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: 65a95326cdf97fcf04c795402f6a9b7f982e2daa4e24fd3459bd8bc6f7669286
+  item_id: m05
+  dish: Gajar ka Halwa
+  description: The image shows a bowl containing a thick, orange-colored mixture that appears to be a puree or paste.
+    The mixture is served in a clear glass bowl, which is placed on a dark countertop. On top of the mixture, there
+    are visible pieces of what seem to be chopped nuts, possibly almonds, adding texture and a contrasting color
+    to the dish.
+  allergen_terms:
+    nuts:
+    - peanuts
+    - tree_nuts
+    almond:
+    - tree_nuts
+  dish_type: partial
+  seen:
+  - chopped nuts
+  not_seen:
+  - almonds
+  not_visible: []
+  note: A puree or paste, not recognised as a sweet. The nuts are cashews, so 'almond' is wrong but the tree-nut
+    evidence holds.
+- sha256: 6d41e438f0ecd4277567527554e0d1c84aa14a185ab66bc92c9b9000ed2230b9
+  item_id: g08
+  dish: Sev Tameta nu Shaak
+  description: The image shows a bowl containing a dish that appears to be a type of rice-based meal. The rice is
+    topped with what looks like a red sauce, possibly tomato-based, and garnished with small, thin, yellow strands
+    that could be fried onions or a similar topping. The bowl is white with a decorative pattern around the rim,
+    and the dish is served on a textured surface, possibly a table or countertop.
+  allergen_terms: {}
+  dish_type: wrong
+  seen:
+  - red tomato sauce
+  - thin yellow strands (fried onions or similar topping)
+  not_seen:
+  - rice
+  not_visible: []
+  note: 'No rice: a tomato curry topped with sev. Sev (besan) is not recognised, so no allergen evidence from it.'
+- sha256: 845a2079752a56e7275ff63334b7ef497b250798cfcfacee1c2fb9c8e95e9b5a
+  item_id: c10
+  dish: Masala Chai
+  description: The image shows a white ceramic cup filled with a light brown liquid, likely a beverage such as tea
+    or coffee. The cup is placed on a dark wooden surface, and the background features a tiled wall with a pattern
+    of small, square tiles in shades of gray and brown. The liquid appears smooth and has a slight sheen, suggesting
+    it might be freshly brewed.
+  allergen_terms:
+    til:
+    - sesame
+  dish_type: correct
+  seen:
+  - tea
+  not_seen: []
+  not_visible:
+  - til
+  note: '''til'' matched ''tiles'' (the wall behind the cup) through the lexicon''s plural ending: sesame tagged
+    from the background.'
+- sha256: 91d09acf8d64a02ec5fa9b4a4686d76fd119a5e902b0baaeffc2608aba9e442a
+  item_id: b04
+  dish: Luchi
+  description: The image shows a plate with a small bowl and several round, flat, golden-brown items. The bowl contains
+    a mixture of what appears to be fried or cooked pieces, possibly vegetables or meat, with a sauce and garnished
+    with a red chili pepper. The flat items on the plate have a textured surface, suggesting they might be fried
+    or baked, and are light in color, possibly indicating they are made from a dough or batter.
+  allergen_terms:
+    dough:
+    - gluten
+    - wheat
+  dish_type: partial
+  seen:
+  - round fried dough items
+  - vegetables or meat (potato curry)
+  - red chilli
+  not_seen: []
+  not_visible: []
+  note: Not named as a bread; 'fried or baked dough' items. The bowl is a potato curry.
+- sha256: afb66bcc41001c6adaea81262e9cb5f1e3a86bd22229d6468e699fa7950af21c
+  item_id: b01
+  dish: Shorshe Ilish
+  description: The image shows a dish served on an oval white plate. It appears to be a curry, with a thick, yellowish-orange
+    sauce coating several pieces of what looks like fish. The fish pieces are large and have a golden-brown exterior,
+    suggesting they have been cooked. The sauce is rich and glossy, with visible spices and herbs sprinkled on top,
+    giving it a textured appearance. The plate is placed on a woven mat with a neutral color scheme.
+  allergen_terms:
+    fish:
+    - fish
+  dish_type: correct
+  seen:
+  - fish
+  - yellow sauce
+  not_seen: []
+  not_visible: []
+  note: Fish in a mustard-coloured curry; mustard itself is not named.
+- sha256: b5a780974920e3dc7f66573d078c7c370c3b13878c064c1b4456379d7dcb9cc1
+  item_id: s01
+  dish: Sarson da Saag
+  description: The image shows a bowl containing a dark green, thick, and chunky mixture, which appears to be a
+    cooked dish. At the center of the mixture, there is a dollop of white cream or yogurt. The bowl is metallic,
+    and the dish is served with a piece of flatbread visible in the background. The texture of the dish suggests
+    it might be a puree or a paste, possibly made from leafy greens or vegetables.
+  allergen_terms:
+    cream:
+    - milk
+    yogurt:
+    - milk
+  dish_type: correct
+  seen:
+  - leafy greens
+  - cream or yogurt
+  - flatbread
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: b63e9258383503011ac5202550ffc390281b95c79aaeace1b212be41550c077f
+  item_id: g06
+  dish: Gujarati Kadhi
+  description: The image shows a meal served on a round, metallic plate. There is a flatbread, possibly a roti or
+    paratha, with a pat of butter on top. To the side, there is a small bowl containing a yellowish sauce, possibly
+    a chutney or dip. Next to the bowl, there is a spoon resting on the plate. The food is served on a wooden table.
+  allergen_terms:
+    roti:
+    - gluten
+    - wheat
+    paratha:
+    - gluten
+    - wheat
+    butter:
+    - milk
+  dish_type: partial
+  seen:
+  - flatbread
+  - butter
+  - yellowish sauce in a bowl
+  not_seen: []
+  not_visible:
+  - roti
+  - paratha
+  note: The kadhi is called a chutney or dip; the vegetable dish is not mentioned. The flatbread is a grey millet
+    rotla, so the wheat from 'roti'/'paratha' has no evidence in the photo.
+- sha256: c9546b37401e17c5a4890a172fc0a81d21fce2748efc85dee8cb79d8566eb4f9
+  item_id: h09
+  dish: Irani Chai
+  description: The image shows two white ceramic cups filled with a light brown liquid, likely tea or coffee, placed
+    on matching saucers. The cups are positioned on a speckled countertop. The liquid appears smooth and has a slight
+    froth on the surface. The saucers have a thin black line bordering the edge. There are some stains on the saucers,
+    suggesting the cups have been used.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - tea
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: caf965e034ee88904f486ab268e7d81b901e7cbdf02d74addb17d53cdd819ccf
+  item_id: k07
+  dish: Veg Dum Biryani
+  description: The image shows a dish served on a silver plate. It appears to be a rice-based meal, possibly a fried
+    rice or biryani, given the mix of ingredients. Visible ingredients include white rice, green peas, sliced carrots,
+    and what looks like pieces of fried onions or garlic. The dish is garnished with a light sauce, possibly soy
+    sauce or a similar condiment, which gives it a glossy appearance.
+  allergen_terms:
+    soy sauce:
+    - gluten
+    - soy
+    - wheat
+  dish_type: correct
+  seen:
+  - rice
+  - green peas
+  - carrots
+  - fried onions or garlic
+  not_seen:
+  - soy sauce
+  not_visible:
+  - soy sauce
+  note: Biryani named as a possibility; soy sauce is a guess with nothing in the photo behind it.
+- sha256: cf78ff8c8864c94624df1dc0ef88c1ec43b1e728c248490f82afa1081b38d1ab
+  item_id: p02
+  dish: Pepperoni Pizza
+  description: The image shows a freshly baked pizza served on a metal tray. The pizza has a golden-brown crust
+    and is topped with melted cheese and pepperoni slices. The cheese appears bubbly and slightly browned in some
+    areas, indicating it has been baked. The pepperoni is evenly distributed across the surface of the pizza.
+  allergen_terms:
+    cheese:
+    - milk
+  dish_type: correct
+  seen:
+  - crust
+  - cheese
+  - pepperoni
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: d8ce9554278ba5fb395057359033418926f7c06ebf853bea4d62c8eacbd63822
+  item_id: p07
+  dish: Chicken Alfredo Penne
+  description: The image shows a close-up of a creamy pasta dish. The pasta appears to be penne, coated in a white
+    sauce that looks rich and glossy. There are visible flecks of herbs sprinkled throughout the sauce, adding a
+    touch of green. A piece of cooked chicken is partially visible, nestled among the pasta and sauce. The dish
+    is served in a way that suggests it might be baked or served hot, as the sauce appears to be slightly melted
+    and the chicken looks tender.
+  allergen_terms:
+    pasta:
+    - gluten
+    - wheat
+    penne:
+    - gluten
+    - wheat
+  dish_type: correct
+  seen:
+  - penne
+  - white sauce
+  - herbs
+  - chicken
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: da0655780f4ce547755f189f954f44b45ae21f640734d657c09b4c5995ee288a
+  item_id: w09
+  dish: Hot and Sour Soup
+  description: The image shows a bowl of soup with a light brown broth. Visible ingredients include shredded cabbage,
+    chunks of tofu, and dark, round objects that resemble beans or seeds. The soup is served in a white bowl, and
+    a white spoon is partially submerged in the broth.
+  allergen_terms:
+    tofu:
+    - soy
+  dish_type: correct
+  seen:
+  - broth
+  - tofu
+  not_seen:
+  - shredded cabbage
+  - beans or seeds
+  not_visible: []
+  note: The yellow ribbons are egg, called cabbage, so eggs go untagged; the dark pieces are mushrooms.
+- sha256: df7a06614fa28b5baa38ed0197021ffb9a2d616b9164e0e54a34f7955235c2ed
+  item_id: k05
+  dish: Chicken Tikka Masala
+  description: The image shows a plate of food with a rich, orange-colored sauce. The dish appears to be served
+    on a white plate and is garnished with chopped green herbs, likely cilantro. There are pieces of grilled or
+    roasted meat, possibly chicken, scattered across the sauce. The meat has a charred exterior, indicating it has
+    been cooked over high heat. A spoon is placed on the side of the plate, ready for use.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - orange sauce
+  - cilantro
+  - charred chicken
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: e1f10a8a5f146f6fe7e08de21acb97d3d2c9d107e00863e1b1f81df5b4ec18f8
+  item_id: c09
+  dish: Sabudana Vada
+  description: The image shows a plate with four golden-brown, fried patties arranged in a slightly overlapping
+    manner. To the left of the plate is a small glass bowl containing a white, creamy substance, garnished with
+    a sprig of green herb. The plate is set on a dark surface, and a spoon and fork are placed to the left and right
+    of the plate, respectively.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - fried patties
+  - white dip
+  - herb sprig
+  not_seen: []
+  not_visible: []
+  note: The curd dip is not named as yogurt, so no milk evidence.
+- sha256: e28db25b173a3dfb09d6682fb4a2f0cdc555c33ae6916a48fe38693716b73b9e
+  item_id: c03
+  dish: Pani Puri
+  description: The image shows a plate with a variety of food items. There are round, golden-brown fried snacks
+    arranged around a small bowl of greenish liquid, which appears to be a dipping sauce garnished with chopped
+    green herbs. The plate also contains slices of red and purple onions, a few green chili slices, and a small
+    piece of lemon. The food is served on a clear, decorative plate, and the background features a patterned cloth.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - fried round snacks
+  - green liquid
+  - herbs
+  - red onion
+  - green chilli
+  - lemon
+  not_seen: []
+  not_visible: []
+  note: Puris with pani; the pani is called a dipping sauce.
+- sha256: e57e1040235039ecc2d1436f9a4140bae73680810c50ba045d19c540f4dd3ea3
+  item_id: g04
+  dish: Undhiyu
+  description: The image shows a dish served in a round, shallow metal bowl. The food appears to be a stew or curry
+    with a reddish-brown sauce. Visible ingredients include chunks of potatoes, green peas, pieces of what might
+    be eggplant or zucchini, and small, round, dark-colored items that could be olives or another type of vegetable.
+    There are also some green herbs sprinkled on top, and a lemon wedge is placed on the side of the dish.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - potatoes
+  - green peas
+  - eggplant or zucchini
+  - herbs
+  - lemon wedge
+  not_seen:
+  - olives or another vegetable
+  not_visible: []
+  note: The dark balls are muthia (besan and wheat dumplings), not recognised, so no gluten or wheat evidence.
+- sha256: e8a5f9f477acabb2b08eb0850ce77c6fbba275fdaa614329ddd7d43b70368ab7
+  item_id: e06
+  dish: Avial
+  description: The image shows a dish served on a white plate, which is placed on a bamboo mat. The dish appears
+    to be a mixture of cooked vegetables and possibly some protein, coated in a greenish-yellow sauce. Visible ingredients
+    include chunks of potatoes, slices of carrots, and green beans. There are also some dark green leaves, possibly
+    curry leaves, scattered on top of the dish. The sauce has a textured appearance, suggesting it might be a curry
+    or a similar type of sauce.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - potatoes
+  - carrots
+  - green beans
+  - curry leaves
+  - greenish-yellow coconut coating
+  not_seen:
+  - some protein
+  not_visible: []
+  note: ''
+- sha256: ea6da09882375449a36ec8ea075b466f6fd0b9c153a8ad790805acb3986368fd
+  item_id: v10
+  dish: Green Juice
+  description: The image shows a glass filled with a green liquid, which appears to be a smoothie or juice, served
+    over ice. The liquid is a vibrant green color, and there are several ice cubes floating in it. The glass is
+    clear, allowing the contents to be fully visible. The background is plain white, and there is a small portion
+    of a dark, textured object visible in the top left corner of the image.
+  allergen_terms: {}
+  dish_type: correct
+  seen:
+  - green juice
+  - ice
+  not_seen: []
+  not_visible: []
+  note: ''
+- sha256: f25d9d6769481b707c8d6ff9cd9c9b4ac63acbd33302bb223b7e190edd876b9c
+  item_id: y09
+  dish: Vegan Banana Walnut Bread
+  description: The image shows a slice of bread on a white plate with a decorative edge. The bread appears to be
+    a dark, dense type, possibly whole grain or rye, with visible seeds and possibly raisins or dried fruits embedded
+    within it. The surface of the bread has a rough texture, and the edges are slightly uneven, suggesting it might
+    be homemade or artisanal.
+  allergen_terms:
+    bread:
+    - gluten
+    - wheat
+    rye:
+    - gluten
+  dish_type: correct
+  seen:
+  - bread
+  - dried fruit
+  not_seen:
+  - seeds
+  not_visible: []
+  note: Walnuts are not mentioned, so tree nuts go untagged; 'rye' is a guess, but the slice is bread, so the gluten
+    evidence holds.
+- sha256: f3958ccb415907bfeb83296a6a1cefc09340e75f7f3ff89370a1f368617e058c
+  item_id: h04
+  dish: Bagara Baingan
+  description: The image shows a dish served in a red bowl, placed on a white plate. The dish appears to be a curry,
+    with a rich, yellowish-brown sauce. Two pieces of what looks like a whole fish are visible, coated in the curry
+    sauce. The curry is garnished with a few green leaves and small pieces of green chili. The sauce has a glossy
+    appearance, suggesting it might be thick and flavorful.
+  allergen_terms:
+    fish:
+    - fish
+  dish_type: partial
+  seen:
+  - curry sauce
+  - green leaves
+  - green chilli
+  not_seen:
+  - whole fish
+  not_visible:
+  - fish
+  note: 'The two whole small eggplants are called fish: a false fish tag on a vegetarian dish.'
+- sha256: f7a0dd395be699bc578ec1a85c9c8479606ad13297353ea5c21c60daa491a34a
+  item_id: b08
+  dish: Mishti Doi
+  description: The image shows a bowl with a smooth, creamy white substance inside, which appears to be a dessert
+    or a thick soup. A wooden spoon rests inside the bowl, suggesting it is ready to be eaten. The bowl itself is
+    made of a reddish-brown material, possibly ceramic or clay, and has a slightly textured surface with some small
+    white specks visible on its exterior.
+  allergen_terms: {}
+  dish_type: partial
+  seen:
+  - creamy white food
+  not_seen: []
+  not_visible: []
+  note: Dessert or thick soup; yogurt is not named, so no milk evidence.

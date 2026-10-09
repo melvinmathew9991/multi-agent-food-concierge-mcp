@@ -2,6 +2,7 @@
 
 import importlib.util
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -174,3 +175,70 @@ def test_the_committed_sample_is_complete_and_matches_the_cache() -> None:
     assert vm.problems(dataset["entries"], cache) == []
     terms = load_lexicon()
     assert all(e["allergen_terms"] == vm.allergen_terms(e["description"], terms) for e in dataset["entries"])
+
+
+def test_hosted_runs_have_their_own_files() -> None:
+    assert vm.dataset_path(vm.LOCAL) == vm.DATASET
+    assert vm.dataset_path("groq").name == "vision_sample_groq.yaml"
+    assert vm.hosted_cache_path("groq").name == "vision_descriptions_groq.jsonl"
+
+
+def test_hosted_descriptions_round_trip_sorted_with_lf(tmp_path: Path) -> None:
+    path = tmp_path / "hosted.jsonl"
+    cache = {
+        (sha, Variant.NAME_FREE): vm.HostedDescription(
+            sha256=sha, variant=Variant.NAME_FREE, model="m", prompt_version=1, text="t", latency_ms=700, tokens=1900
+        )
+        for sha in (_sha(2), _sha(1))
+    }
+
+    vm.write_hosted(path, cache)
+
+    assert vm.read_hosted(path) == cache
+    assert b"\r\n" not in path.read_bytes()
+    assert [line.split('"sha256": "')[1][:64] for line in path.read_text().splitlines()] == [_sha(1), _sha(2)]
+    assert vm.read_hosted(tmp_path / "missing.jsonl") == {}
+
+
+def test_hosted_usage_counts_tokens_slow_calls_and_failed_attempts() -> None:
+    cache = {
+        (_sha(n), Variant.NAME_FREE): vm.HostedDescription(
+            sha256=_sha(n),
+            variant=Variant.NAME_FREE,
+            model="m",
+            prompt_version=1,
+            text="t",
+            latency_ms=latency,
+            tokens=tokens,
+            failed_attempts=failed,
+        )
+        for n, (latency, tokens, failed) in enumerate([(700, 1900, 0), (3500, 2000, 1), (800, 1400, 0)])
+    }
+
+    usage = vm.hosted_usage(cache, timeout_s=3.0)
+
+    assert usage["tokens_per_photo"] == {"n": 3, "p50": 1900, "max": 2000}
+    assert usage["over_production_timeout"] == {"timeout_s": 3.0, "k": 1, "n": 3}
+    assert usage["failed_attempts"] == 1
+
+
+def test_latency_leaves_out_a_variant_with_no_descriptions() -> None:
+    cache = {k: v for k, v in _cache({_sha(1): "a"}).items() if k[1] is Variant.NAME_FREE}
+
+    assert list(vm.latency(cache)) == ["name_free"]
+
+
+def test_the_measured_settings_name_the_model_and_relax_only_its_timeout() -> None:
+    settings = vm.hosted_settings(get_settings(), "groq")
+
+    assert settings.require_model_id("groq", "vision") == vm.HOSTED_MODELS["groq"]
+    assert settings.timeout_for("groq") == vm.HOSTED_TIMEOUT_S
+    assert settings.timeout_for("gemini") == get_settings().timeout_for("gemini")
+
+
+def test_the_committed_groq_sample_covers_the_same_photos_and_matches_its_file() -> None:
+    hosted = vm.read_dataset(vm.dataset_path("groq"))
+    local = vm.read_dataset(vm.DATASET)
+
+    assert [e["sha256"] for e in hosted["entries"]] == [e["sha256"] for e in local["entries"]]
+    assert vm.problems(hosted["entries"], vm.read_hosted(vm.hosted_cache_path("groq"))) == []

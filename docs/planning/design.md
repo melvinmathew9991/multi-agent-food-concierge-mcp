@@ -85,7 +85,7 @@ If the installed Streamlit version doesn't support custom theme fonts, fall back
 
 - Card: `surface` background, 1 px `border`, 12 px radius, 16 px padding, 12 px gap.
 - Image `alt`/caption = dish name. When an image is missing, show a neutral placeholder tile.
-- Allergen chips with `source=inferred` get a dotted underline and a tooltip ("inferred from ingredients"). `allergen_unverified` items show a ⚠ "Ingredients not fully verifiable" chip.
+- Allergen chips with `source=inferred` get a dotted underline and a tooltip ("inferred from ingredients"). `allergen_unverified` items show a ⚠ "Ingredients not fully verifiable" chip. `may_contain` tags (from the photo description) show as a "May contain: …" chip with the tooltip "seen in the photo, not in the recipe"; they warn but do not hide the dish (ADR-0007).
 
 ## 6. States and copy
 

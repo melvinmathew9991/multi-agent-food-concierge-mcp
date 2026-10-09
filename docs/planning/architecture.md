@@ -13,8 +13,8 @@
 | Workflow orchestration | **Prefect** (OSS, local) + GitHub Actions schedule | Ingestion → index → eval → report as observable, retryable flows. Temporal/Airflow rejected (ADR): durable long-running workflows and cluster ops are unnecessary here. |
 | Tool protocol | **MCP** (official Python SDK), stdio + Streamable HTTP | Tools become reusable by any MCP client (Claude Desktop, Cursor, other agents), not locked inside one app |
 | Safety | Constraints enforced **in tools and a deterministic verifier node** | 20/50 unlabelled + 14/50 description-only allergens; an LLM can't be the safety layer |
-| Hosted LLM | **Groq** (primary) → **Gemini** (fallback), both free tiers via OpenAI-compatible endpoints | $0, fast, resilient to one quota running out |
-| Local LLM | **Ollama** (llama3.1:8b chat, Qwen2.5-VL 7B vision) | Free development, offline evaluation, LLM-as-judge |
+| Hosted LLM | **Groq** (primary) → **Gemini** (fallback), both free tiers via OpenAI-compatible endpoints (ADR-0006). User photos: **Groq `qwen/qwen3.8-27b` only**, no fallback (ADR-0007) | $0, fast, resilient to one quota running out; a photo never reaches Gemini's free tier, which may use inputs |
+| Local LLM | **Ollama** (llama3.1:8b chat, Qwen2.5-VL 7B for catalog photo descriptions) | Free development, offline evaluation, LLM-as-judge |
 | Bedrock | `langchain-aws` provider, **stub-tested only**, off by default | Shows AWS integration without spend |
 | Embeddings | **fastembed** `BAAI/bge-small-en-v1.5` (ONNX, 384-d) in-process | $0, no torch, same model in dev, CI and prod, so indexes never mismatch |
 | Vector search | FAISS `IndexIDMap2(IndexFlatIP)` + **BM25** + hybrid RRF + **cross-encoder reranker**; **Qdrant** (in memory, loaded from the saved vectors) as a benchmarked alternative backend | FAISS is in the brief; the lexical baseline is required by the audit; the reranker and Qdrant are adopted only on evidence |
@@ -67,7 +67,8 @@ flowchart LR
 3. **Allergens (EU-14 ∪ US Big-9)** from three sources, each tag stored with `source` and `level`:
    - `label`: parsed `dietary_warnings` → level `contains`.
    - `lexicon`: ingredient terms (`flour|bread|bun|croutons|tortilla|soy sauce → gluten`, `cheese|cream|butter|ghee|yogurt → milk`, `crab|shrimp → crustaceans`, `almond|cashew → tree_nuts`…) → `contains`.
-   - `vision`: allergen terms found in the image description → `may_contain`.
+   - `vision`: allergen terms found in the image description → `may_contain`. Shown as a warning, never filtered on (ADR-0007).
+   - Hard filters exclude a dish when an excluded allergen is in `contains`, or when the dish is unverified (unless the caller includes unverified dishes). The safety gate checks recall of `contains` against the ground truth.
    - Opaque ingredients (`vegan dressing`, `plant-based patty`, `spices`, `spring roll wrappers`) → `unverified = 1`.
 4. **Descriptions:** `scripts/describe_photos.py` runs the local Ollama vision model (`qwen2.5vl:7b`, $0) on new or changed photos only, sent at 1024 px without metadata. Two variants per photo: **name-free** (the tagger's vision source, and the stand-in for a user's photo in Phase 3, audit #7) and **named** (for comparison). Cached by image sha256 and prompt version in the tracked `data/processed/image_descriptions.jsonl`, which is part of `data_sha256`; the build reads only the cache.
 5. **Thumbnails:** WebP ≤ 480 px (RGBA → RGB) for UI and MCP image resources.
@@ -86,7 +87,7 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 | `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified | O(k) |
 | `nutrition` | `meal_totals(dish_ids)`: calories, macros, price, serves | O(k) exact arithmetic |
 | `constraints` | Parse, merge (allergens: union; caps: min; diet: strictest) and **verify** a proposal | O(k) |
-| `vision` | Validate image (Pillow), downscale, re-encode, describe via vision model, cache by sha256 | 1 LLM call, cached |
+| `vision` | Validate image (Pillow), downscale, re-encode, describe via the vision model (Groq `qwen/qwen3.8-27b`; on failure ask the user to describe the dish in words), cache by sha256 | 1 LLM call (~1,900 tokens), cached |
 
 ## 5. MCP server (`food_concierge/mcp_server/`)
 

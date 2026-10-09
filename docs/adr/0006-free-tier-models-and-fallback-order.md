@@ -1,6 +1,6 @@
 # 0006. Free-tier models and fallback order
 
-- Status: accepted
+- Status: accepted; the vision question it left open is decided by ADR-0007
 - Date: 2026-10-01
 - Requirements: PRD §6 (model layer, zero cost), §7 (latency p95 ≤ 8 s, reliability, privacy)
 

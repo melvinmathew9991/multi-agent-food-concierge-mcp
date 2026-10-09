@@ -24,6 +24,7 @@ from food_concierge.ingestion.photos import (
     Candidate,
     CommonsClient,
     Licence,
+    attribution,
     classify_licence,
     ensure_cached,
     make_thumbnail,
@@ -109,6 +110,7 @@ class FakeClient(CommonsClient):
         ("cc-by-sa-3.0-de", "https://cc/de", Licence("CC BY-SA 3.0", "https://cc/de")),
         ("CC BY 4.0", "https://cc/by4", Licence("CC BY 4.0", "https://cc/by4")),
         ("cc0", None, Licence("CC0 1.0", "https://creativecommons.org/publicdomain/zero/1.0/")),
+        ("cc0", "http://cc/zero", Licence("CC0 1.0", "https://cc/zero")),  # Commons still serves some http links
         ("pd", None, Licence("Public domain", "")),
         ("pd-old-70", "https://pd", Licence("Public domain", "https://pd")),
         ("cc-by-nc-2.0", "https://cc/nc", None),
@@ -202,6 +204,20 @@ def test_thumbnail_is_small_rgb_webp() -> None:
         assert max(thumb.size) == 480
 
 
+def test_thumbnail_accepts_large_catalog_originals_without_loosening_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1_000)  # stands in for the 179 MP default
+    monkeypatch.setattr("food_concierge.ingestion.photos.CATALOG_MAX_PIXELS", 2_000_000)
+
+    thumbnail = make_thumbnail(jpeg(1600, 1200))
+    assert Image.MAX_IMAGE_PIXELS == 1_000
+
+    monkeypatch.undo()
+    with Image.open(io.BytesIO(thumbnail)) as thumb:
+        assert max(thumb.size) == 480
+
+
 def test_ensure_cached_downloads_verifies_and_reuses(tmp_path: Path) -> None:
     data = jpeg()
     p = photo()
@@ -261,6 +277,7 @@ def test_read_approvals() -> None:
     [
         ({"licence": "CC BY-NC 4.0"}, "String should match pattern"),
         ({"file_url": "https://example.com/a.jpg"}, "String should match pattern"),
+        ({"file_url": "https://upload.wikimedia.org/a/b/Dosa.gif"}, "String should match pattern"),
         ({"sha256": "abc"}, "String should match pattern"),
         ({"licence": "CC BY 4.0", "licence_url": ""}, "needs a licence_url"),
     ],
@@ -269,6 +286,8 @@ def test_photo_schema(changes: dict[str, Any], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         photo(**changes)
     assert photo(licence="Public domain", licence_url="").licence == "Public domain"
+    upper = photo(file_url="https://upload.wikimedia.org/a/b/Roti_in_clay_oven.JPG")  # Commons keeps the case
+    assert original_path(Path("cache"), upper).suffix == ".jpg"
 
 
 def write_attributions(raw_dir: Path, rows: list[dict[str, Any]]) -> None:
@@ -414,3 +433,25 @@ def test_approve_refuses_two_choices_for_one_dish(script: ModuleType, tmp_path: 
 
     assert script.apply_approvals([], tmp_path / "review.csv", tmp_path / "a.csv", FakeClient(), tmp_path) == 1
     assert not (tmp_path / "a.csv").exists()
+
+
+def test_approve_checks_every_row_before_downloading(script: ModuleType, tmp_path: Path) -> None:
+    good, bad = (parse_candidates({"query": {"pages": {"1": page(1, name)}}})[0] for name in ("Dosa", "Idli"))
+    rows = review_rows("fx005", "Masala Dosa", [good]) + review_rows("fx006", "Idli Sambar", [bad])
+    rows[0]["approved"] = rows[2]["approved"] = "yes"
+    rows[2]["licence_url"] = "http://creativecommons.org/licenses/by-sa/4.0/"  # an older sheet: upgraded, not refused
+    rows[0]["file_url"] = "https://example.com/elsewhere.jpg"
+    script.write_csv(tmp_path / "review.csv", list(rows[0]), rows)
+    client = FakeClient()
+
+    assert script.apply_approvals([], tmp_path / "review.csv", tmp_path / "a.csv", client, tmp_path) == 1
+    assert client.downloads == []
+    assert not (tmp_path / "a.csv").exists()
+
+
+def test_attribution_upgrades_http_licence_links() -> None:
+    candidate = parse_candidates({"query": {"pages": {"1": page(1, "Dosa")}}})[0]
+    [row, _] = review_rows("fx005", "Masala Dosa", [candidate])
+    row["licence_url"] = "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+
+    assert attribution("fx005", row, "0" * 64, 1).licence_url.startswith("https://creativecommons.org/")

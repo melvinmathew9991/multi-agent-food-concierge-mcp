@@ -35,6 +35,9 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - Approved photos are recorded in `data/raw/attributions.csv` with author, licence and SHA-256, and the loader validates them.
   - Files are fetched into a new `PHOTO_CACHE_DIR` outside the repository, verified against their hash, and thumbnailed to WebP of at most 480 px.
   - Requests carry a User-Agent naming the project, and are paced to one per second.
+  - The review page remembers choices across reloads, and `fetch_photos.py review` rebuilds it from the sheet without querying Commons.
+  - `approve` checks every chosen row before downloading anything, so a bad row fails in seconds instead of after the downloads.
+- Owner-approved catalog photos: 131 of 150 dishes, recorded in `data/raw/attributions.csv`; 19 dishes have no suitable photo.
 - The SQLite catalog (`storage/catalog_db.py`): restaurants, dishes, items, allergen tags with source and level, images, and descriptions. It is built into a temporary file and swapped in atomically.
   - `dish_key` groups the same dish across restaurants.
   - The document text for search is semantic only (name, description, cuisine, category, ingredients, diet); prices and calories stay in indexed columns.
@@ -59,6 +62,10 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - About a third of dishes have no restaurant label, and some labels are deliberately wrong.
   - Six dishes are served at two restaurants.
   - `data/raw/README.md` documents the columns, the label gaps, and the recipe assumptions behind the ground truth, such as hing and soy sauce containing wheat, and kimchi containing fish and shrimp.
+
+#### Fixed
+- Photo attributions accept Commons files with an uppercase extension (`.JPG`), and `http://` licence links are stored as `https://`.
+- Thumbnails can be built from Commons originals of up to 250 MP (two approved photos are 200 MP). The higher limit applies only while thumbnailing approved, hash-pinned files; uploads keep Pillow's default.
 
 #### Changed
 - Engineering rules §1: `qdrant-client` is used in memory only, because its on-disk local mode persists with pickle.

@@ -176,14 +176,14 @@ Workstreams (one PR each, in order; the owner reviews before each merge):
 - The vision measurement is committed and ADR-0007 accepted.
 - `docs/data-card.md` is published, and offline tests stay at 100% coverage.
 
-**Status (2026-10-07):** seven of eight workstreams merged (PRs #20–#28); photo approval and descriptions remain.
+**Status (2026-10-09):** seven of eight workstreams merged (PRs #20–#30), and photos are approved; descriptions remain.
 
 | Workstream | PR | Result |
 |---|---|---|
 | `feat/p2-catalog-schema` | #20 | schemas, 15-key taxonomy, loader reporting every bad row, diet and Atwater checks |
 | `feat/p2-catalog-data` | #21–#23 | 150 dishes at 15 fictional restaurants (67% Indian); 31% unlabelled on purpose; ground truth reviewed by the owner per batch |
 | `feat/p2-allergens` | #24 | lexicon v1 and three-source tagger; **safety gate passes** (no untagged true allergen on a verified dish); 25 of 150 unverified (17%), capped at 25% |
-| `feat/p2-photos` | #25 | Commons tooling; 696 licence-checked candidates for all 150 dishes; **owner approval pending** |
+| `feat/p2-photos` | #25 | Commons tooling; 696 licence-checked candidates for all 150 dishes; review page keeps choices across reloads (#30); **owner approved 131 photos, 19 dishes without one** (this PR) |
 | `feat/p2-storage` | #26 | SQLite catalog; `dish_key` (6 dishes at two restaurants); semantic `doc_text`; SQL filters checked against `Filters.admits` on 400 random combinations |
 | `feat/p2-indexes` | #27 | FAISS, Qdrant and BM25 with a manifest; **property test passes**: no filtered search on any backend returns a violating dish (300 random combinations) |
 | `feat/p2-flows` | #28 | `python -m food_concierge.flows build`; a second run is a no-op (also checked nightly with the real embedder); `docs/data-card.md` |
@@ -194,7 +194,8 @@ DoD so far:
 - Allergen safety gate: met.
 - Property test on both backends: met.
 - Data card, and 100% coverage (463 tests): met.
-- Open: photo licence records (after approval), the vision measurement and ADR-0007.
+- Every photo has a licence record and no NC or ND file is present: met (131 attributions, each hash-pinned).
+- Open: the vision measurement and ADR-0007.
 
 Deviations from the plan above, each recorded in the PR that made it:
 - Qdrant runs in memory, rebuilt from the saved vectors at load: its on-disk local mode persists points with pickle (rules §1).

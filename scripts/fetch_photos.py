@@ -38,6 +38,7 @@ from food_concierge.ingestion.photos import (
     Candidate,
     CommonsClient,
     approve,
+    attribution,
     ensure_cached,
     read_approvals,
     review_rows,
@@ -203,9 +204,15 @@ def apply_approvals(
     items: Sequence[MenuItem], review: Path, attributions: Path, client: CommonsClient, cache_dir: Path
 ) -> int:
     approvals = read_approvals(read_csv(review))
-    for problem in approvals.problems:
+    problems = list(approvals.problems)
+    for item_id, chosen in approvals.chosen.items():  # check every row before downloading anything
+        try:
+            attribution(item_id, chosen, "0" * 64, int(chosen["bytes"] or 0))
+        except ValueError as error:
+            problems.append(f"{item_id}: {error}")
+    for problem in problems:
         print(problem)
-    if approvals.problems:
+    if problems:
         return 1
     existing = {row["item_id"]: row for row in read_csv(attributions)}
     photos: list[Photo] = []

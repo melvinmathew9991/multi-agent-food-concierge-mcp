@@ -1,10 +1,10 @@
 {
  "run": {
-  "created": "2026-10-09T14:25:47+00:00",
-  "commit": "105c655",
+  "created": "2026-10-09T14:59:00+00:00",
+  "commit": "8a1e95a",
   "dataset": "eval/datasets/vision_sample.yaml",
-  "dataset_sha256": "038b4f64f44de580bb54c42a4534636c16a5680ad53f69457adeb99d979fc729",
-  "reviewed": false,
+  "dataset_sha256": "fda6fee1babd63f8ecc2bcc470fd105ad0a14fd74b094c7cf135323532205473",
+  "reviewed": true,
   "models": [
    "qwen2.5vl:7b"
   ],

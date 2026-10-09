@@ -336,6 +336,17 @@ def test_candidates_keep_earlier_choices_and_render_a_safe_page(script: ModuleTy
     assert "No suitable photo" in page_html
 
 
+def test_review_page_is_rebuilt_from_the_sheet_and_remembers_clicks(script: ModuleType, tmp_path: Path) -> None:
+    rows = review_rows("fx005", "Masala Dosa", [])
+
+    assert script.write_review_page([], tmp_path / "cache") == 1
+    assert script.write_review_page(rows, tmp_path / "cache") == 0
+
+    page_html = (tmp_path / "cache" / "photo_review.html").read_text(encoding="utf-8")
+    assert "Masala Dosa (fx005)" in page_html
+    assert "localStorage.setItem" in page_html
+
+
 def test_approve_writes_attributions_and_reuses_unchanged(script: ModuleType, tmp_path: Path) -> None:
     shutil.copytree(FIXTURE, tmp_path / "raw")
     raw = tmp_path / "raw"

@@ -2,7 +2,7 @@
 
 A multimodal food concierge: a LangGraph agent plans meals and recommends dishes from text and photos using tools served over the Model Context Protocol (MCP). Dietary and allergen constraints are enforced in code by the tools and a deterministic verifier, every run is traced and evaluated with Langfuse, and the whole stack runs at zero cost on free tiers and local models.
 
-> **Status:** under active development. Phases 0–1 are complete; Phase 2 (catalog, allergen safety, storage, search indexes, build flows) is nearly done, with image descriptions remaining. See [`docs/planning/phases.md`](docs/planning/phases.md) for the plan, [`CHANGELOG.md`](CHANGELOG.md) for progress and [`docs/baseline-defects.md`](docs/baseline-defects.md) for what is being fixed from the original implementation.
+> **Status:** under active development. Phases 0–1 are complete; Phase 2 (catalog, allergen safety, storage, search indexes, build flows) is nearly done, with the vision measurement and its decision record remaining. See [`docs/planning/phases.md`](docs/planning/phases.md) for the plan, [`CHANGELOG.md`](CHANGELOG.md) for progress and [`docs/baseline-defects.md`](docs/baseline-defects.md) for what is being fixed from the original implementation.
 
 > **Acknowledgement:** this is an independent rebuild of a course exercise on multimodal RAG. No course code, data or images are redistributed; the catalog in this repository is authored for this project.
 

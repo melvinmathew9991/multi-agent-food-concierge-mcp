@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from food_concierge.errors import NotReadyError
 from food_concierge.ingestion.allergens import DishAllergens
+from food_concierge.ingestion.descriptions import ImageDescription
 from food_concierge.ingestion.loader import Catalog
 from food_concierge.ingestion.schemas import MenuItem
 from food_concierge.ingestion.taxonomy import Allergen, Cuisine, Diet
@@ -111,6 +112,7 @@ def build_catalog_db(
     *,
     lexicon_version: int,
     source_sha256: str,
+    descriptions: Iterable[ImageDescription] = (),
 ) -> Path:
     """Write the catalog database to ``path``, replacing any previous build atomically."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -149,6 +151,10 @@ def build_catalog_db(
             connection.executemany(
                 "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [tuple(photo.model_dump().values()) for photo in catalog.photos],
+            )
+            connection.executemany(
+                "INSERT INTO descriptions VALUES (?, ?, ?, ?)",
+                [(d.sha256, d.variant.value, d.model, d.text) for d in descriptions],
             )
     finally:
         connection.close()

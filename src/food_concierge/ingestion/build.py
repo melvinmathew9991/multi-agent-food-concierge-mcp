@@ -19,6 +19,7 @@ from pathlib import Path
 from food_concierge.config import Settings
 from food_concierge.errors import NotReadyError
 from food_concierge.ingestion.allergens import LEXICON_PATH, load_lexicon, tag_item
+from food_concierge.ingestion.descriptions import DESCRIPTIONS_FILE, Variant, read_descriptions, vision_texts
 from food_concierge.ingestion.loader import ATTRIBUTIONS_FILE, MENU_FILE, RESTAURANTS_FILE, load_catalog
 from food_concierge.models.embeddings import Embedder
 from food_concierge.storage.catalog_db import (
@@ -42,10 +43,11 @@ class StepResult:
 
 
 def source_files(settings: Settings) -> list[Path]:
-    """The inputs the catalog is built from; attributions are optional."""
+    """The inputs the catalog is built from; attributions and photo descriptions are optional."""
     raw = settings.raw_dir
     files = [raw / RESTAURANTS_FILE, raw / MENU_FILE, settings.data_dir / LEXICON_PATH]
-    return files + ([raw / ATTRIBUTIONS_FILE] if (raw / ATTRIBUTIONS_FILE).exists() else [])
+    optional = [raw / ATTRIBUTIONS_FILE, settings.processed_dir / DESCRIPTIONS_FILE]
+    return files + [path for path in optional if path.exists()]
 
 
 def _catalog_is_current(path: Path, source_sha256: str) -> bool:
@@ -71,8 +73,19 @@ def build_catalog(settings: Settings, *, force: bool = False) -> StepResult:
     for warning in loaded.warnings:
         logger.warning("catalog warning", extra={"issue": str(warning)})
     lexicon = load_lexicon(settings.data_dir / LEXICON_PATH)
-    tags = {item.item_id: tag_item(item, lexicon) for item in loaded.catalog.items}
-    build_catalog_db(loaded.catalog, tags, output, lexicon_version=lexicon.version, source_sha256=source_sha256)
+    # Descriptions come from the tracked cache only; a photo without one is tagged from label and lexicon alone.
+    cache = read_descriptions(settings.processed_dir / DESCRIPTIONS_FILE)
+    vision = vision_texts(loaded.catalog.photos, cache)
+    seen = {(photo.sha256, variant) for photo in loaded.catalog.photos for variant in Variant}
+    tags = {item.item_id: tag_item(item, lexicon, vision.get(item.item_id)) for item in loaded.catalog.items}
+    build_catalog_db(
+        loaded.catalog,
+        tags,
+        output,
+        lexicon_version=lexicon.version,
+        source_sha256=source_sha256,
+        descriptions=[description for key, description in cache.items() if key in seen],
+    )
     logger.info("catalog built", extra={"items": len(loaded.catalog.items), "data_sha256": source_sha256[:12]})
     return StepResult("catalog", True, output, source_sha256)
 

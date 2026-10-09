@@ -38,6 +38,9 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
   - The review page remembers choices across reloads, and `fetch_photos.py review` rebuilds it from the sheet without querying Commons.
   - `approve` checks every chosen row before downloading anything, so a bad row fails in seconds instead of after the downloads.
 - Owner-approved catalog photos: 131 of 150 dishes, recorded in `data/raw/attributions.csv`; 19 dishes have no suitable photo.
+- Photo descriptions (`ingestion/descriptions.py`, `scripts/describe_photos.py`): a name-free and a named description of each photo from local `qwen2.5vl:7b`, sent at 1024 px without metadata, cached by image SHA-256 in the tracked `data/processed/image_descriptions.jsonl`. The job saves after each photo and resumes.
+  - The build reads the cache: the name-free description is the allergen tagger's vision source (`may_contain`), both variants are stored in the catalog, and the cache is part of `data_sha256`.
+  - `scripts/allergen_report.py` includes the vision source and counts its tags against the ground truth.
 - The SQLite catalog (`storage/catalog_db.py`): restaurants, dishes, items, allergen tags with source and level, images, and descriptions. It is built into a temporary file and swapped in atomically.
   - `dish_key` groups the same dish across restaurants.
   - The document text for search is semantic only (name, description, cuisine, category, ingredients, diet); prices and calories stay in indexed columns.

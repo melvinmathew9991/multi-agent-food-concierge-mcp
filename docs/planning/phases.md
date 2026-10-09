@@ -176,7 +176,7 @@ Workstreams (one PR each, in order; the owner reviews before each merge):
 - The vision measurement is committed and ADR-0007 accepted.
 - `docs/data-card.md` is published, and offline tests stay at 100% coverage.
 
-**Status (2026-10-09):** seven of eight workstreams merged (PRs #20–#30), and photos are approved; descriptions remain.
+**Status (2026-10-09):** seven of eight workstreams merged (PRs #20–#31); photos approved; descriptions generated (this PR). The vision measurement and ADR-0007 remain.
 
 | Workstream | PR | Result |
 |---|---|---|
@@ -187,10 +187,10 @@ Workstreams (one PR each, in order; the owner reviews before each merge):
 | `feat/p2-storage` | #26 | SQLite catalog; `dish_key` (6 dishes at two restaurants); semantic `doc_text`; SQL filters checked against `Filters.admits` on 400 random combinations |
 | `feat/p2-indexes` | #27 | FAISS, Qdrant and BM25 with a manifest; **property test passes**: no filtered search on any backend returns a violating dish (300 random combinations) |
 | `feat/p2-flows` | #28 | `python -m food_concierge.flows build`; a second run is a no-op (also checked nightly with the real embedder); `docs/data-card.md` |
-| `feat/p2-descriptions` | — | waits for approved photos |
+| `feat/p2-descriptions` | this PR | `qwen2.5vl:7b` locally: name-free and named descriptions of all 127 photos, cached and tracked; name-free text feeds the allergen tagger as `may_contain` (no recall gained on this catalog, 59 false tags); measurement and ADR-0007 follow in a second PR |
 
 DoD so far:
-- One-command build and no-op re-run: met (descriptions not yet part of it).
+- One-command build and no-op re-run: met, descriptions included from the cache.
 - Allergen safety gate: met.
 - Property test on both backends: met.
 - Data card, and 100% coverage (463 tests): met.

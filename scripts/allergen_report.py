@@ -1,6 +1,7 @@
 """Print the allergen tagger's report on the catalog: the safety gate, the unverified rate and per-allergen precision.
 
-Offline and deterministic (no model calls). Run after changing the lexicon or the catalog:
+Offline and deterministic (no model calls): photo descriptions come from the tracked cache, as in the build. Run
+after changing the lexicon, the catalog or the descriptions:
 
     python scripts/allergen_report.py
 """
@@ -9,7 +10,9 @@ from __future__ import annotations
 
 import sys
 
-from food_concierge.ingestion.allergens import TaggerReport, evaluate, load_lexicon, tag_item
+from food_concierge.config import get_settings
+from food_concierge.ingestion.allergens import Source, TaggerReport, evaluate, load_lexicon, tag_item
+from food_concierge.ingestion.descriptions import DESCRIPTIONS_FILE, read_descriptions, vision_texts
 from food_concierge.ingestion.loader import load_catalog
 
 
@@ -38,10 +41,16 @@ def render(report: TaggerReport) -> str:
 def main() -> int:
     lexicon = load_lexicon()
     loaded = load_catalog()
-    report = evaluate(
-        (tag_item(item, lexicon) for item in loaded.catalog.items), loaded.true_allergens, lexicon.version
-    )
+    vision = vision_texts(loaded.catalog.photos, read_descriptions(get_settings().processed_dir / DESCRIPTIONS_FILE))
+    tagged = [tag_item(item, lexicon, vision.get(item.item_id)) for item in loaded.catalog.items]
+    report = evaluate(tagged, loaded.true_allergens, lexicon.version)
     print(render(report))
+    from_vision = [(dish.item_id, t.allergen) for dish in tagged for t in dish.tags if t.source is Source.VISION]
+    confirmed = sum(allergen in loaded.true_allergens[item_id] for item_id, allergen in from_vision)
+    print(
+        f"\nVision source: {len(vision)} dishes described, {len(from_vision)} may_contain tags, "
+        f"{confirmed} of them in the ground truth."
+    )
     return 1 if report.missed else 0
 
 

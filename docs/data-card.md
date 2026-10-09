@@ -37,12 +37,14 @@ The recipe assumptions behind the ground truth (for example: hing and soy sauce 
 
 ## Derived data
 
-- **Allergen tags** come from three sources: the restaurant label and an ingredient lexicon (`data/lexicon/allergens.yaml`, version 1) give `contains`; photo descriptions will give `may_contain`. Dishes with an opaque ingredient (a masala mix, a chutney, an unnamed sauce) are `unverified`: 25 of 150 (17%).
+- **Allergen tags** come from three sources: the restaurant label and an ingredient lexicon (`data/lexicon/allergens.yaml`, version 1) give `contains`; the name-free description of the dish's photo gives `may_contain`. Dishes with an opaque ingredient (a masala mix, a chutney, an unnamed sauce) are `unverified`: 25 of 150 (17%).
+- **Photo descriptions**: `qwen2.5vl:7b`, run locally through Ollama, wrote two descriptions of each of the 127 photos (prompt version 1): a name-free one and one told the dish's name. They are cached in `data/processed/image_descriptions.jsonl`, keyed by image SHA-256, so the build never needs a vision model. Median latency was 3.8 s per description on an RTX 4060 Laptop GPU (8 GB).
+- **What vision adds here**: 212 `may_contain` tags on 131 dishes. On this catalog it adds no recall, because label and lexicon already flag every ground-truth allergen; the 59 tags that only vision gives are all false against the ground truth, mostly "bread" (gluten, wheat) and "nuts" (peanuts, tree nuts). A Commons photo shows a version of the dish, so some of these may be true of the photo but not of the recipe. Vision is kept as a cautious third source for menus whose ingredient lists are incomplete; its cost in excluded dishes is measured in the vision measurement (ADR-0007).
 - **Safety gate**: every ground-truth allergen of every dish is tagged, or the dish is unverified (100% recall; checked by the tests on every build). Per-allergen precision is reported by `scripts/allergen_report.py`. These numbers are in-sample: the lexicon was written against this catalog.
 
 ## Lineage
 
-1. `data/raw/*.csv` and `data/lexicon/allergens.yaml` are hashed together (`data_sha256`).
+1. `data/raw/*.csv`, `data/lexicon/allergens.yaml` and `data/processed/image_descriptions.jsonl` are hashed together (`data_sha256`).
 2. `python -m food_concierge.flows ingest` builds `data/processed/catalog.db` and records that hash, the document-text version and the lexicon version in its `meta` table.
 3. `python -m food_concierge.flows index` builds `data/processed/indexes/` and records the same hash, the embedder fingerprint and the hash of every index file in `manifest.json`. An index built from other data or another embedder refuses to load.
 4. Evaluation runs (Phase 3 onwards) record the data hash and index manifest they ran against.

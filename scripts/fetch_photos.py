@@ -6,7 +6,10 @@
 
    This writes data/raw/photo_review.csv and a local page, photo_review.html, in the photo cache. Open the page,
    choose one photo per dish (or "no suitable photo"), and download the filled sheet over data/raw/photo_review.csv.
-   Re-running keeps choices already made.
+   Re-running keeps choices already made. The page remembers clicks across reloads; to rebuild it from the sheet
+   without searching Commons again:
+
+       python scripts/fetch_photos.py review
 
 2. Turn the choices into attributions, downloading each approved file and pinning its SHA-256:
 
@@ -150,12 +153,23 @@ small {{ color: #555; overflow-wrap: anywhere; }}
 <script>
 const rows = {data};
 const columns = {columns};
+const STORE = "photo_review_choices";  // survives a reload; the downloaded sheet is still the record
+const load = () => {{ try {{ return JSON.parse(localStorage.getItem(STORE)) || {{}}; }} catch {{ return {{}}; }} }};
+const choices = load();
+for (const [id, value] of Object.entries(choices)) {{
+  const input = document.querySelector(`input[name="${{CSS.escape(id)}}"][value="${{CSS.escape(value)}}"]`);
+  if (input && !document.querySelector(`input[name="${{CSS.escape(id)}}"]:checked`)) input.checked = true;
+}}
 const count = () => {{
   const dishes = new Set(rows.map(r => r.item_id));
   const done = [...dishes].filter(id => document.querySelector(`input[name="${{CSS.escape(id)}}"]:checked`)).length;
   document.getElementById("count").textContent = `${{done}} of ${{dishes.size}} dishes chosen`;
 }};
-document.addEventListener("change", count);
+document.addEventListener("change", event => {{
+  choices[event.target.name] = event.target.value;
+  try {{ localStorage.setItem(STORE, JSON.stringify(choices)); }} catch {{}}
+  count();
+}});
 count();
 document.getElementById("download").addEventListener("click", () => {{
   const quote = v => '"' + String(v).replaceAll('"', '""') + '"';
@@ -173,6 +187,16 @@ document.getElementById("download").addEventListener("click", () => {{
 }});
 </script></body></html>
 """
+
+
+def write_review_page(rows: Sequence[dict[str, str]], cache_dir: Path) -> int:
+    if not rows:
+        print(f"No review sheet yet: run `candidates` first to write data/raw/{REVIEW_FILE}.")
+        return 1
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / REVIEW_PAGE).write_text(render_review_page(rows), encoding="utf-8")
+    print(f"Review page: {cache_dir / REVIEW_PAGE}")
+    return 0
 
 
 def apply_approvals(
@@ -209,22 +233,22 @@ def sync(photos: Sequence[Photo], client: CommonsClient, cache_dir: Path) -> int
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["candidates", "approve", "sync"])
+    parser.add_argument("command", choices=["candidates", "review", "approve", "sync"])
     parser.add_argument("--per-dish", type=int, default=5, help="candidates kept per dish (default 5)")
     parser.add_argument("--only", nargs="+", metavar="ITEM_ID", help="candidates: re-search only these dishes")
     args = parser.parse_args(argv)
 
     settings = get_settings()
     raw, cache = settings.raw_dir, settings.photo_cache_dir
+    if args.command == "review":
+        return write_review_page(read_csv(raw / REVIEW_FILE), cache)
     loaded = load_catalog(raw)
     client = CommonsClient()
     if args.command == "candidates":
         rows = find_candidates(loaded.catalog.items, client, raw / REVIEW_FILE, args.per_dish, args.only)
-        cache.mkdir(parents=True, exist_ok=True)
-        (cache / REVIEW_PAGE).write_text(render_review_page(rows), encoding="utf-8")
         found = {row["item_id"] for row in rows if row["candidate"] != NONE}
-        print(f"{len(found)} of {len(loaded.catalog.items)} dishes have candidates. Review page: {cache / REVIEW_PAGE}")
-        return 0
+        print(f"{len(found)} of {len(loaded.catalog.items)} dishes have candidates.")
+        return write_review_page(rows, cache)
     if args.command == "approve":
         return apply_approvals(loaded.catalog.items, raw / REVIEW_FILE, raw / ATTRIBUTIONS_FILE, client, cache)
     return sync(loaded.catalog.photos, client, cache)

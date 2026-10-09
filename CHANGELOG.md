@@ -4,7 +4,13 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ## [Unreleased]
 
-### Phase 2: Data, safety and ingestion flows (in progress)
+### Phase 2: Data, safety and ingestion flows (closed 2026-10-09)
+
+The data every later phase stands on:
+- An authored 150-dish catalog with owner-reviewed allergen ground truth and 131 licence-checked Commons photos.
+- Three-source allergen tags with an `unverified` state, and a safety gate at 100% recall.
+- A SQLite catalog, FAISS, Qdrant and BM25 indexes, and Prefect build flows whose re-run does nothing.
+- Measured photo descriptions, and the runtime vision model chosen from them (ADR-0007).
 
 #### Added
 - Catalog vocabularies (`ingestion/taxonomy.py`):
@@ -26,7 +32,7 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - Allergen tagging (`ingestion/allergens.py`) from three sources, each tag stored with its source, level and evidence:
   - the restaurant label → `contains`;
   - a versioned ingredient lexicon (`data/lexicon/allergens.yaml`, with Indian terms such as ghee, maida, hing, khoya and kasundi) → `contains`;
-  - the photo description → `may_contain`.
+  - the photo description → `may_contain`, shown as a warning but not filtered on (ADR-0007).
 
   At each position the longest phrase wins, so peanut butter is peanuts and makki atta is not wheat. Opaque ingredients (masala mixes, chutneys, unnamed sauces) mark a dish unverified.
 - The allergen safety gate (Phase 2 DoD), in the tests: every hand-checked allergen of every dish is tagged, or the dish is unverified, with unverified capped at 25% of dishes. `scripts/allergen_report.py` prints precision per allergen.
@@ -41,11 +47,15 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 - Photo descriptions (`ingestion/descriptions.py`, `scripts/describe_photos.py`): a name-free and a named description of each photo from local `qwen2.5vl:7b`, sent at 1024 px without metadata, cached by image SHA-256 in the tracked `data/processed/image_descriptions.jsonl`. The job saves after each photo and resumes.
   - The build reads the cache: the name-free description is the allergen tagger's vision source (`may_contain`), both variants are stored in the catalog, and the cache is part of `data_sha256`.
   - `scripts/allergen_report.py` includes the vision source and counts its tags against the ground truth.
+- The vision measurement (`scripts/vision_measurement.py`): a seeded sample of 30 photos, a local review page beside the thumbnails, and scores for dish type, ingredients visible in the photo and allergen terms the photo gives no evidence of, with Wilson 95% intervals and latency p50/p95.
+  - A `describe` command sends the sampled photos to a hosted model through the production path (same prompt, 1024 px, no metadata). It paces itself under the provider's tokens-a-minute cap and records tokens, latency and failed attempts per photo.
+  - Owner-reviewed results for local `qwen2.5vl:7b` and Groq `qwen/qwen3.8-27b` are in `eval/results/`, with their samples in `eval/datasets/`.
+- ADR-0007: Groq `qwen/qwen3.8-27b` describes user photos (dish type 22/30 correct and 30/30 correct or partial, p95 0.9 s, against 23/30, 29/30 and p95 4.8 s locally). Gemini gets no vision model, so a photo never falls back to its free tier.
 - The SQLite catalog (`storage/catalog_db.py`): restaurants, dishes, items, allergen tags with source and level, images, and descriptions. It is built into a temporary file and swapped in atomically.
   - `dish_key` groups the same dish across restaurants.
   - The document text for search is semantic only (name, description, cuisine, category, ingredients, diet); prices and calories stay in indexed columns.
   - A `meta` table records the document-text version, lexicon version and source-data hash. The hand-checked ground truth never enters the database.
-  - `CatalogStore.candidate_ids(filters)` applies diet, eggless, excluded allergens, maximum calories, maximum price and cuisine as SQL. When allergens matter, unverified dishes are left out unless the caller asks for them. A property test checks 400 random filter combinations against a plain-Python oracle.
+  - `CatalogStore.candidate_ids(filters)` applies diet, eggless, excluded allergens (`contains` tags), maximum calories, maximum price and cuisine as SQL. When allergens matter, unverified dishes are left out unless the caller asks for them. A property test checks 400 random filter combinations against a plain-Python oracle.
 - Search indexes. FAISS (`IndexIDMap2(IndexFlatIP)`), Qdrant and BM25 sit behind one search interface in `services/retrieval.py`.
   - Hard filters are decided once in SQL; each backend only restricts its search to those ids.
   - `storage/indexes.py` writes vectors (`.npy`, pickling disabled), item ids and the FAISS index with a manifest: embedder fingerprint, dimension, item count, catalog data hash, document-text version and file hashes. Loading refuses an index built with another embedder, from other data, or with changed files.
@@ -69,8 +79,13 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 #### Fixed
 - Photo attributions accept Commons files with an uppercase extension (`.JPG`), and `http://` licence links are stored as `https://`.
 - Thumbnails can be built from Commons originals of up to 250 MP (two approved photos are 200 MP). The higher limit applies only while thumbnailing approved, hash-pinned files; uploads keep Pillow's default.
+- The lexicon accepts an "es" plural only after a vowel or s, x, z, ch or sh, so "til" (sesame) no longer matches "tiles" in a photo description (lexicon version 2).
+- The description cache is written with LF line endings on every platform.
 
 #### Changed
+- Vision `may_contain` tags warn instead of filter (ADR-0007). Search hides a dish when an excluded allergen is in `contains`, or when the dish is unverified; vision tags stay in the catalog for display. On this catalog this restores 47 false exclusions on 29 dishes.
+- The safety gate checks recall of `contains`, the tags search filters on. It passes on all 150 dishes.
+- `GROQ_VISION_MODEL` defaults to `qwen/qwen3.8-27b`; `docs/data-handling.md` records that Groq receives user photos and Gemini never does.
 - Engineering rules §1: `qdrant-client` is used in memory only, because its on-disk local mode persists with pickle.
 - Architecture and data-handling documents updated to match what Phase 2 built: the build command, in-memory Qdrant, filtering through SQL candidate ids, `doc_text` with category, hash-checked re-runs, Wikimedia Commons as an offline source, and Prefect analytics off.
 

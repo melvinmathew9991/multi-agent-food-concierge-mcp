@@ -176,7 +176,7 @@ Workstreams (one PR each, in order; the owner reviews before each merge):
 - The vision measurement is committed and ADR-0007 accepted.
 - `docs/data-card.md` is published, and offline tests stay at 100% coverage.
 
-**Status (2026-10-09):** seven of eight workstreams merged (PRs #20–#31); photos approved; descriptions generated (this PR). The vision measurement and ADR-0007 remain.
+**Closed 2026-10-09.** All eight workstreams merged (PRs #20–#36), every DoD item met, ADR-0007 accepted.
 
 | Workstream | PR | Result |
 |---|---|---|
@@ -187,15 +187,16 @@ Workstreams (one PR each, in order; the owner reviews before each merge):
 | `feat/p2-storage` | #26 | SQLite catalog; `dish_key` (6 dishes at two restaurants); semantic `doc_text`; SQL filters checked against `Filters.admits` on 400 random combinations |
 | `feat/p2-indexes` | #27 | FAISS, Qdrant and BM25 with a manifest; **property test passes**: no filtered search on any backend returns a violating dish (300 random combinations) |
 | `feat/p2-flows` | #28 | `python -m food_concierge.flows build`; a second run is a no-op (also checked nightly with the real embedder); `docs/data-card.md` |
-| `feat/p2-descriptions` | this PR | `qwen2.5vl:7b` locally: name-free and named descriptions of all 127 photos, cached and tracked; name-free text feeds the allergen tagger as `may_contain` (no recall gained on this catalog, 59 false tags); measurement and ADR-0007 follow in a second PR |
+| `feat/p2-descriptions` | #32 | `qwen2.5vl:7b` locally: name-free and named descriptions of all 127 photos, cached and tracked; name-free text feeds the allergen tagger as `may_contain` |
+| vision measurement | #33–#36 | 30 seeded photos scored by the owner for local `qwen2.5vl:7b` and Groq `qwen/qwen3.8-27b`: dish type 23/30 vs 22/30 correct, false allergen terms 4/25 vs 3/24, p95 4.8 s vs 0.9 s. Lexicon v2 (#34: "til" no longer matches "tiles"). **ADR-0007 accepted** (#36): Groq describes user photos with no Gemini fallback; vision tags warn instead of filter, which restores 47 false exclusions on 29 dishes |
 
-DoD so far:
+DoD:
 - One-command build and no-op re-run: met, descriptions included from the cache.
-- Allergen safety gate: met.
+- Allergen safety gate: met, now on `contains` tags (the ones search filters on).
 - Property test on both backends: met.
-- Data card, and 100% coverage (463 tests): met.
+- Data card, and 100% coverage (494 tests): met.
 - Every photo has a licence record and no NC or ND file is present: met (131 attributions, each hash-pinned).
-- Open: the vision measurement and ADR-0007.
+- Vision measurement committed and ADR-0007 accepted: met.
 
 Deviations from the plan above, each recorded in the PR that made it:
 - Qdrant runs in memory, rebuilt from the saved vectors at load: its on-disk local mode persists points with pickle (rules §1).
@@ -203,6 +204,10 @@ Deviations from the plan above, each recorded in the PR that made it:
 - "Re-run is a no-op" comes from explicit input-hash checks, not Prefect's result cache, whose default serializer is pickle.
 - `doc_text` adds the menu category to the plan's fields (`DOC_TEXT_VERSION` 1).
 - The allergen precision figures are in-sample: the lexicon was written against this catalog.
+- Vision `may_contain` tags do not filter search, and the gate checks `contains` only (ADR-0007). Item 4 planned vision tags as a filter and part of the gate.
+Follow-ups carried forward:
+- P4: the usage ledger keys token caps by model (Groq limits per model), budgets photos separately from chat, and stays below Groq's figure (ADR-0007).
+- Lexicon: negations ("no nuts") and hedged alternatives ("spices or nuts") produce false vision terms; fix when the lexicon next changes.
 
 ## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · M
 **Goal:** the "before" numbers and a CI gate, before any agent logic (A5).

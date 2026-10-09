@@ -78,7 +78,8 @@ def write_descriptions(path: Path, descriptions: Iterable[ImageDescription]) -> 
     ordered = sorted(descriptions, key=lambda d: (d.sha256, d.variant.value))
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(d.model_dump(mode="json"), ensure_ascii=False) for d in ordered]
-    path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+    # LF on every platform: the file is hashed into data_sha256, which must match across machines.
+    path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8", newline="\n")
 
 
 def is_current(cache: Mapping[DescriptionKey, ImageDescription], sha256: str, variant: Variant) -> bool:

@@ -49,6 +49,7 @@ def test_cache_round_trips_sorted_and_later_lines_win(tmp_path: Path) -> None:
     assert read_descriptions(path) == {}
 
     write_descriptions(path, [entry(SHA_B), entry(SHA_A, Variant.NAMED), entry(SHA_A)])
+    assert b"\r" not in path.read_bytes()  # hashed into data_sha256: identical bytes on every platform
     with path.open("a", encoding="utf-8") as handle:
         handle.write("\n" + entry(SHA_B, text="Rice.").model_dump_json() + "\n")
 

@@ -1,7 +1,8 @@
 # Allergen ingredient lexicon (Phase 2, item 4). Reviewed by the owner; bump `version` on every change.
 #
-# Each term is matched as a whole word, with an optional plural "s"/"es", case-insensitively. At each position the
-# longest known phrase wins, so "peanut butter" is peanuts (not milk) and "makki atta" is neutral (not wheat).
+# Each term is matched as a whole word, case-insensitively, with an optional plural "s", or "es" after a vowel or s,
+# x, z, ch or sh ("til" must not match "tiles"). At each position the longest known phrase wins, so "peanut butter"
+# is peanuts (not milk) and "makki atta" is neutral (not wheat).
 # A term listed under several allergens maps to all of them. Wheat implies gluten, which is added automatically.
 #
 # - allergens: terms whose presence means the dish contains that allergen (level "contains").
@@ -12,7 +13,7 @@
 # Negations such as "dairy-free" or "eggless" are deliberately not understood: for safety, a false alarm beats a miss.
 # Recipe assumptions for composite ingredients are recorded in data/raw/README.md.
 
-version: 1
+version: 2
 
 allergens:
   gluten:

@@ -1,9 +1,9 @@
 {
  "run": {
-  "created": "2026-10-09T13:55:31+00:00",
-  "commit": "40d0f14",
+  "created": "2026-10-09T14:25:47+00:00",
+  "commit": "105c655",
   "dataset": "eval/datasets/vision_sample.yaml",
-  "dataset_sha256": "a40edc7a1ceff52325dc541a1df516300478947216c3cf43c101ce2241dd7937",
+  "dataset_sha256": "038b4f64f44de580bb54c42a4534636c16a5680ad53f69457adeb99d979fc729",
   "reviewed": false,
   "models": [
    "qwen2.5vl:7b"
@@ -59,23 +59,23 @@
    }
   },
   "allergen_terms": {
-   "found": 26,
+   "found": 25,
    "not_visible": {
-    "rate": 0.192,
-    "k": 5,
-    "n": 26,
+    "rate": 0.16,
+    "k": 4,
+    "n": 25,
     "ci95": [
-     0.085,
-     0.379
+     0.064,
+     0.347
     ]
    },
    "descriptions_with_a_false_term": {
-    "rate": 0.133,
-    "k": 4,
+    "rate": 0.1,
+    "k": 3,
     "n": 30,
     "ci95": [
-     0.053,
-     0.297
+     0.035,
+     0.256
     ]
    }
   }

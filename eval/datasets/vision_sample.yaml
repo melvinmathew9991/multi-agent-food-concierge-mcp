@@ -213,17 +213,13 @@ entries:
     or coffee. The cup is placed on a dark wooden surface, and the background features a tiled wall with a pattern
     of small, square tiles in shades of gray and brown. The liquid appears smooth and has a slight sheen, suggesting
     it might be freshly brewed.
-  allergen_terms:
-    til:
-    - sesame
+  allergen_terms: {}
   dish_type: correct
   seen:
   - tea
   not_seen: []
-  not_visible:
-  - til
-  note: '''til'' matched ''tiles'' (the wall behind the cup) through the lexicon''s plural ending: sesame tagged
-    from the background.'
+  not_visible: []
+  note: Lexicon v1 matched 'til' (sesame) in 'tiles' (the wall behind the cup); fixed in lexicon v2.
 - sha256: 91d09acf8d64a02ec5fa9b4a4686d76fd119a5e902b0baaeffc2608aba9e442a
   item_id: b04
   dish: Luchi

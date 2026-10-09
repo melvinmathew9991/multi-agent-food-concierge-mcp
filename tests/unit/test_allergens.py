@@ -86,6 +86,8 @@ def item(**changes: Any) -> MenuItem:
         ("eggplant", set()),
         ("eggless sponge", set()),
         ("prawns", {A.CRUSTACEANS}),  # plurals
+        ("fishes", {A.FISH}),
+        ("a wall of small tiles", set()),  # "es" only after a vowel or s, x, z, ch, sh: not "til" + "es"
         ("Cashews", {A.TREE_NUTS}),  # case
         ("soy-sauce", {A.SOY, A.WHEAT}),  # hyphenated phrase
         ("egg noodles", {A.EGGS, A.WHEAT}),

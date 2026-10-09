@@ -102,6 +102,10 @@ class Lexicon:
         return hits
 
 
+# "es" only where English takes it (tomatoes, chillies, dishes), so "til" does not match "tiles".
+_PLURAL = r"(?:(?<=[aeiouxzs])es|(?<=ch)es|(?<=sh)es|s)?"
+
+
 def build_lexicon(data: Any) -> Lexicon:
     parsed = _LexiconFile.model_validate(data)
     allergens: dict[str, set[Allergen]] = {}
@@ -115,7 +119,7 @@ def build_lexicon(data: Any) -> Lexicon:
     }
     # Longest first, so the regex alternation prefers "peanut butter" to "peanut" at the same position.
     alternatives = (r"[\s-]+".join(re.escape(word) for word in name.split()) for name in sorted(names, key=len)[::-1])
-    pattern = re.compile(r"\b(?P<term>" + "|".join(alternatives) + r")(?:s|es)?\b")
+    pattern = re.compile(r"\b(?P<term>" + "|".join(alternatives) + r")" + _PLURAL + r"\b")
     return Lexicon(version=parsed.version, phrases=phrases, pattern=pattern)
 
 

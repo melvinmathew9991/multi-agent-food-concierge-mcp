@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import runpy
 import shutil
 import sys
@@ -46,9 +47,10 @@ def test_steps_skip_when_current_and_rebuild_when_inputs_change(data_dir: Path) 
 
     first = [build_catalog(settings), build_search_index(settings, embedder)]
     again = [build_catalog(settings), build_search_index(settings, embedder)]
-    (data_dir / "lexicon" / "allergens.yaml").write_text(
-        LEXICON.read_text(encoding="utf-8").replace("version: 1", "version: 2"), encoding="utf-8"
+    bumped = re.sub(
+        r"^version: (\d+)", lambda m: f"version: {int(m[1]) + 1}", LEXICON.read_text(encoding="utf-8"), flags=re.M
     )
+    (data_dir / "lexicon" / "allergens.yaml").write_text(bumped, encoding="utf-8")
     changed = [build_catalog(settings), build_search_index(settings, embedder)]
 
     assert [r.rebuilt for r in first] == [True, True]

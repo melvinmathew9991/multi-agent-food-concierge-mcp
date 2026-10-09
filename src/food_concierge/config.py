@@ -77,9 +77,10 @@ class Settings(BaseSettings):
     groq_base_url: str = "https://api.groq.com/openai/v1"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     # Chosen from the Phase 1 model profile (ADR-0006, eval/results/model_profile_2026-10-01.json).
-    # Groq has no vision model; Gemini vision stays blank until measured on own photos.
+    # Vision from the Phase 2 measurement (ADR-0007): Groq only. Gemini vision stays blank, because its free tier
+    # lets Google use the photos, so a user's photo never falls back to it.
     groq_chat_model: str = "openai/gpt-oss-20b"
-    groq_vision_model: str = ""
+    groq_vision_model: str = "qwen/qwen3.8-27b"
     gemini_chat_model: str = "gemini-3.5-flash-lite"
     gemini_vision_model: str = ""
 

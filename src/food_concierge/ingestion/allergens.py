@@ -7,8 +7,10 @@
 A dish listing an opaque ingredient (a masala mix, an unnamed sauce, a chutney) is ``unverified``: its recipe can't
 be checked, so the agent must ask before recommending it to someone avoiding an allergen (PRD F8).
 
-The safety property, checked against the hand-reviewed ground truth by the tests, is recall: every true allergen of
-every dish is tagged, or the dish is unverified. Precision is reported, not gated.
+Search hides a dish on ``contains`` and ``unverified`` only; ``may_contain`` is shown as a warning, never filtered
+on (ADR-0007). So the safety property, checked against the hand-reviewed ground truth by the tests, is recall of
+``contains``: every true allergen of every dish is tagged ``contains``, or the dish is unverified. Precision is
+reported, not gated.
 """
 
 from __future__ import annotations
@@ -213,7 +215,8 @@ class TaggerReport:
 def evaluate(
     results: Iterable[DishAllergens], truth: Mapping[str, frozenset[Allergen]], lexicon_version: int
 ) -> TaggerReport:
-    """Score tags against the hand-checked allergens: the safety gate (``missed``) and per-allergen precision."""
+    """Score ``contains`` tags, the ones search filters on, against the hand-checked allergens: the safety gate
+    (``missed``) and per-allergen precision."""
     counts = {allergen: [0, 0, 0] for allergen in Allergen}
     missed: dict[str, frozenset[Allergen]] = {}
     dishes = unverified = 0
@@ -222,10 +225,10 @@ def evaluate(
         unverified += result.unverified
         actual = truth[result.item_id]
         for allergen in Allergen:
-            tagged, present = allergen in result.flagged, allergen in actual
+            tagged, present = allergen in result.contains, allergen in actual
             if tagged or present:
                 counts[allergen][0 if tagged and present else 1 if tagged else 2] += 1
-        untagged = actual - result.flagged
+        untagged = actual - result.contains
         if untagged and not result.unverified:
             missed[result.item_id] = untagged
     scores = tuple(AllergenScore(allergen, *count) for allergen, count in counts.items())

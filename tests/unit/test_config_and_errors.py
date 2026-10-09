@@ -138,8 +138,9 @@ def test_router_and_judge_roles_share_the_chat_model(settings: Settings) -> None
 
 
 def test_unverified_free_tier_model_fails_loudly(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    with pytest.raises(errors.ConfigError, match="vision model configured for provider 'groq'"):
-        settings.require_model_id("groq", "vision")
+    with pytest.raises(errors.ConfigError, match="vision model configured for provider 'gemini'"):
+        settings.require_model_id("gemini", "vision")
+    assert settings.require_model_id("groq", "vision") == "qwen/qwen3.8-27b"  # ADR-0007
 
     monkeypatch.setenv("GEMINI_CHAT_MODEL", "gemini-test")
     assert Settings(_env_file=None).require_model_id("gemini", "router") == "gemini-test"

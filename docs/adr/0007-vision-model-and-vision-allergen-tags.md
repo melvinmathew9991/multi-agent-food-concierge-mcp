@@ -1,6 +1,6 @@
 # 0007. Vision model for user photos, and what vision allergen tags may do
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-09
 - Requirements: PRD §6 (F2 image input, F5 three-source allergen tags, F27 data governance), §7 (latency p95 ≤ 8 s, zero cost, privacy)
 
@@ -16,7 +16,7 @@ Two questions were left open by ADR-0006 and the Phase 2 plan (item 7):
 | | Local `qwen2.5vl:7b` (Ollama, RTX 4060 Laptop) | Groq `qwen/qwen3.8-27b` |
 |---|---|---|
 | Results file | `eval/results/vision_measurement_2026-10-09.json` | `eval/results/vision_measurement_groq_2026-10-09.json` |
-| Scores reviewed by the owner | yes | **not yet** |
+| Scores reviewed by the owner | yes | yes |
 | Dish type correct | 23/30 (77%) [59%, 88%] | 22/30 (73%) [56%, 86%] |
 | Dish type correct or partial | 29/30 (97%) [83%, 99%] | 30/30 (100%) [89%, 100%] |
 | Named ingredients visible in the photo | 82/98 (84%) [75%, 90%] | 103/115 (90%) [83%, 94%] |
@@ -57,6 +57,7 @@ C. **Drop the vision source.** Simplest, but loses the warning on real menus wit
 - `GROQ_VISION_MODEL=qwen/qwen3.8-27b` becomes the default in `config.py`. `GEMINI_VISION_MODEL` stays blank, so the vision chain is Groq alone. When Groq fails or is rate-limited, the request does not fall back to another provider. The user is asked to describe the dish in words, and text search serves it (P4/P7).
 - Local `qwen2.5vl:7b` stays the model for catalog descriptions, run offline by `scripts/describe_photos.py`. Catalog descriptions are tracked, so neither the build nor CI needs a vision model.
 - Vision `may_contain` tags no longer hide dishes. `CatalogFilters` excludes a dish when an excluded allergen is in `contains`, or when the dish is `unverified` and unverified dishes are not included. `may_contain` tags are still stored, returned by `check_allergens` and shown as chips. The deterministic verifier (P5) treats them as a warning to show, not a reason to refuse.
+- The safety gate (`evaluate` in `ingestion/allergens.py`) now checks recall of `contains`, the tags search filters on, so a vision tag can no longer pass the gate for an allergen search would ignore. It passes on all 150 dishes.
 
 Why:
 - The hosted model matches the local one, so user photos can be described as well as catalog photos are, five times faster, without sending them to a provider that trains on them.

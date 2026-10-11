@@ -215,6 +215,17 @@ Follow-ups carried forward:
 
 Sized L rather than M: the owner's relevance labels are real authoring work, as the allergen ground truth was in Phase 2, and the image queries and the original-approach baseline each need a paced live job.
 
+**Status (2026-10-11):** workstreams 0–7 are merged (#38, #62–#69), and the query set was reduced to 62 drafted queries (#70). Where work stands:
+- **Owner grading (#42):** the blind grading page covers 1,179 pooled dishes across the 62 queries. It is the critical path. After it come `label_queries.py import` and `split`, the gate baseline update (`retrieval_gate.py --update`) and regenerated results.
+- **Image descriptions (#43):** 59 of 127 photos have L1 and 36 have every rung, on the local branch `data/p3-image-descriptions`. Groq caps `qwen/qwen3.8-27b` at about 200,000 tokens a day, which is about 140 descriptions at roughly 1,430 tokens each. That daily token cap, not the per-minute rate or the 900-calls-a-day cap, sets the pace, so the job spans several days instead of the planned 1.5 h. It resumes each day.
+- **ADR-0001 and the final test run (#47):** these wait for grades. Latency has to be measured with the real models, since the cached ones only look scores up. Rerank so far is about 51 ms, 120 ms and 280 ms at the median for depths 5, 10 and 20.
+- **Close-out (#48).**
+
+Deviations so far, each recorded in its PR:
+- C0 took 310 Groq calls and about 64k tokens, not about 360 calls, because 62 queries were run instead of 72. The strict and fixed parsers agree on this catalog: the model always replied exactly "Yes" or "No", so defect #4 did not fire.
+- Rerank depth 10 was added as a candidate (#69).
+- The Langfuse experiment view is built but not yet checked against a running local Langfuse.
+
 ### What Phase 3 does and does not measure
 - **Measures:** ranking quality given the correct hard filters; how photos degrade search; latency of each retrieval stage; the original approach re-implemented on this catalog.
 - **Does not measure:**
@@ -378,7 +389,7 @@ Every candidate is also measured with `dish_key` de-duplication on and off (6 di
 
   Rendering is deterministic and tested.
 - **CLI:** `python -m food_concierge.flows evaluate|report`.
-- **Nightly:** `evaluate` runs after `build`.
+- **Nightly:** `evaluate --check` runs after `build` and reproduces the committed results from the caches.
 - **Langfuse:** each query becomes a dataset item, and each configuration becomes one experiment run with per-item scores (nDCG@3, Success@3, Violation@3). The mirror runs only when keys are configured, so in P3 it goes to local Docker Langfuse. GitHub Actions has no Langfuse keys, and a Langfuse Cloud account is P4's decision. Query text is synthetic, with no personal data. A mirror failure is logged and swallowed (rules §4.5).
 
 ### Limitations and risks (known before execution)
@@ -390,7 +401,7 @@ Every candidate is also measured with `dish_key` de-duplication on and off (6 di
 | Pool bias | Configurations outside the pool look worse | Pool depth 10 across every candidate; judged@3 reported; grade new pairs below 95% |
 | Altered photos are not real photos | Image numbers can mislead either way | Reported as a lower bound next to L0 and L1; real photos are P7 or later |
 | Backdrop change only approximated | Background robustness under-tested | Stated; segmentation is out of scope |
-| Groq free-tier throughput (3–4 photos a minute) and the 900-a-day cap | The photo job takes about 1.5 h; C0 adds about 360 chat calls | Paced, resumable scripts; the two jobs run on different days; no Gemini fallback for photos (ADR-0007) |
+| Groq free-tier throughput (3–4 photos a minute), the 900-a-day cap and, as found in execution, about 200,000 vision tokens a day | The photo job spans several days rather than 1.5 h; C0 added 310 chat calls | Paced, resumable scripts; the two jobs run on different days; no Gemini fallback for photos (ADR-0007) |
 | The vision model was found by a probe and may change (ADR-0007) | L1 and L2 may not be reproducible later | Descriptions are cached with model and prompt version; regenerating them is a new run, not an edit |
 | LLM Yes/No verdicts are non-deterministic | C0 varies between runs | Temperature 0 and a seed, cached once; the raw replies are committed |
 | An English-only cross-encoder | It may hurt the Hinglish and regional slice | Slice reported; the ladder rule decides adoption |

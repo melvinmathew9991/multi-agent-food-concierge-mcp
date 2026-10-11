@@ -4,6 +4,31 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ## [Unreleased]
 
+### Phase 3: Retrieval evaluation, ranking and baselines (in progress)
+
+Planned in #38. The plan's workstreams 1–7 are merged (#62–#70). Still open: the owner's grades (#42), the remaining image descriptions (#43), ADR-0001 with one final test run (#47), and the close-out (#48). Production retrieval defaults don't change until ADR-0001 is accepted.
+
+#### Added
+- `Retriever` and `RetrievalConfig` (`services/retrieval.py`, #62): BM25, dense or hybrid search over FAISS or Qdrant, reciprocal rank fusion (`k_rrf` 60, 20 results from each list), an optional cross-encoder rerank depth, `dish_key` de-duplication and per-stage timings. The reranker carries a fingerprint, as the embedder does. Evaluation runs this same class, not a copy.
+- The evaluation package `food_concierge/evaluation/` (#63), typed and inside the 100% coverage gate:
+  - dataset schemas, with a test split locked by SHA-256 and refused without `--final`;
+  - metrics checked against hand-computed values: nDCG@3, Success@3, Recall@3/10, MRR and Violation@3, judged against the ground truth;
+  - a seeded paired bootstrap (10,000 resamples);
+  - a cached embedder and reranker that implement the production protocols from committed files;
+  - a cache manifest and a `RunRecord` with the git SHA, lock-file hash, data hash, fingerprints, models, prompt versions, seeds and machine.
+- 62 text queries in six types with gold filters (`eval/datasets/retrieval.yaml`, #64, #70), plus a labelling guide. `scripts/label_queries.py` pools each query's top 10 from every candidate (1,179 dishes) into a blind, shuffled grading page; `import` and `split` follow the owner's grading. Every query was drafted with the catalog in view, and the report says so.
+- Image queries (`eval/datasets/image_queries.jsonl`, #65): seeded Pillow transforms of all 127 described photos, the altered image's SHA-256, a dev/test side split by dish, and three description rungs (L0 named and unaltered, local; L1 name-free and unaltered, Groq; L2 name-free and altered, Groq). `scripts/image_queries.py describe` is paced, saves after each photo and resumes.
+- Baseline C0, the original approach re-implemented (`evaluation/original.py`, `scripts/original_baseline.py`, #66). It takes the raw query, the unfiltered dense top 5 and one Groq `openai/gpt-oss-20b` Yes/No call per dish (310 calls, about 64k tokens). The raw replies are committed and scored offline with the original's strict parser and a fixed one. On the 12 constrained queries, 21% of C0's top 3 breaks a constraint, and 6 of 62 queries get no dish.
+- Committed retrieval caches (`eval/caches/retrieval/`, 479 KiB, no pickle) and `scripts/build_eval_cache.py build|check` (#67). The PR gate is `scripts/retrieval_gate.py` against `eval/gates/retrieval_baseline.json`, and it runs in CI after the tests. It fails on any violation, an nDCG@3 drop of more than 0.02, a stale cache (naming the field) or a missing entry. Tests show that a random ranker and a pipeline without SQL filters both fail it.
+- `evaluate` and `report` Prefect flows (`python -m food_concierge.flows evaluate [--check] [--split test --final]`, `report`, #68). They write `eval/results/retrieval_<date>_<split>.json` with bootstrap intervals overall and per slice, the ladder comparisons and the gate outcome. `report` renders `docs/evaluation.md` deterministically. A Langfuse mirror (a dataset item per query, an experiment run per candidate) runs only when keys are configured, and its failures are swallowed.
+- Rerank depth 10 (`C5_hybrid_rerank10`, #69), added alongside depth 20 before any graded number existed, because the measured rerank latency puts depth 20 at risk of the 150 ms guard.
+- Nightly: the caches are checked against freshly downloaded models (cosine ≥ 0.999, rerank scores within 1e-3), and `evaluate --check` reproduces the committed results.
+
+#### Changed
+- The query set is 62 drafted queries. The owner's 10 catalog-blind queries were dropped on 2026-10-11, so the authoring bias is stated rather than measured (#70).
+- `Telemetry` exposes its Langfuse client for the evaluation mirror.
+- `.gitattributes` marks `*.npy` as binary; cache JSON is written with LF line endings.
+
 ### Phase 2: Data, safety and ingestion flows (closed 2026-10-09)
 
 The data every later phase stands on:

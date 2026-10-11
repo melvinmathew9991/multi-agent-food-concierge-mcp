@@ -18,6 +18,7 @@ Diners tell a food concierge about their allergies, intolerances and diet ("no p
 | Stated preferences (*planned, P5*) | diet, allergies | stored locally | until the user deletes them | only what the user explicitly stated; view and delete in the UI (rules §2.6) |
 | Trace metadata | request ID, role, provider, model, attempts, tokens, prompt version, error code | Langfuse | Langfuse retention, below | by rule never user text |
 | Logs | event names, provider, error codes, trace ID | stdout of the host | host log retention | never prompts at INFO, secrets or image bytes (rules §3.4); values escaped |
+| Evaluation data (P3) | synthetic queries and catalog Commons photos, no user data | Groq (C0's Yes/No verdicts; descriptions of altered catalog photos); local Langfuse when keys are set | committed under `eval/` | live jobs run by hand, never in CI; altered images are regenerated from seeds, not committed |
 | API tokens and keys | credentials | — | env and platform secrets only | git-ignored, gitleaks, push protection (rules §7.1) |
 
 ## External services

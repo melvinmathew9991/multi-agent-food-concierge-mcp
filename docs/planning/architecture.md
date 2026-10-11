@@ -163,12 +163,12 @@ stateDiagram-v2
 | Metadata on traces | prompt version, model, provider, fallback used, tool calls, step count, verifier result, user feedback |
 | Token and "shadow cost" | Tokens from provider usage; shadow cost = tokens × a reference paid price table (config), to show what production would cost |
 | Prompt registry | Prompts live in `food_concierge/prompts/*.yaml` (source of truth, reviewed in PRs); `scripts/sync_prompts.py` pushes versions to Langfuse; runtime reads the local copy (no network dependency) |
-| Datasets | `eval/datasets/*.yaml` versioned in git, mirrored to Langfuse datasets |
-| Experiments | `eval/run.py` runs a dataset against a config (model, prompt version, retrieval mode) and logs scores to Langfuse + `eval/results/*.json` |
-| Retrieval eval | nDCG@3, Success@3, Recall@k and MRR (known-item and image queries), Violation@3 against the ground truth; candidates: the original approach re-implemented, BM25, dense (FAISS, Qdrant), hybrid RRF, + cross-encoder rerank; paired bootstrap CIs; plan in `phases.md` Phase 3 |
+| Datasets | `eval/datasets/*.yaml` and `*.jsonl` versioned in git, mirrored to Langfuse datasets (retrieval: one item per query, since P3) |
+| Experiments | Retrieval (P3): the Prefect `evaluate` flow (`python -m food_concierge.flows evaluate`) runs every candidate configuration and writes `eval/results/retrieval_<date>_<split>.json`, which includes a run record (git SHA, lock and data hashes, fingerprints, models, prompt versions, seeds, machine). It mirrors one Langfuse experiment run per candidate when keys are set. Agent experiments follow the same pattern in P6 |
+| Retrieval eval | nDCG@3, Success@3, Recall@k and MRR (known-item and image queries), Violation@3 against the ground truth. Candidates: the original approach re-implemented (C0, cached Groq verdicts), BM25, dense (FAISS, with and without the query prefix; Qdrant), hybrid RRF, and hybrid with cross-encoder rerank at depths 10 and 20, each with and without `dish_key` de-duplication. Paired bootstrap CIs. The code is in `food_concierge/evaluation/` and runs the production `Retriever` with cached models; the plan is `phases.md` Phase 3, and the results are in `docs/evaluation.md` |
 | Agent eval | task success, constraint violations (target 0), tool-selection accuracy vs expected tools, steps, repair loops, latency; trajectory assertions |
 | LLM-as-judge | Local Ollama judge for helpfulness/faithfulness of explanations; **calibrated on ~40 human-labelled examples (Cohen's κ reported)** before use |
-| CI gates | (1) offline tests; (2) **retrieval gate** from committed embedding caches, which fails if nDCG@3 drops > 0.02 or any violation appears; (3) agent scenario tests with a scripted fake LLM (trajectory + verifier behaviour). Live-model evals are run manually and results committed. |
+| CI gates | (1) offline tests; (2) **retrieval gate** (`scripts/retrieval_gate.py`, live since P3) from committed embedding and rerank caches, which fails if nDCG@3 drops > 0.02, any violation appears, or a cache is stale; the nightly checks the caches against fresh models and reproduces the committed results; (3) agent scenario tests with a scripted fake LLM (trajectory + verifier behaviour). Live-model evals are run manually and results committed. |
 | Online monitoring | Langfuse dashboards: latency, error and fallback rate, tokens, feedback scores; weekly review noted in `docs/runbook.md` |
 | Guardrails | Input classifiers, spotlighting, tool access control, output verifier: see §16. Red-team attack success rate is tracked as an eval metric. |
 
@@ -227,12 +227,13 @@ multi-agent-food-concierge-mcp/
 │   ├── guardrails/      # injection classifier, content safety, spotlighting, output checks
 │   ├── security/        # token scopes, tool allow-lists, audit events, trace masking
 │   ├── a2a_server/      # Agent Card, task executor wrapping the graph
+│   ├── evaluation/      # datasets, metrics, bootstrap, caches, runner, original approach (C0), gate, results, report, Langfuse mirror
 │   ├── flows/           # Prefect flows: ingest, build_index, evaluate, report
 │   ├── prompts/         # versioned YAML prompts + loader
 │   └── api/             # FastAPI app, routes, SSE, middleware
 ├── frontend/            # Streamlit client (api_client, components, .streamlit/config.toml)
 ├── eval/                # data only: datasets/, caches/, gates/, results/ (runner code in src/food_concierge/evaluation/)
-├── scripts/             # sync_prompts.py, build_eval_cache.py
+├── scripts/             # build and photo tools; eval: label_queries, image_queries, original_baseline, build_eval_cache, retrieval_gate
 ├── tests/               # unit/, mcp/, agent/, api/ (offline)
 ├── deploy/              # Dockerfile, hf-space/README.md (Space config), streamlit notes
 ├── examples/            # a2a_client_agent.py (demo peer agent), claude_desktop_config.json
@@ -271,8 +272,8 @@ multi-agent-food-concierge-mcp/
 |---|---|---|
 | `ingest` | validate → normalise → allergens → describe new images (cached) → catalog | manual / data change |
 | `build_index` | embed → FAISS + Qdrant + BM25 → manifest | after `ingest` |
-| `evaluate` | retrieval eval → gates → Langfuse experiment | after `build_index`; nightly |
-| `report` | render `docs/evaluation.md` tables + Responsible AI metrics | after `evaluate` |
+| `evaluate` | check caches → run every candidate → metrics and CIs → results JSON → gate → Langfuse experiment | manual; nightly as `--check` (reproduce the committed results) |
+| `report` | render `docs/evaluation.md` from the newest results (Responsible AI metrics from P9) | after `evaluate` |
 
 Tasks retry only on transient failures. Unchanged inputs are skipped by explicit hash checks (`ingestion/build.py`): the catalog records its source hash, and the index manifest binds to it and to the embedder. Prefect's result cache is not used, because its default serializer is pickle; task results are not persisted. Prefect's anonymous server analytics are switched off. Flows run locally (`prefect server start` for the UI) and on a **GitHub Actions nightly schedule** (free; no live LLM calls; the fastembed model download is allowed in scheduled jobs only). No Prefect Cloud dependency.
 

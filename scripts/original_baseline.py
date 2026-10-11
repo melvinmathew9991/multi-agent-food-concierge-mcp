@@ -25,7 +25,7 @@ from collections.abc import Sequence
 
 from food_concierge.config import REPO_ROOT, ModelRole, ProviderName, Settings, get_settings
 from food_concierge.errors import ProviderError, ProviderRateLimitedError, ProviderTimeoutError
-from food_concierge.evaluation.dataset import RetrievalDataset, TextQuery, load_dataset, select
+from food_concierge.evaluation.dataset import dev_or_all, load_dataset
 from food_concierge.evaluation.metrics import GroundTruth
 from food_concierge.evaluation.original import (
     SEARCH,
@@ -91,17 +91,11 @@ def collect_all(settings: Settings, limit: int | None) -> None:
     print(f"{len(runs)} queries cached ({tokens} tokens in all); {len(left)} still to ask")
 
 
-def scored_queries(dataset: RetrievalDataset) -> tuple[TextQuery, ...]:
-    """The dev split once queries are split; before that, every query (nothing is decided on C0 before the split)."""
-    if any(query.split is not None for query in dataset.queries):
-        return select(dataset, "dev")
-    print("queries are not split yet: scoring every query")
-    return dataset.queries
-
-
 def replay_all(settings: Settings) -> None:
     dataset = load_dataset(DATASET)
-    queries = scored_queries(dataset)
+    queries = dev_or_all(dataset)
+    if queries == dataset.queries:
+        print("queries are not split yet: scoring every query")
     runs = read_runs(CACHE)
     left = missing(queries, runs, settings.require_model_id(PROVIDER, ROLE))
     if left:

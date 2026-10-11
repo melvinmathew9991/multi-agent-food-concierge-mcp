@@ -2,7 +2,7 @@
 
 import math
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,11 +15,12 @@ from food_concierge.config import REPO_ROOT
 from food_concierge.errors import ConfigError, EvaluationError
 from food_concierge.evaluation import caches as caches_module
 from food_concierge.evaluation.bootstrap import Interval, bootstrap_mean, paired_bootstrap
-from food_concierge.evaluation.caches import build_caches, load_caches
+from food_concierge.evaluation.caches import build_caches, drift, load_caches, texts_sha256
 from food_concierge.evaluation.dataset import (
     RetrievalDataset,
     TextQuery,
     assign_splits,
+    dev_or_all,
     load_dataset,
     lock,
     select,
@@ -47,7 +48,7 @@ from food_concierge.evaluation.runner import (
 from food_concierge.ingestion.allergens import load_lexicon, tag_item
 from food_concierge.ingestion.loader import CatalogLoad, load_catalog
 from food_concierge.ingestion.taxonomy import Allergen, Diet
-from food_concierge.models.embeddings import HashingEmbedder, OverlapReranker
+from food_concierge.models.embeddings import HashingEmbedder, OverlapReranker, RerankerFingerprint, Vectors
 from food_concierge.services.retrieval import RetrievalConfig
 from food_concierge.storage.catalog_db import CatalogStore, Filters, build_catalog_db
 
@@ -102,6 +103,9 @@ def test_lock_fixes_the_test_split_and_select_guards_it() -> None:
     locked = lock(dataset)
     assert locked.test_sha256 == split_digest(locked.queries)
     assert len(select(locked, "dev")) == 3
+    assert dev_or_all(locked) == select(locked, "dev")
+    unsplit = RetrievalDataset(queries=(query("t001"),))
+    assert dev_or_all(unsplit) == unsplit.queries
     with pytest.raises(EvaluationError, match="final"):
         select(locked, "test")
     assert len(select(locked, "test", final=True)) == 3
@@ -269,6 +273,49 @@ def test_stale_or_changed_caches_are_refused(tmp_path: Path) -> None:
         load_caches(directory)
     with pytest.raises(EvaluationError, match="missing"):
         load_caches(tmp_path / "nowhere")
+
+
+class RolledEmbedder(HashingEmbedder):
+    """The same fingerprint with different vectors: an upstream model change under the same name."""
+
+    def embed_documents(self, texts: Sequence[str]) -> Vectors:
+        return np.roll(super().embed_documents(texts), 1, axis=1)
+
+    def embed_query(self, text: str) -> Vectors:
+        return np.roll(super().embed_query(text), 1)
+
+
+class ShiftedReranker(OverlapReranker):
+    def score(self, query: str, documents: Sequence[str]) -> list[float]:
+        return [value + 0.01 for value in super().score(query, documents)]
+
+
+class RenamedReranker(OverlapReranker):
+    fingerprint = RerankerFingerprint(model="fake-overlap", revision="2", model_sha256="")
+
+
+def test_drift_is_empty_for_the_same_models_and_names_each_change(tmp_path: Path) -> None:
+    caches = load_caches(make_caches(tmp_path / "caches"))
+    same = {"prefix": HashingEmbedder(query_prefix="query: "), "no_prefix": HashingEmbedder()}
+
+    assert caches.documents == tuple(sorted(DOCS))
+    assert drift(caches, same, OverlapReranker()) == []
+    assert drift(caches, {"prefix": same["prefix"]}, OverlapReranker()) == [
+        "no fresh embedder for the variant 'no_prefix'"
+    ]
+    renamed = drift(caches, same | {"no_prefix": HashingEmbedder(query_prefix="new: ")}, RenamedReranker())
+    assert renamed == ["no_prefix: the embedder fingerprint changed", "the reranker fingerprint changed"]
+    moved = drift(caches, same | {"no_prefix": RolledEmbedder()}, ShiftedReranker())
+    assert [problem.split(" (")[0] for problem in moved] == [
+        "no_prefix: documents drifted",
+        "no_prefix: queries drifted",
+        "rerank scores drifted",
+    ]
+
+
+def test_texts_hash_ignores_order_and_repeats() -> None:
+    assert texts_sha256(["b", "a", "a"]) == texts_sha256(["a", "b"])
+    assert texts_sha256(["a"]) != texts_sha256(["a "])
 
 
 def test_caches_need_queries_and_one_embedding_model(tmp_path: Path) -> None:

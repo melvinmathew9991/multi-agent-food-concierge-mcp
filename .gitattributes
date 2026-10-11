@@ -4,3 +4,4 @@
 *.jpeg binary
 *.webp binary
 *.faiss binary
+*.npy binary

@@ -125,3 +125,10 @@ def select(dataset: RetrievalDataset, split: Split, final: bool = False) -> tupl
         if not final:
             raise EvaluationError("The test split runs once, after ADR-0001; pass final=True (--final) for that run.")
     return tuple(query for query in dataset.queries if query.split == split)
+
+
+def dev_or_all(dataset: RetrievalDataset) -> tuple[TextQuery, ...]:
+    """The dev split once queries are split; before that every query, since nothing is decided before the split."""
+    if any(query.split is not None for query in dataset.queries):
+        return select(dataset, "dev")
+    return dataset.queries

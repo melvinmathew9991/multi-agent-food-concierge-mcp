@@ -16,17 +16,17 @@ The targets that the sections below are measured against. "Set in P*n*" means th
 
 | Area | Budget | Today | Measured / enforced by |
 |---|---|---|---|
-| Retrieval-only server time | p95 ≤ 300 ms on the Space (PRD); ≤ 150 ms on the reference machine | not yet measured | P3 stage timings; P4 load check |
+| Retrieval-only server time | p95 ≤ 300 ms on the Space (PRD); ≤ 150 ms on the reference machine | rerank median about 51, 120 and 280 ms for the top 5, 10 and 20; full-stage p95 measured for ADR-0001 | P3 stage timings; P4 load check |
 | Single recommendation | p95 ≤ 8 s (PRD) | — | P6 agent eval, Langfuse |
 | Meal plan | p95 ≤ 20 s (PRD) | — | P6 |
 | LLM calls a request | fast path 0; recommendation ≤ 3; meal plan ≤ 8 tool calls and ≤ 2 repairs (rules §2.4). The original approach made up to 11 | — | call-count gate on scripted-agent scenarios (P5) |
 | Tokens a request (in + out) | set in P5 for each path, from measurement | — | trace metadata; P6 report p50/p95 |
 | Tokens a photo | ≤ 1,950 now; target from the image-size experiment (§2.4) | p50 1,921 at 1,024 px | ADR-0007 measurement |
-| Groq quota headroom | ≤ 900 calls a day per process (cap below the 1,000 limit); token caps below Groq's figure | enforced per provider | `models/usage.py`; per-model keys in P4 |
-| PR CI | ≤ 5 min | about 2.5 min | GitHub Actions |
-| Nightly | ≤ 20 min | about 1.5 min | GitHub Actions |
+| Groq quota headroom | ≤ 900 calls a day per process (cap below the 1,000 limit); token caps below Groq's figure. Vision is also capped by Groq at about 200,000 tokens a day, or about 140 photos | calls and tokens enforced per provider; the daily vision token cap is not tracked yet | `models/usage.py`; per-model keys in P4 |
+| PR CI | ≤ 5 min | about 3 min, with the retrieval gate | GitHub Actions |
+| Nightly | ≤ 20 min | about 2 min, with the cache drift and reproduction checks | GitHub Actions |
 | Container image and cold start | set in P4 | — | P4 build, `/ready` timing |
-| Repository | no file over 5 MB; evaluation caches under 2 MB | enforced | CI size check |
+| Repository | no file over 5 MB; evaluation caches under 2 MB | enforced; caches 479 KiB | CI size check |
 
 ## 2. Model and token usage (product)
 
@@ -85,12 +85,12 @@ The levers below are listed by impact.
 
 | Practice | Status | Phase |
 |---|---|---|
-| Filter in SQL before vector search; batch embeddings; rerank only the top 20 | done / P3 | — |
+| Filter in SQL before vector search; batch embeddings; rerank only the top 10 or 20 (depth chosen in ADR-0001) | done | P3 |
 | Lazy imports of heavy libraries (ONNX Runtime, fastembed) for CLI and tests | done | — |
 | Load the embedder, reranker and indexes **once at startup**; `/ready` reports ready only after a warm-up query | planned | P4 |
 | ONNX Runtime thread count as a setting, tuned to the Space's cores | planned | P4 |
 | Async provider calls with per-provider concurrency limits (§2.6) | planned | P4–P5 |
-| Stage timings (embed, search, fuse, rerank) on every search; LLM and tool spans in Langfuse | P3 / done | P3, P4 |
+| Stage timings (embed, search, fuse, rerank) on every search; LLM and tool spans in Langfuse | done | P3, P4 |
 | Profile (cProfile) **only when a budget in §1 breaks**, not ahead of need | rule | — |
 | Images are never kept in memory beyond the request; bytes never logged | done | — |
 | Offline test suite under the CI budget; slow model tests behind markers (`model_download`, `live`) | done | — |
@@ -104,10 +104,10 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 | Catalog items | 150; exact search O(n·d) | unchanged | HNSW (FAISS `IndexHNSWFlat`, or Qdrant as a server) behind `VectorStore` | search p95 above 50 ms |
 | Catalog storage | SQLite, read-only, rebuilt atomically | unchanged | Postgres with pgvector (backlog) | writes at runtime, or several instances |
 | LLM quota | free tier: about 1,000 calls a day, so roughly 300 recommendations a day at ≤ 3 calls each | fast path and cache raise answers per call | paid opt-in (`ALLOW_PAID_PROVIDERS`, Bedrock stub-tested) | sustained cap hits in Langfuse |
-| Photos | 3–4 a minute (Groq tokens a minute) | separate photo budget; a friendly "describe it in words" fallback | paid vision model | photo refusals above 5% |
+| Photos | 3–4 a minute (Groq tokens a minute) and about 140 a day (Groq vision tokens a day) | separate photo budget; a friendly "describe it in words" fallback | paid vision model | photo refusals above 5% |
 | Processes | one Space process; ledger in memory | ledger and checkpointer in shared SQLite on a persistent volume | Redis or Postgres (paid tier) | more than one worker |
 | API | stateless apart from the ledger and checkpointer | horizontal, once those are shared | — | — |
-| Evaluation | 72 text and 127 image queries; caches about 2 MB | caches grow linearly; bootstrap stays cheap | sample queries per nightly run | nightly over 20 min |
+| Evaluation | 62 text and 127 image queries; caches about 0.5 MB | caches grow linearly; bootstrap stays cheap | sample queries per nightly run | nightly over 20 min |
 
 **Capacity statement for the demo:** the free tier, not the code, sets the ceiling of about 300 recommendations a day. P7's UI says so when quotas run out, and retrieval-only answers continue.
 
@@ -125,10 +125,10 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 
 | Gap | Action | Phase |
 |---|---|---|
-| Result files record different subsets of their inputs | One `RunRecord` model written into every committed result: git SHA, lock-file hash, catalog data hash, embedder and reranker fingerprints, model names, prompt versions, seeds, and the CPU model, cores and OS family (never hostnames, users or paths; rules §8.4) | P3 (retrieval results), then every runner |
-| Seeds scattered | `model_seed` stays; add `eval_seed` for splits, bootstrap and image transforms; no unseeded randomness in `src/` | P3 |
+| Result files record different subsets of their inputs | One `RunRecord` model written into every committed result: git SHA, lock-file hash, catalog data hash, embedder and reranker fingerprints, model names, prompt versions, seeds, and the CPU model, cores and OS family (never hostnames, users or paths; rules §8.4) | done in P3 for retrieval results; then every runner |
+| Seeds scattered | `model_seed` stays; add `eval_seed` for splits, bootstrap and image transforms; no unseeded randomness in `src/` | done in P3 |
 | Live-model replies are non-deterministic | Cache raw replies with model and prompt version; a regeneration is a new run, never an edit to the old one | P3 onwards |
-| No end-to-end reproduction check | README section "Reproduce from a clean checkout" (`build` → `evaluate` → `report`), run as written by the nightly | P3 |
+| No end-to-end reproduction check | README section "Reproduce from a clean checkout" (`build` → `evaluate` → `report`), run as written by the nightly | P3: the nightly runs `build` then `evaluate --check`, and the README's "Evaluate retrieval" lists the commands. The full section comes with the close-out |
 | Container builds drift | Base image pinned by digest; models downloaded at build and checked against the committed fingerprint; dependencies installed from the lock | P4 |
 | Prompts could diverge between git and Langfuse | Git is the source of truth; `sync_prompts.py` pushes one way; the version is in every trace and cache key | P5 |
 

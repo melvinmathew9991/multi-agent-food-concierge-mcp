@@ -6,7 +6,7 @@ One file per decision: `NNNN-short-title.md`, numbered in order and never renumb
 
 | ADR | Decision | Phase | Status |
 |---|---|---|---|
-| 0001 | Retrieval stack and vector backend, chosen from dev-split evidence | P3 | Planned |
+| 0001 | Retrieval stack and vector backend, chosen from dev-split evidence | P3 | Planned; waiting on the owner's grades |
 | 0002 | MCP-first layering: services behind MCP tools | P4 | Planned |
 | 0003 | LangGraph over CrewAI/AutoGen; supervisor design | P5 | Planned |
 | 0004 | Default agent topology (single vs multi-agent), chosen from measurements | P6 | Planned |

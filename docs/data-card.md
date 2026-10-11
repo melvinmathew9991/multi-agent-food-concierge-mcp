@@ -48,7 +48,7 @@ The recipe assumptions behind the ground truth (for example: hing and soy sauce 
 1. `data/raw/*.csv`, `data/lexicon/allergens.yaml` and `data/processed/image_descriptions.jsonl` are hashed together (`data_sha256`).
 2. `python -m food_concierge.flows ingest` builds `data/processed/catalog.db` and records that hash, the document-text version and the lexicon version in its `meta` table.
 3. `python -m food_concierge.flows index` builds `data/processed/indexes/` and records the same hash, the embedder fingerprint and the hash of every index file in `manifest.json`. An index built from other data or another embedder refuses to load.
-4. Evaluation runs (Phase 3 onwards) record the data hash and index manifest they ran against.
+4. Evaluation runs (Phase 3 onwards) record the data hash they ran against, with the git SHA, lock-file hash, embedder and reranker fingerprints, models, prompt versions, seeds and machine (`eval/results/`). The evaluation caches' manifest binds them to the same data hash, the document-text version and the query texts, so a catalog change makes the gate name the stale cache.
 
 Re-running the build with unchanged inputs does nothing.
 

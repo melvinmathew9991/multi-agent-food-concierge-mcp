@@ -1,0 +1,37 @@
+{
+  "embedders": {
+    "prefix": {
+      "model": "BAAI/bge-small-en-v1.5",
+      "revision": "aa8f8b060edb00e03bfdd08813a2949946c8ba55",
+      "model_sha256": "51f1bd0addd6e859e42c2c8021a5e5461385bb676a649f4b269aa445449f2431",
+      "dim": 384,
+      "normalized": true,
+      "query_prefix": "Represent this sentence for searching relevant passages: "
+    },
+    "no_prefix": {
+      "model": "BAAI/bge-small-en-v1.5",
+      "revision": "aa8f8b060edb00e03bfdd08813a2949946c8ba55",
+      "model_sha256": "51f1bd0addd6e859e42c2c8021a5e5461385bb676a649f4b269aa445449f2431",
+      "dim": 384,
+      "normalized": true,
+      "query_prefix": ""
+    }
+  },
+  "reranker": {
+    "model": "Xenova/ms-marco-MiniLM-L-6-v2",
+    "revision": "a09144355adeed5f58c8ed011d209bf8ee5a1fec",
+    "model_sha256": "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870"
+  },
+  "data_sha256": "2897ed7f07739c8d0e66bd8b3e85404a50b3f18f7d1d1c5a7886fd22116caf58",
+  "doc_text_version": 1,
+  "dataset_sha256": "989069fbc4239d7441af8654ad6109da71e5d2a52872af95250fe16577244935",
+  "created_at": "2026-10-11T12:28:06.513481Z",
+  "files": {
+    "doc_vectors.npy": "9aa1bae7bd1b65f73ed7041d32d9d14f4615075caf7500779457cc3631adf559",
+    "documents.json": "dc9b848e70ee7c6f0e9fb8a491f31a2e044bc8d2c201057be7a5ea6ee05aa7da",
+    "queries.json": "66cff3f2562ba068e5d18715e300346e5c257365f713be38cc812c72a2d63eb8",
+    "query_vectors_no_prefix.npy": "8cb678088c664533c7559613aa45ebb690bf533d722dbad36294e2cd9fb3ab22",
+    "query_vectors_prefix.npy": "dc37610d464018e0c8ea8d5b62af26e82e8a9b15bf6574e9ea07788c734edd8b",
+    "rerank_scores.npy": "4d30894be16bc6f4de63db7d7cd6e45cc4b63c5cf0c681eb49ebc62448457fb5"
+  }
+}

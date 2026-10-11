@@ -1,0 +1,22 @@
+{
+  "reason": "Gate introduced before the owner grades exist: violations only until then.",
+  "tolerance": 0.02,
+  "gated": [
+    {
+      "candidate": {
+        "name": "production",
+        "config": {
+          "mode": "dense",
+          "backend": "faiss",
+          "k": 3,
+          "fuse_depth": 20,
+          "rrf_k": 60,
+          "rerank_depth": null,
+          "dedupe": false
+        },
+        "variant": "prefix"
+      },
+      "ndcg_at_3": null
+    }
+  ]
+}

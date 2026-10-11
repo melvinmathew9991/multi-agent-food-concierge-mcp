@@ -71,6 +71,12 @@ class CatalogValidationError(AppError):
         self.issues = tuple(issues)
 
 
+class EvaluationError(AppError):
+    # An evaluation input is missing, stale or used out of turn (a cache miss, an unlocked or premature test split).
+    code = "evaluation_error"
+    default_message = "The evaluation inputs are not usable."
+
+
 class PhotoSourceError(AppError):
     # Fetching catalog photos from Wikimedia Commons failed, or a file no longer matches its pinned hash.
     code = "photo_source_error"

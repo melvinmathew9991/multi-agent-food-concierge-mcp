@@ -1,0 +1,31 @@
+name: Task
+description: A planned workstream or a follow-up carried from a phase (one PR).
+labels: [task]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why this is needed; the plan section, ADR or audit finding it comes from.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What the PR delivers, as a list.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checkable acceptance criteria.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: ready
+    attributes:
+      label: Ready check
+      description: Owner input needed (with a time estimate) and live-call budget (calls and tokens), or "none".

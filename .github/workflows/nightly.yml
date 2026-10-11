@@ -39,3 +39,7 @@ jobs:
       - name: Evaluation caches match freshly downloaded models
         # Cosine >= 0.999 per vector and rerank scores within 1e-3 (plan §6); rebuild the caches if this fails.
         run: python scripts/build_eval_cache.py check
+      - name: Evaluation reproduces the committed results from the caches
+        env:
+          PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+        run: python -m food_concierge.flows evaluate --check

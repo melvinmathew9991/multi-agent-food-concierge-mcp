@@ -1,0 +1,112 @@
+version: 1
+queries:
+- {id: t001, text: butter chicken, type: known_item, author: drafted, target: butter-chicken}
+- {id: t002, text: hyderabadi chicken biriyani, type: known_item, author: drafted, target: hyderabadi-chicken-dum-biryani}
+- {id: t003, text: pav bhaji, type: known_item, author: drafted, target: pav-bhaji}
+- {id: t004, text: rasmalai, type: known_item, author: drafted, target: rasmalai}
+- {id: t005, text: chicken 65, type: known_item, author: drafted, target: chicken-65}
+- {id: t006, text: pad thai with chicken, type: known_item, author: drafted, target: chicken-pad-thai}
+- {id: t007, text: tiramisu, type: known_item, author: drafted, target: tiramisu}
+- {id: t008, text: dhokla, type: known_item, author: drafted, target: khaman-dhokla}
+- {id: t009, text: malai kebab, type: known_item, author: drafted, target: murgh-malai-kebab}
+- {id: t010, text: fish n chips, type: known_item, author: drafted, target: fish-and-chips}
+- {id: t011, text: hot n sour soup, type: known_item, author: drafted, target: hot-and-sour-soup}
+- {id: t012, text: gajar halwa, type: known_item, author: drafted, target: gajar-ka-halwa}
+- {id: t013, text: crispy rice and lentil pancake rolled around spiced mashed potato, type: described, author: drafted, target: masala-dosa}
+- {id: t014, text: spongy white cheese balls in a thin sugar syrup, type: described, author: drafted, target: rasgulla}
+- {id: t015, text: hilsa cooked in a sharp mustard sauce, type: described, author: drafted, target: shorshe-ilish}
+- {id: t016, text: fish cooked wrapped in a banana leaf, type: described, author: drafted, target: karimeen-pollichathu}
+- {id: t017, text: deep-fried potato patty inside a soft bun with garlic chutney, type: described, author: drafted, target: vada-pav}
+- {id: t018, text: meat and grains pounded into a thick slow-cooked porridge, type: described, author: drafted, target: mutton-haleem}
+- {id: t019, text: rice mixed with yogurt and a light tempering, type: described, author: drafted, target: curd-rice}
+- {id: t020, text: set sweet curd caramelised with jaggery, type: described, author: drafted, target: mishti-doi}
+- {id: t021, text: japanese breaded chicken cutlet with curry sauce and rice, type: described, author: drafted, target: chicken-katsu-curry}
+- {id: t022, text: something warm and comforting for a rainy evening, type: vague, author: drafted}
+- {id: t023, text: a light breakfast that won't make me sleepy, type: vague, author: drafted}
+- {id: t024, text: a festive sweet to take to a Diwali party, type: vague, author: drafted}
+- {id: t025, text: a street snack to share with friends, type: vague, author: drafted}
+- {id: t026, text: something to cool me down on a very hot day, type: vague, author: drafted}
+- {id: t027, text: a filling high-protein meal after the gym, type: vague, author: drafted}
+- {id: t028, text: a quick bite to have with evening tea, type: vague, author: drafted}
+- {id: t029, text: a special dinner dish to impress guests, type: vague, author: drafted}
+- {id: t030, text: soothing food for when I have a cold, type: vague, author: drafted}
+- {id: t031, text: dishes cooked in coconut milk, type: attribute, author: drafted}
+- {id: t032, text: anything made with paneer, type: attribute, author: drafted}
+- {id: t033, text: really spicy food with lots of chilli, type: attribute, author: drafted}
+- {id: t034, text: dishes made from a fermented rice batter, type: attribute, author: drafted}
+- {id: t035, text: dishes that use peanuts, type: attribute, author: drafted}
+- {id: t036, text: steamed snacks rather than fried ones, type: attribute, author: drafted}
+- {id: t037, text: something with prawns, type: attribute, author: drafted}
+- {id: t038, text: sweet and sour flavours, type: attribute, author: drafted}
+- {id: t039, text: made with chickpeas, type: attribute, author: drafted}
+- {id: t040, text: bread baked in a tandoor, type: attribute, author: drafted}
+- {id: t041, text: paneer wala starter, type: colloquial, author: drafted}
+- {id: t042, text: bhindi ki sabzi, type: colloquial, author: drafted}
+- {id: t043, text: chole bhature, type: colloquial, author: drafted}
+- {id: t044, text: panner tikka, type: colloquial, author: drafted}
+- {id: t045, text: kuch meetha chahiye, type: colloquial, author: drafted}
+- {id: t046, text: nariyal wali machli curry, type: colloquial, author: drafted}
+- {id: t047, text: chai ke saath kuch, type: colloquial, author: drafted}
+- {id: t048, text: mutton kosha, type: colloquial, author: drafted}
+- {id: t049, text: thayir sadam, type: colloquial, author: drafted}
+- {id: t050, text: veg momos, type: colloquial, author: drafted}
+- id: t051
+  text: a light lunch
+  type: constrained
+  author: drafted
+  filters: {diet: vegan, exclude_allergens: [peanuts], max_kcal: 450}
+- id: t052
+  text: a dessert
+  type: constrained
+  author: drafted
+  filters: {exclude_allergens: [milk]}
+- id: t053
+  text: a creamy curry
+  type: constrained
+  author: drafted
+  filters: {diet: vegetarian, exclude_allergens: [tree_nuts]}
+- id: t054
+  text: noodles
+  type: constrained
+  author: drafted
+  filters: {exclude_allergens: [gluten]}
+- id: t055
+  text: breakfast
+  type: constrained
+  author: drafted
+  filters: {eggless: true, max_price_inr: 100}
+- id: t056
+  text: a crunchy snack
+  type: constrained
+  author: drafted
+  filters: {diet: vegan, exclude_allergens: [gluten]}
+- id: t057
+  text: a fish dish
+  type: constrained
+  author: drafted
+  filters: {exclude_allergens: [mustard]}
+- id: t058
+  text: something with rice
+  type: constrained
+  author: drafted
+  filters: {exclude_allergens: [milk], max_kcal: 400}
+- id: t059
+  text: a cheap filling meal
+  type: constrained
+  author: drafted
+  filters: {diet: vegetarian, max_price_inr: 150}
+- id: t060
+  text: a bowl of soup
+  type: constrained
+  author: drafted
+  filters: {exclude_allergens: [gluten]}
+- id: t061
+  text: a chicken dish
+  type: constrained
+  author: drafted
+  filters: {exclude_allergens: [milk, eggs]}
+- id: t062
+  text: something sweet
+  type: constrained
+  author: drafted
+  filters: {cuisines: [bengali], max_kcal: 220}

@@ -26,6 +26,7 @@ Grade = int  # 0 not relevant, 1 related but wrong on something that matters, 2 
 
 RELEVANT = 2  # Success@k counts an item graded at least this
 EXACT = 3  # Recall@k and MRR count items graded this, for known-item and described queries
+TARGETED_TYPES = frozenset({"known_item", "described"})
 
 
 class TextQuery(BaseModel):
@@ -38,6 +39,7 @@ class TextQuery(BaseModel):
     group: str | None = None  # near-duplicate queries share a group, and so a split
     split: Split | None = None
     filters: Filters = Filters()
+    target: str | None = None  # dish_key of the dish a known-item or described query names; its items grade 3
     grades: dict[str, Grade] = {}
 
     @model_validator(mode="after")
@@ -45,6 +47,8 @@ class TextQuery(BaseModel):
         bad = sorted(item for item, grade in self.grades.items() if not 0 <= grade <= EXACT)
         if bad:
             raise ValueError(f"grades must be 0-3 ({', '.join(bad)})")
+        if self.target is not None and self.type not in TARGETED_TYPES:
+            raise ValueError("only known-item and described queries name a target dish")
         return self
 
     @property

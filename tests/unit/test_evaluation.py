@@ -66,6 +66,8 @@ def test_query_grades_must_be_zero_to_three() -> None:
     with pytest.raises(ValidationError, match="0-3"):
         query("t001", grades={"a01": 4})
     assert query("t001", grades={"a01": 3, "b02": 2}).exact == frozenset({"a01"})
+    with pytest.raises(ValidationError, match="target"):
+        query("t001", type="vague", target="dal-makhani")
 
 
 def test_dataset_rejects_duplicate_ids_and_groups_split_across() -> None:

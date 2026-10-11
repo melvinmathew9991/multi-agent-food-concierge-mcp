@@ -11,3 +11,5 @@ What is here so far:
 | `datasets/vision_sample.yaml`, `datasets/vision_sample_groq.yaml` | 30 seeded catalog photos with owner-reviewed scores per description (dish type, ingredients seen, allergen terms not visible) | `scripts/vision_measurement.py sample` |
 | `datasets/vision_descriptions_groq.jsonl` | Groq `qwen/qwen3.8-27b` descriptions of the same 30 photos, with latency and tokens | `scripts/vision_measurement.py describe --provider groq` |
 | `results/vision_measurement*_2026-10-09.json` | Phase 2 vision measurement, with Wilson 95% intervals (ADR-0007) | `scripts/vision_measurement.py report` |
+| `datasets/retrieval.yaml` | Phase 3 text queries (six types), gold filters for constrained queries, target dishes, and the owner's grades once imported; dev/test split locked by SHA-256 | drafted, then `scripts/label_queries.py import` and `split` |
+| `datasets/labelling-guide.md` | How the owner grades dishes 0-3, with worked examples | — |

@@ -323,7 +323,7 @@ Items 3 and 4 run in parallel: the Groq photo job runs while the owner grades.
 | C2 | Dense, FAISS | With and without the BGE query prefix (carried from P1) |
 | C3 | Dense, Qdrant | Both are exact search, so rankings must equal C2's; the comparison is latency, cold load and memory (A26) |
 | C4 | Hybrid: RRF of C1 and C2 | Fixed `k_rrf = 60`, 20 results from each list. Not tuned, so nothing is fitted to 36 dev queries (A16) |
-| C5 | C4 + cross-encoder rerank of the top 20 | `Xenova/ms-marco-MiniLM-L-6-v2` (F20). Trained on English web search, so the Hinglish slice is reported separately |
+| C5 | C4 + cross-encoder rerank, at two depths: top 10 (C5-10) and top 20 (C5-20) | `Xenova/ms-marco-MiniLM-L-6-v2` (F20). Trained on English web search, so the Hinglish slice is reported separately. Depth 10 was added on 2026-10-11, before any graded dev number existed, because the measured rerank latency (about 120 ms for 10, 280 ms for 20 at the median on the reference laptop) puts depth 20 at risk of the 150 ms guard |
 
 Every candidate is also measured with `dish_key` de-duplication on and off (6 dishes appear at two restaurants).
 
@@ -338,7 +338,7 @@ Every candidate is also measured with `dish_key` de-duplication on and off (6 di
 ### 5. Decision rules (pre-registered: committed with this plan, before any dev number exists)
 1. A candidate with any Violation@3 against the ground truth is ineligible.
 2. **Primary metric:** dev nDCG@3 over all text queries. **Guards:** image Recall@3 (L2) does not fall by more than 0.05, and retrieval p95 stays ≤ 150 ms on the reference machine. That is half the PRD's 300 ms, which leaves room for the slower Space CPU.
-3. **Complexity ladder:** the better of BM25 and dense → hybrid → + reranker. A step is adopted only if the paired-bootstrap 95% CI of its ΔnDCG@3 over the previous step lies entirely above 0 and the guards hold. Otherwise the simpler step stays.
+3. **Complexity ladder:** the better of BM25 and dense → hybrid → + reranker. A step is adopted only if the paired-bootstrap 95% CI of its ΔnDCG@3 over the previous step lies entirely above 0 and the guards hold. Otherwise the simpler step stays. For the reranker step, C5-10 and C5-20 are each compared with C4. If both qualify, C5-10 is adopted unless C5-20 beats it by the same rule with the guards holding; if only one qualifies, that one.
 4. **Query prefix:** kept unless no prefix wins by the same rule. The prefix is part of the embedder fingerprint, so dropping it means rebuilding the index, which is cheap.
 5. **Backend:** FAISS, unless Qdrant is at least 20% faster at p95 with equal rankings. The other backend stays as a tested alternative.
 6. A tie goes to the simpler configuration. Then **one** test-split run of the chosen configuration and every baseline is reported as it comes out, including negative results, with no changes afterwards.
@@ -423,7 +423,7 @@ Critical path: workstream 3 (the owner's grading). Workstream 4 runs alongside i
 
 **DoD:**
 - `retrieval.yaml` holds 72 owner-graded text queries; the image queries carry transform records; the dev/test split is locked by hash.
-- C0–C5 are measured on dev with CIs, slices, judged@3 and latency, and the results are committed.
+- C0–C5 (C5 at depths 10 and 20) are measured on dev with CIs, slices, judged@3 and latency, and the results are committed.
 - From a clean checkout, `python -m food_concierge.flows evaluate` reproduces the committed dev numbers exactly from the caches, with no network.
 - The PR CI gate is live. The random-ranker and dropped-filter configurations fail it in tests, and a stale cache fails it with a message naming the stale field.
 - The nightly checks the caches against freshly downloaded models.

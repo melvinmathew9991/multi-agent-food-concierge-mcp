@@ -39,6 +39,7 @@ _BASE: tuple[Candidate, ...] = (
     Candidate(name="C2_dense_no_prefix", config=RetrievalConfig(mode="dense"), variant="no_prefix"),
     Candidate(name="C3_qdrant", config=RetrievalConfig(mode="dense", backend="qdrant")),
     Candidate(name="C4_hybrid", config=RetrievalConfig(mode="hybrid")),
+    Candidate(name="C5_hybrid_rerank10", config=RetrievalConfig(mode="hybrid", rerank_depth=10)),
     Candidate(name="C5_hybrid_rerank20", config=RetrievalConfig(mode="hybrid", rerank_depth=20)),
 )
 CANDIDATES: tuple[Candidate, ...] = _BASE + tuple(
@@ -51,7 +52,9 @@ CANDIDATES: tuple[Candidate, ...] = _BASE + tuple(
 COMPARISONS: tuple[tuple[str, str], ...] = (
     ("C1_bm25", "C4_hybrid"),
     ("C2_dense", "C4_hybrid"),
+    ("C4_hybrid", "C5_hybrid_rerank10"),
     ("C4_hybrid", "C5_hybrid_rerank20"),
+    ("C5_hybrid_rerank10", "C5_hybrid_rerank20"),
     ("C2_dense", "C2_dense_no_prefix"),
 )
 

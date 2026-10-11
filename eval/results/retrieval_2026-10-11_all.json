@@ -3,7 +3,7 @@
  "queries_sha256": "989069fbc4239d7441af8654ad6109da71e5d2a52872af95250fe16577244935",
  "test_sha256": null,
  "record": {
-  "git_sha": "2d7a57d55c0915f5183cb3b999e6d109f5f42078",
+  "git_sha": "01243535cf5e42ad6939cef6da6872347ed5ca70",
   "lock_sha256": "678b31ad9953d6da63c4a2aa457bfd733580852b4dc260f8e42957c301c4d542",
   "data_sha256": "2897ed7f07739c8d0e66bd8b3e85404a50b3f18f7d1d1c5a7886fd22116caf58",
   "embedders": {
@@ -43,7 +43,7 @@
    "cores": 20,
    "os": "Windows"
   },
-  "created_at": "2026-10-11T13:07:58.348119Z"
+  "created_at": "2026-10-11T13:24:50.599071Z"
  },
  "candidates": [
   {
@@ -7419,6 +7419,1196 @@
    ]
   },
   {
+   "name": "C5_hybrid_rerank10",
+   "config": {
+    "mode": "hybrid",
+    "backend": "faiss",
+    "k": 3,
+    "fuse_depth": 20,
+    "rrf_k": 60,
+    "rerank_depth": 10,
+    "dedupe": false
+   },
+   "variant": "prefix",
+   "summary": {
+    "violation@3": {
+     "mean": 0.0,
+     "low": 0.0,
+     "high": 0.0,
+     "n": 62
+    }
+   },
+   "slices": {
+    "author:drafted": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 62
+     }
+    },
+    "type:attribute": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 10
+     }
+    },
+    "type:colloquial": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 10
+     }
+    },
+    "type:constrained": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 12
+     }
+    },
+    "type:described": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 9
+     }
+    },
+    "type:known_item": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 12
+     }
+    },
+    "type:vague": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 9
+     }
+    }
+   },
+   "queries": [
+    {
+     "query_id": "t001",
+     "ranked": [
+      "s05",
+      "k05",
+      "p07",
+      "y01",
+      "w05",
+      "a08",
+      "y02",
+      "a06",
+      "b10",
+      "a02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t002",
+     "ranked": [
+      "h01",
+      "h08",
+      "h07",
+      "h10",
+      "h09",
+      "s05",
+      "e03",
+      "w05",
+      "w02",
+      "p07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t003",
+     "ranked": [
+      "c01",
+      "c07",
+      "c02",
+      "c05",
+      "g08",
+      "m06",
+      "c04",
+      "c06",
+      "t10",
+      "c09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t004",
+     "ranked": [
+      "m03",
+      "b09",
+      "h09",
+      "m05",
+      "g09",
+      "m06",
+      "h01",
+      "c10",
+      "e10",
+      "y07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t005",
+     "ranked": [
+      "h07",
+      "w05",
+      "p07",
+      "y02",
+      "a08",
+      "f05",
+      "s05",
+      "a06",
+      "v06",
+      "a02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t006",
+     "ranked": [
+      "a02",
+      "w02",
+      "a01",
+      "b10",
+      "a08",
+      "e03",
+      "h07",
+      "a06",
+      "a10",
+      "y02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t007",
+     "ranked": [
+      "p09",
+      "k05",
+      "m03",
+      "m02",
+      "m07",
+      "s03",
+      "e02",
+      "b09",
+      "y07",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t008",
+     "ranked": [
+      "g02",
+      "s03",
+      "h09",
+      "k02",
+      "h10",
+      "b01",
+      "h05",
+      "s09",
+      "k04",
+      "c10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t009",
+     "ranked": [
+      "k08",
+      "b02",
+      "m10",
+      "g09",
+      "c09",
+      "m04",
+      "m07",
+      "s03",
+      "y05",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t010",
+     "ranked": [
+      "f10",
+      "b07",
+      "e04",
+      "e05",
+      "a02",
+      "a05",
+      "b01",
+      "a03",
+      "c05",
+      "a04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t011",
+     "ranked": [
+      "w09",
+      "a03",
+      "f06",
+      "v07",
+      "p10",
+      "g06",
+      "v02",
+      "t09",
+      "k06",
+      "g04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t012",
+     "ranked": [
+      "m05",
+      "g09",
+      "m02",
+      "k09",
+      "h05",
+      "e10",
+      "g07",
+      "b04",
+      "c09",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t013",
+     "ranked": [
+      "t01",
+      "e09",
+      "t03",
+      "g07",
+      "s03",
+      "w10",
+      "y03",
+      "k02",
+      "c06",
+      "b10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t014",
+     "ranked": [
+      "b09",
+      "m04",
+      "f04",
+      "t10",
+      "m03",
+      "k10",
+      "k08",
+      "y08",
+      "s01",
+      "m09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t015",
+     "ranked": [
+      "b01",
+      "b06",
+      "s01",
+      "t05",
+      "e09",
+      "b03",
+      "h04",
+      "m04",
+      "t02",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t016",
+     "ranked": [
+      "e04",
+      "e05",
+      "v08",
+      "b07",
+      "a03",
+      "y09",
+      "b01",
+      "m05",
+      "e10",
+      "a10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t017",
+     "ranked": [
+      "c02",
+      "y08",
+      "t01",
+      "c04",
+      "c06",
+      "f05",
+      "c05",
+      "w10",
+      "y05",
+      "e09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t018",
+     "ranked": [
+      "h02",
+      "g04",
+      "s01",
+      "k02",
+      "b03",
+      "k07",
+      "m05",
+      "f10",
+      "t06",
+      "b06"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t019",
+     "ranked": [
+      "t08",
+      "t07",
+      "g06",
+      "e06",
+      "k10",
+      "g09",
+      "b08",
+      "k06",
+      "g07",
+      "g02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t020",
+     "ranked": [
+      "b08",
+      "g06",
+      "m09",
+      "g08",
+      "y09",
+      "k10",
+      "g09",
+      "t08",
+      "y05",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t021",
+     "ranked": [
+      "a06",
+      "h07",
+      "e03",
+      "a02",
+      "a05",
+      "w05",
+      "v04",
+      "w02",
+      "a08",
+      "b10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t022",
+     "ranked": [
+      "m10",
+      "y05",
+      "a03",
+      "t08",
+      "a07",
+      "h03",
+      "b01",
+      "s01",
+      "v06",
+      "e07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t023",
+     "ranked": [
+      "f07",
+      "t06",
+      "y06",
+      "t01",
+      "v08",
+      "c08",
+      "y01",
+      "t02",
+      "e09",
+      "e01"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t024",
+     "ranked": [
+      "k10",
+      "m06",
+      "g01",
+      "m07",
+      "g06",
+      "b08",
+      "c06",
+      "c10",
+      "g02",
+      "b02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t025",
+     "ranked": [
+      "c05",
+      "c06",
+      "c04",
+      "c01",
+      "c03",
+      "c10",
+      "c09",
+      "f04",
+      "g02",
+      "g07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t026",
+     "ranked": [
+      "w09",
+      "y10",
+      "a03",
+      "t09",
+      "k10",
+      "f02",
+      "k06",
+      "c10",
+      "s02",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t027",
+     "ranked": [
+      "e09",
+      "y02",
+      "a09",
+      "k04",
+      "v08",
+      "k03",
+      "m06",
+      "w01",
+      "e06",
+      "a04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t028",
+     "ranked": [
+      "h09",
+      "c10",
+      "s04",
+      "h10",
+      "b05",
+      "s09",
+      "h06",
+      "m02",
+      "e06",
+      "e01"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t029",
+     "ranked": [
+      "p07",
+      "v03",
+      "f02",
+      "b03",
+      "s02",
+      "b07",
+      "g07",
+      "k10",
+      "b06",
+      "f09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t030",
+     "ranked": [
+      "v10",
+      "f09",
+      "t08",
+      "g04",
+      "h03",
+      "w10",
+      "c10",
+      "c04",
+      "c01",
+      "h04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t031",
+     "ranked": [
+      "b02",
+      "e01",
+      "e08",
+      "e09",
+      "a01",
+      "a10",
+      "e03",
+      "m05",
+      "e10",
+      "m10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t032",
+     "ranked": [
+      "k01",
+      "s06",
+      "s10",
+      "w04",
+      "p03",
+      "y10",
+      "s01",
+      "b02",
+      "a01",
+      "h09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t033",
+     "ranked": [
+      "h07",
+      "h03",
+      "f02",
+      "k06",
+      "w08",
+      "w04",
+      "w10",
+      "c07",
+      "c10",
+      "c05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t034",
+     "ranked": [
+      "m04",
+      "w07",
+      "w06",
+      "t07",
+      "t08",
+      "g07",
+      "a07",
+      "a10",
+      "k03",
+      "y10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t035",
+     "ranked": [
+      "v09",
+      "g04",
+      "c09",
+      "a02",
+      "c05",
+      "m09",
+      "c08",
+      "v02",
+      "s01",
+      "s04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t036",
+     "ranked": [
+      "g02",
+      "a09",
+      "t03",
+      "b01",
+      "a07",
+      "b07",
+      "a08",
+      "m02",
+      "h07",
+      "h05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t037",
+     "ranked": [
+      "w08",
+      "e08",
+      "a03",
+      "b02",
+      "s03",
+      "a01",
+      "c07",
+      "m02",
+      "h09",
+      "y07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t038",
+     "ranked": [
+      "g06",
+      "g01",
+      "k10",
+      "g09",
+      "b08",
+      "v02",
+      "c06",
+      "y05",
+      "g04",
+      "m09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t039",
+     "ranked": [
+      "s04",
+      "e07",
+      "c03",
+      "m05",
+      "v04",
+      "y10",
+      "w03",
+      "t01",
+      "t08",
+      "h09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t040",
+     "ranked": [
+      "s03",
+      "k04",
+      "k03",
+      "s08",
+      "s07",
+      "s02",
+      "h05",
+      "y09",
+      "y06",
+      "g07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t041",
+     "ranked": [
+      "w04",
+      "s10",
+      "s06",
+      "p03",
+      "k01",
+      "a08",
+      "b07",
+      "p06",
+      "m02",
+      "g10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t042",
+     "ranked": [
+      "g01",
+      "h05",
+      "c09",
+      "b07",
+      "c05",
+      "m04",
+      "g03",
+      "m03",
+      "s07",
+      "k02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t043",
+     "ranked": [
+      "s04",
+      "b05",
+      "c05",
+      "m04",
+      "b07",
+      "m03",
+      "m07",
+      "h05",
+      "m09",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t044",
+     "ranked": [
+      "p03",
+      "s10",
+      "k05",
+      "b10",
+      "w01",
+      "s06",
+      "k01",
+      "w04",
+      "e05",
+      "t03"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t045",
+     "ranked": [
+      "h05",
+      "h06",
+      "g05",
+      "s03",
+      "e05",
+      "g04",
+      "g02",
+      "k04",
+      "b04",
+      "b02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t046",
+     "ranked": [
+      "b02",
+      "e05",
+      "g08",
+      "e03",
+      "e07",
+      "a01",
+      "a06",
+      "m01",
+      "c06",
+      "c03"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t047",
+     "ranked": [
+      "h09",
+      "s09",
+      "c10",
+      "g09",
+      "h05",
+      "s03",
+      "k07",
+      "m03",
+      "k04",
+      "m07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t048",
+     "ranked": [
+      "b03",
+      "h02",
+      "k06",
+      "k08",
+      "m05",
+      "s03",
+      "h05",
+      "m02",
+      "m08",
+      "t10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t049",
+     "ranked": [
+      "g01",
+      "m10",
+      "e05",
+      "g09",
+      "t03",
+      "m03",
+      "b01",
+      "k10",
+      "m07",
+      "e10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t050",
+     "ranked": [
+      "y03",
+      "w03",
+      "w01",
+      "a09",
+      "w06",
+      "h08",
+      "c09",
+      "k02",
+      "b06",
+      "e06"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t051",
+     "ranked": [
+      "e09",
+      "e01",
+      "e07",
+      "y09",
+      "a09",
+      "w01",
+      "v10",
+      "b06",
+      "w03",
+      "p10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t052",
+     "ranked": [
+      "y09",
+      "m09",
+      "a10",
+      "e09",
+      "b01",
+      "e07",
+      "b06",
+      "e01",
+      "h04",
+      "e05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t053",
+     "ranked": [
+      "g08",
+      "g06",
+      "e07",
+      "b06",
+      "g02",
+      "e09",
+      "e01",
+      "t01",
+      "c08",
+      "t08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t054",
+     "ranked": [
+      "a02",
+      "b05",
+      "k06",
+      "e06",
+      "m02",
+      "s02",
+      "e05",
+      "m05",
+      "m08",
+      "m09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t055",
+     "ranked": [
+      "y06",
+      "c08",
+      "t05",
+      "h10",
+      "k03",
+      "y07",
+      "m08",
+      "m09",
+      "g10",
+      "m10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t056",
+     "ranked": [
+      "m09",
+      "g08",
+      "t04",
+      "c09",
+      "h03",
+      "e09",
+      "h04",
+      "e01",
+      "t07",
+      "b06"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t057",
+     "ranked": [
+      "e04",
+      "a02",
+      "a04",
+      "b02",
+      "w03",
+      "m02",
+      "m05",
+      "m04",
+      "s02",
+      "k10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t058",
+     "ranked": [
+      "w06",
+      "c08",
+      "t01",
+      "a05",
+      "a04",
+      "e09",
+      "b06",
+      "m09",
+      "g08",
+      "a09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t059",
+     "ranked": [
+      "e09",
+      "h05",
+      "e10",
+      "m05",
+      "g02",
+      "s02",
+      "k10",
+      "b06",
+      "m02",
+      "g07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t060",
+     "ranked": [
+      "v07",
+      "v03",
+      "v02",
+      "e06",
+      "s01",
+      "t08",
+      "b05",
+      "b06",
+      "s02",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t061",
+     "ranked": [
+      "e03",
+      "a08",
+      "w03",
+      "w06",
+      "e07",
+      "h04",
+      "v04",
+      "f02",
+      "b06",
+      "t07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t062",
+     "ranked": [
+      "m07",
+      "b08",
+      "b09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    }
+   ]
+  },
+  {
    "name": "C5_hybrid_rerank20",
    "config": {
     "mode": "hybrid",
@@ -14413,6 +15603,1196 @@
      "ranked": [
       "b08",
       "m07",
+      "b09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "name": "C5_hybrid_rerank10+dedupe",
+   "config": {
+    "mode": "hybrid",
+    "backend": "faiss",
+    "k": 3,
+    "fuse_depth": 20,
+    "rrf_k": 60,
+    "rerank_depth": 10,
+    "dedupe": true
+   },
+   "variant": "prefix",
+   "summary": {
+    "violation@3": {
+     "mean": 0.0,
+     "low": 0.0,
+     "high": 0.0,
+     "n": 62
+    }
+   },
+   "slices": {
+    "author:drafted": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 62
+     }
+    },
+    "type:attribute": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 10
+     }
+    },
+    "type:colloquial": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 10
+     }
+    },
+    "type:constrained": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 12
+     }
+    },
+    "type:described": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 9
+     }
+    },
+    "type:known_item": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 12
+     }
+    },
+    "type:vague": {
+     "violation@3": {
+      "mean": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n": 9
+     }
+    }
+   },
+   "queries": [
+    {
+     "query_id": "t001",
+     "ranked": [
+      "s05",
+      "k05",
+      "p07",
+      "y01",
+      "w05",
+      "a08",
+      "y02",
+      "a06",
+      "b10",
+      "a02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t002",
+     "ranked": [
+      "h01",
+      "h08",
+      "h07",
+      "h06",
+      "h10",
+      "h04",
+      "h09",
+      "s05",
+      "w05",
+      "w02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t003",
+     "ranked": [
+      "c01",
+      "c07",
+      "c02",
+      "c05",
+      "g08",
+      "m06",
+      "c04",
+      "c06",
+      "t10",
+      "c09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t004",
+     "ranked": [
+      "m03",
+      "b09",
+      "h09",
+      "m05",
+      "g09",
+      "m06",
+      "h01",
+      "c10",
+      "e10",
+      "y07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t005",
+     "ranked": [
+      "h07",
+      "w05",
+      "p07",
+      "y02",
+      "a08",
+      "f05",
+      "s05",
+      "a06",
+      "v06",
+      "a02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t006",
+     "ranked": [
+      "a02",
+      "w02",
+      "a01",
+      "b10",
+      "a08",
+      "e03",
+      "h07",
+      "a06",
+      "a10",
+      "y02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t007",
+     "ranked": [
+      "p09",
+      "k05",
+      "m03",
+      "m02",
+      "m07",
+      "s03",
+      "e02",
+      "b09",
+      "y07",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t008",
+     "ranked": [
+      "g02",
+      "s03",
+      "h09",
+      "k02",
+      "g04",
+      "h10",
+      "b01",
+      "h05",
+      "s09",
+      "k04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t009",
+     "ranked": [
+      "k08",
+      "b02",
+      "m10",
+      "g09",
+      "c09",
+      "m04",
+      "m07",
+      "s03",
+      "y05",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t010",
+     "ranked": [
+      "f10",
+      "b07",
+      "e04",
+      "e05",
+      "a02",
+      "a05",
+      "b01",
+      "a03",
+      "c05",
+      "a04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t011",
+     "ranked": [
+      "w09",
+      "a03",
+      "f06",
+      "v07",
+      "p10",
+      "g06",
+      "v02",
+      "t09",
+      "k06",
+      "g04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t012",
+     "ranked": [
+      "m05",
+      "g09",
+      "m02",
+      "k09",
+      "h05",
+      "e10",
+      "g07",
+      "b04",
+      "c09",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t013",
+     "ranked": [
+      "t01",
+      "t03",
+      "g07",
+      "s03",
+      "w10",
+      "y03",
+      "v07",
+      "s10",
+      "c06",
+      "b10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t014",
+     "ranked": [
+      "b09",
+      "m04",
+      "m01",
+      "f04",
+      "t10",
+      "m03",
+      "k10",
+      "m08",
+      "y08",
+      "s01"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t015",
+     "ranked": [
+      "b01",
+      "b06",
+      "s01",
+      "e09",
+      "g02",
+      "b03",
+      "h04",
+      "t10",
+      "m05",
+      "t02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t016",
+     "ranked": [
+      "e04",
+      "e05",
+      "h04",
+      "v08",
+      "b07",
+      "a03",
+      "y09",
+      "b01",
+      "m05",
+      "e10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t017",
+     "ranked": [
+      "c02",
+      "y08",
+      "t01",
+      "c04",
+      "c06",
+      "f05",
+      "c05",
+      "w10",
+      "y05",
+      "y03"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t018",
+     "ranked": [
+      "h02",
+      "g04",
+      "s01",
+      "k02",
+      "b03",
+      "k07",
+      "m05",
+      "f10",
+      "t06",
+      "t08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t019",
+     "ranked": [
+      "t08",
+      "t07",
+      "g06",
+      "e06",
+      "k10",
+      "g09",
+      "k07",
+      "b08",
+      "k06",
+      "g02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t020",
+     "ranked": [
+      "b08",
+      "g06",
+      "m09",
+      "k10",
+      "g09",
+      "m06",
+      "t08",
+      "g07",
+      "y05",
+      "b03"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t021",
+     "ranked": [
+      "a06",
+      "h07",
+      "e03",
+      "a02",
+      "a05",
+      "w05",
+      "v04",
+      "w02",
+      "a08",
+      "b10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t022",
+     "ranked": [
+      "m10",
+      "y05",
+      "t08",
+      "a07",
+      "h03",
+      "b01",
+      "s01",
+      "v06",
+      "e07",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t023",
+     "ranked": [
+      "f07",
+      "t06",
+      "y06",
+      "v08",
+      "c08",
+      "y01",
+      "t02",
+      "e09",
+      "e01",
+      "e07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t024",
+     "ranked": [
+      "k10",
+      "m06",
+      "m07",
+      "b08",
+      "c06",
+      "c10",
+      "a10",
+      "b02",
+      "c05",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t025",
+     "ranked": [
+      "c05",
+      "c06",
+      "c04",
+      "c01",
+      "c03",
+      "c10",
+      "c09",
+      "f04",
+      "g02",
+      "g07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t026",
+     "ranked": [
+      "t08",
+      "w09",
+      "y10",
+      "a03",
+      "k10",
+      "f02",
+      "k06",
+      "c10",
+      "p07",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t027",
+     "ranked": [
+      "e09",
+      "y02",
+      "a09",
+      "k04",
+      "v08",
+      "v09",
+      "w01",
+      "b06",
+      "e06",
+      "a04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t028",
+     "ranked": [
+      "h09",
+      "c10",
+      "s04",
+      "h10",
+      "b05",
+      "m03",
+      "h06",
+      "m02",
+      "e06",
+      "e01"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t029",
+     "ranked": [
+      "p07",
+      "f03",
+      "f02",
+      "b03",
+      "s02",
+      "b07",
+      "g07",
+      "k10",
+      "b01",
+      "b06"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t030",
+     "ranked": [
+      "v10",
+      "f09",
+      "t08",
+      "g04",
+      "h03",
+      "w10",
+      "c10",
+      "c04",
+      "c01",
+      "h04"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t031",
+     "ranked": [
+      "b02",
+      "e01",
+      "e08",
+      "e09",
+      "a01",
+      "a10",
+      "e03",
+      "m05",
+      "e10",
+      "m10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t032",
+     "ranked": [
+      "k01",
+      "s10",
+      "w04",
+      "p03",
+      "y10",
+      "s01",
+      "b02",
+      "a01",
+      "h09",
+      "c09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t033",
+     "ranked": [
+      "h07",
+      "k06",
+      "w08",
+      "w04",
+      "a03",
+      "w10",
+      "c03",
+      "c10",
+      "c06",
+      "c05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t034",
+     "ranked": [
+      "m04",
+      "w07",
+      "w06",
+      "t07",
+      "c08",
+      "e01",
+      "t08",
+      "g07",
+      "a07",
+      "a10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t035",
+     "ranked": [
+      "v09",
+      "g04",
+      "c09",
+      "a02",
+      "c05",
+      "m09",
+      "c08",
+      "t07",
+      "v02",
+      "s01"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t036",
+     "ranked": [
+      "g02",
+      "a09",
+      "t03",
+      "b01",
+      "w03",
+      "w06",
+      "b07",
+      "a08",
+      "h07",
+      "h05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t037",
+     "ranked": [
+      "w08",
+      "e08",
+      "a03",
+      "b02",
+      "s03",
+      "a01",
+      "c07",
+      "m02",
+      "h09",
+      "y07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t038",
+     "ranked": [
+      "g06",
+      "g01",
+      "k10",
+      "m07",
+      "g09",
+      "b08",
+      "c06",
+      "y05",
+      "g04",
+      "h05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t039",
+     "ranked": [
+      "s04",
+      "e07",
+      "c03",
+      "m05",
+      "v04",
+      "y10",
+      "w03",
+      "t01",
+      "c09",
+      "h09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t040",
+     "ranked": [
+      "s03",
+      "k04",
+      "s08",
+      "s10",
+      "s07",
+      "s02",
+      "h05",
+      "y09",
+      "y06",
+      "g07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t041",
+     "ranked": [
+      "w04",
+      "s10",
+      "s06",
+      "p03",
+      "a08",
+      "b07",
+      "p06",
+      "m02",
+      "g10",
+      "b03"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t042",
+     "ranked": [
+      "g01",
+      "k07",
+      "h05",
+      "c09",
+      "b07",
+      "c05",
+      "m04",
+      "g03",
+      "m03",
+      "s07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t043",
+     "ranked": [
+      "s04",
+      "b05",
+      "c05",
+      "m04",
+      "b07",
+      "m03",
+      "m07",
+      "h05",
+      "m09",
+      "b08"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t044",
+     "ranked": [
+      "p03",
+      "s10",
+      "k05",
+      "b10",
+      "w01",
+      "k01",
+      "w04",
+      "e05",
+      "t03",
+      "e02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t045",
+     "ranked": [
+      "h05",
+      "h06",
+      "g05",
+      "s03",
+      "e05",
+      "g04",
+      "g02",
+      "k04",
+      "b04",
+      "b02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t046",
+     "ranked": [
+      "b02",
+      "e05",
+      "g08",
+      "e03",
+      "t03",
+      "a06",
+      "t05",
+      "t01",
+      "c06",
+      "c03"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t047",
+     "ranked": [
+      "h09",
+      "s09",
+      "g09",
+      "h05",
+      "s03",
+      "k07",
+      "m03",
+      "b03",
+      "k04",
+      "m07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t048",
+     "ranked": [
+      "b03",
+      "h02",
+      "k06",
+      "k08",
+      "m05",
+      "s03",
+      "h05",
+      "m02",
+      "m08",
+      "t10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t049",
+     "ranked": [
+      "g01",
+      "m10",
+      "e05",
+      "g09",
+      "t03",
+      "m03",
+      "b01",
+      "k10",
+      "m07",
+      "e10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t050",
+     "ranked": [
+      "y03",
+      "w03",
+      "w01",
+      "a09",
+      "w06",
+      "h08",
+      "c09",
+      "k02",
+      "b06",
+      "e06"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t051",
+     "ranked": [
+      "e09",
+      "e01",
+      "e07",
+      "y09",
+      "a09",
+      "w01",
+      "v10",
+      "b06",
+      "w03",
+      "p10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t052",
+     "ranked": [
+      "y09",
+      "m09",
+      "a10",
+      "e09",
+      "b01",
+      "e07",
+      "b06",
+      "e01",
+      "h04",
+      "e05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t053",
+     "ranked": [
+      "g08",
+      "g06",
+      "e07",
+      "g02",
+      "e06",
+      "e09",
+      "e01",
+      "c08",
+      "t08",
+      "b05"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t054",
+     "ranked": [
+      "a02",
+      "b05",
+      "k06",
+      "e06",
+      "m02",
+      "s02",
+      "e05",
+      "m05",
+      "m08",
+      "m09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t055",
+     "ranked": [
+      "y06",
+      "c08",
+      "t05",
+      "h10",
+      "k03",
+      "y07",
+      "m08",
+      "m09",
+      "g10",
+      "m10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t056",
+     "ranked": [
+      "m09",
+      "g08",
+      "t04",
+      "c09",
+      "h03",
+      "e09",
+      "h04",
+      "e01",
+      "t07",
+      "b06"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t057",
+     "ranked": [
+      "e04",
+      "a02",
+      "a04",
+      "b02",
+      "w03",
+      "m02",
+      "h02",
+      "m04",
+      "s02",
+      "k10"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t058",
+     "ranked": [
+      "w06",
+      "c08",
+      "t01",
+      "a05",
+      "a04",
+      "b06",
+      "m09",
+      "g08",
+      "c09",
+      "a09"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t059",
+     "ranked": [
+      "e09",
+      "h05",
+      "e10",
+      "m05",
+      "g02",
+      "s02",
+      "k10",
+      "b06",
+      "m02",
+      "g07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t060",
+     "ranked": [
+      "v07",
+      "v03",
+      "v02",
+      "e06",
+      "e09",
+      "s01",
+      "b05",
+      "b06",
+      "s02",
+      "m02"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t061",
+     "ranked": [
+      "e03",
+      "a08",
+      "w03",
+      "w06",
+      "e07",
+      "h04",
+      "v04",
+      "f02",
+      "b06",
+      "t07"
+     ],
+     "metrics": {
+      "violation@3": 0.0
+     }
+    },
+    {
+     "query_id": "t062",
+     "ranked": [
+      "m07",
+      "b08",
       "b09"
      ],
      "metrics": {

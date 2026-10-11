@@ -209,15 +209,225 @@ Follow-ups carried forward:
 - P4: the usage ledger keys token caps by model (Groq limits per model), budgets photos separately from chat, and stays below Groq's figure (ADR-0007).
 - Lexicon: negations ("no nuts") and hedged alternatives ("spices or nuts") produce false vision terms; fix when the lexicon next changes.
 
-## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · M
-**Goal:** the "before" numbers and a CI gate, before any agent logic (A5).
-1. `eval/datasets/retrieval.yaml`: ~60 queries, graded human labels for semantic queries; structured queries only for violation metrics (A3); dev/test split.
-2. Image queries from **altered catalog images** (decided): random crops, rotation, colour/lighting shifts, blur, JPEG re-compression and background change, with a fixed seed and the transforms recorded per query. Reported as a **lower bound** on real-photo performance, with unaltered self-retrieval shown separately as a sanity check (A4). Name-free vs name-conditioned descriptions compared (A7).
-3. Baselines and candidates: **original approach re-implemented on the new catalog** (raw query, k=5, LLM Yes/No relevance check; publishable), BM25, dense (FAISS), dense (Qdrant), hybrid RRF, **+ cross-encoder reranker**. Metrics: nDCG@3, Success@3, Violation@3, Recall@k (narrow); latency; paired bootstrap CIs (A6, A8, A18).
-4. **Prefect flows** `evaluate` and `report`; nightly GitHub Actions schedule; results mirrored to Langfuse.
-5. Committed embedding caches + retrieval gate in PR CI.
+## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · L
+**Goal:** the "before" numbers and a CI gate, before any agent logic (A5). Phase 3 measures how well each retrieval stack finds the right dishes on the Phase 2 catalog, picks the stack and vector backend from development-split evidence (ADR-0001), and makes any later regression fail CI. P4's `/v1/search` and MCP `search` tool use the configuration chosen here.
 
-**DoD:** reproducible results; the gate fails on a deliberately degraded config (tested); retrieval stack and vector backend chosen from dev-split evidence (ADR-0001).
+Sized L rather than M: the owner's relevance labels are real authoring work, as the allergen ground truth was in Phase 2, and the image queries and the original-approach baseline each need a paced live job.
+
+### What Phase 3 does and does not measure
+- **Measures:** ranking quality given the correct hard filters; how photos degrade search; latency of each retrieval stage; the original approach re-implemented on this catalog.
+- **Does not measure:**
+  - turning natural language into filters ("vegan under 400 kcal" → `Filters`): queries carry **gold filters**, and parsing errors are measured with the agent in P5–P6 (A15);
+  - answer quality or explanations (P6, calibrated judge);
+  - real user photos (none are available; altered catalog photos give a **lower bound**, A4).
+- **Production defaults do not change** until ADR-0001 is accepted.
+
+### Architecture
+
+```mermaid
+flowchart LR
+  subgraph inputs["Inputs (tracked)"]
+    DS["eval/datasets/retrieval.yaml<br/>text queries, gold filters, grades, split"]
+    IQ["eval/datasets/image_queries.jsonl<br/>transform records + descriptions"]
+    CC["eval/caches/<br/>doc + query vectors, rerank scores,<br/>LLM verdicts, manifest"]
+    CAT[("SQLite catalog<br/>built by the P2 flow")]
+  end
+  subgraph run["evaluation runner (offline)"]
+    CE["Cached embedder and reranker<br/>(same protocols as production)"]
+    R["Retriever(config)<br/>SQL filters → BM25 / dense → RRF → rerank → de-dup"]
+    M["Metrics + paired bootstrap CIs<br/>scored against ground truth"]
+  end
+  DS & IQ --> R
+  CC --> CE --> R
+  CAT --> R --> M
+  M --> RES["eval/results/retrieval_*.json"]
+  RES --> G{"Gate (PR CI)"}
+  RES --> REP["report → docs/evaluation.md"]
+  RES -.-> LF["Langfuse dataset + experiment<br/>(when configured)"]
+  RES --> ADR["ADR-0001 (dev split only)"]
+```
+
+- **One retrieval code path.** The stages live in `services/retrieval.py` as a `Retriever` driven by a `RetrievalConfig` (mode `bm25 | dense | hybrid`, backend `faiss | qdrant`, rerank depth or none, de-duplicate by `dish_key` or not, `k`). The evaluation runs the same class that P4 serves, not a copy.
+- **Offline by construction.** `CachedEmbedder` and `CachedReranker` implement the existing `Embedder` and `Reranker` protocols from committed caches and carry the real model's fingerprint. CI therefore runs the real pipeline with no model download (rules §5.4). A query or item missing from the cache is an error, never a silent zero.
+- **Hard filters stay in SQL** (`candidate_ids`, Phase 2). Every candidate except the original approach searches only admitted items.
+- **Code location:** metrics, datasets, caches, runner, gate and report go in a new `food_concierge/evaluation/` package. It is typed and inside the 100% coverage gate. `eval/` keeps only data: datasets, caches, gate baseline and results.
+
+### Workflow
+
+```mermaid
+flowchart TD
+  A["1. Retrieval stages<br/>RRF, rerank, de-dup, timings"] --> B["2. Evaluation core<br/>schemas, metrics, bootstrap, caches"]
+  B --> C["3. Text queries<br/>draft → owner review → pool → owner grades"]
+  B --> D["4. Image queries<br/>seeded transforms → Groq descriptions (live, paced)"]
+  C --> E["5. Original approach<br/>cached Yes/No verdicts (live, paced)"]
+  C & D & E --> F["6. Caches + PR gate + nightly drift"]
+  F --> H["7. Prefect evaluate / report, Langfuse"]
+  H --> I["8. Dev run → ADR-0001 → one frozen test run"]
+  I --> J["9. Close-out"]
+```
+
+Items 3 and 4 run in parallel: the Groq photo job runs while the owner grades.
+
+### 1. Text queries (`eval/datasets/retrieval.yaml`, A3, A6)
+- **72 queries, 12 per type:**
+
+  | Type | Example | Main metric |
+  |---|---|---|
+  | Known item, by name or spelling variant | "butter chicken", "biriyani" | Recall@3/10, MRR |
+  | Described without the name | "crispy rice-and-lentil crepe with a potato filling" | Recall@3/10, MRR |
+  | Vague intent or mood | "something warm and comforting for a rainy evening" | nDCG@3, Success@3 |
+  | Ingredient or attribute | "dishes with coconut and curry leaves" | nDCG@3, Success@3 |
+  | Hinglish, regional terms, typos | "paneer wala starter", "bhindi", "panner tikka" | nDCG@3, Success@3 |
+  | Semantic need plus gold filters | "light lunch" + vegan, no peanuts, ≤ 450 kcal | nDCG@3, **Violation@3** |
+
+- **Authoring bias:** a query written by someone who has read the catalog reuses its words, which flatters BM25. To limit that, drafted queries must paraphrase rather than copy the menu text, and the owner writes about 10 queries **without looking at the catalog**, spread over the middle four types. Each query records who wrote it, so this bias can be checked as a slice.
+- **Split:** dev and test 50/50, stratified by type with a fixed seed. Near-duplicate queries share a `group` and go to the same side. The dataset file records the test split's SHA-256. The runner refuses `--split test` unless given `--final`, and the final run happens **once**, after ADR-0001's decision.
+- **Grades 0–3:**
+  - 3: exactly what was asked;
+  - 2: relevant;
+  - 1: related, but wrong on something that matters;
+  - 0: not relevant.
+
+  The guide in `eval/datasets/labelling-guide.md` gives two worked examples per grade. For known-item queries, every item sharing the target's `dish_key` is a 3.
+- **Pooling (TREC-style):** each query's pool is the union of the top 10 from every candidate below. That is about 15–20 unique items a query, so roughly 1,100–1,400 judgements. The owner grades them in a local review page like the photo review (#30): pairs are shuffled, the producing system is hidden, choices survive a reload, and the page exports a CSV. Unjudged items count as 0. Every result reports judged@3 per candidate. A configuration added after pooling with judged@3 below 95% gets its new pairs graded before it is compared.
+- **Consistency:** a week later the owner re-grades a seeded 10% sample, and weighted Cohen's κ is reported. With a single annotator there is no inter-annotator agreement, so this is the substitute, and the limitation is stated.
+
+### 2. Image queries (`eval/datasets/image_queries.jsonl`, A4, A7)
+- **Source:** all 127 described catalog photos, read from the local photo cache. Photos are not in the repository, so this step runs only on a machine that holds them.
+- **Transforms** (`evaluation/image_transforms.py`, Pillow, seeded per photo): each query applies 2–3 of the following, with parameters drawn from the seed:
+  - random crop to 60–90% of the area;
+  - rotation within ±25°;
+  - brightness, contrast and colour shifts;
+  - Gaussian blur;
+  - JPEG re-compression at quality 30–60;
+  - **backdrop change, approximated:** the photo is shrunk onto a plain or textured canvas. True background replacement needs a segmentation model the rules do not include, so this is recorded as a limitation.
+
+  Each query records the transforms, their parameters and the altered image's SHA-256. The altered images themselves are not committed. Anyone with the photos can regenerate them, and a SHA-256 mismatch (for example from a different JPEG encoder) gives a warning, not a silent pass.
+- **Descriptions:** the production path from ADR-0007 is used: Groq `qwen/qwen3.8-27b`, the production name-free prompt, and EXIF stripped by the router. Every altered photo and every unaltered one is described, about 254 calls. At about 1,900 tokens a photo, Groq's 8,000 tokens a minute allows 3–4 photos a minute (ADR-0007), so the job takes about 1.5 h. It stays under the 900-a-day cap, paces itself and resumes, skipping photos already described.
+- **Ladder** (A7). The gaps between the rungs are the result:
+  - **L0:** named description of the unaltered photo, from the existing local cache. This is what the original approach effectively measured, and it leaks the name.
+  - **L1:** name-free description of the unaltered photo: the sanity check.
+  - **L2:** name-free description of the altered photo: the **reported lower bound**.
+
+  L0 uses local `qwen2.5vl:7b` and L1–L2 use Groq. That model difference is stated next to the numbers.
+- **Labels:** the relevant items are those sharing the photo's `dish_key` (grade 3). Image queries are split 50/50 by `dish_key` with the same seed. Metrics: Recall@3, Recall@10, MRR and Success@3.
+- **Coverage:** 19 dishes have no photo, so image results cover 131 of 150 dishes.
+
+### 3. Candidates
+
+| ID | Candidate | Notes |
+|---|---|---|
+| C0 | **Original approach, re-implemented** | Raw query, dense top 5 with no hard filters, then one LLM Yes/No relevance call per item. Constraints appear only in the prompt. Groq `openai/gpt-oss-20b`, temperature 0, seed. Reported twice: with the original's strict parser (`== 'yes'`, defect #4) and with a fixed one. It uses this project's embedder, because the original's paid models are off by default (rules §5), so it re-implements the method and is not a replay. About 360 calls, paced and cached |
+| C1 | BM25 | Lexical baseline (A8) |
+| C2 | Dense, FAISS | With and without the BGE query prefix (carried from P1) |
+| C3 | Dense, Qdrant | Both are exact search, so rankings must equal C2's; the comparison is latency, cold load and memory (A26) |
+| C4 | Hybrid: RRF of C1 and C2 | Fixed `k_rrf = 60`, 20 results from each list. Not tuned, so nothing is fitted to 36 dev queries (A16) |
+| C5 | C4 + cross-encoder rerank of the top 20 | `Xenova/ms-marco-MiniLM-L-6-v2` (F20). Trained on English web search, so the Hinglish slice is reported separately |
+
+Every candidate is also measured with `dish_key` de-duplication on and off (6 dishes appear at two restaurants).
+
+### 4. Metrics (A6, A18)
+- **nDCG@3**, with gain `2^grade − 1` and the ideal ordering taken from all judged items.
+- **Success@3:** at least one item graded ≥ 2 in the top 3.
+- **Recall@3, Recall@10 and MRR** for known-item and image queries.
+- **Violation@3:** the share of top-3 items that break the query's gold filters. It is checked with `Filters.admits` against the **ground truth** (`true_allergens` and the catalog diet), not against the system's own tags, which keeps it non-circular (A3). The target is 0 for every candidate except C0. C0's violations are the headline "before" number.
+- **Latency:** p50 and p95 for each stage (query embedding, search, fusion, rerank) over 5 warm repeats, plus cold load time and memory per backend. Measured on a recorded reference machine (CPU, cores, OS). The HF Space CPU is slower and is re-measured in P4.
+- **Confidence intervals:** paired bootstrap over queries, 10,000 seeded resamples, 95% percentile interval. Slices are shown, but decisions use only the pre-registered metrics below.
+
+### 5. Decision rules (pre-registered: committed with this plan, before any dev number exists)
+1. A candidate with any Violation@3 against the ground truth is ineligible.
+2. **Primary metric:** dev nDCG@3 over all text queries. **Guards:** image Recall@3 (L2) does not fall by more than 0.05, and retrieval p95 stays ≤ 150 ms on the reference machine. That is half the PRD's 300 ms, which leaves room for the slower Space CPU.
+3. **Complexity ladder:** the better of BM25 and dense → hybrid → + reranker. A step is adopted only if the paired-bootstrap 95% CI of its ΔnDCG@3 over the previous step lies entirely above 0 and the guards hold. Otherwise the simpler step stays.
+4. **Query prefix:** kept unless no prefix wins by the same rule. The prefix is part of the embedder fingerprint, so dropping it means rebuilding the index, which is cheap.
+5. **Backend:** FAISS, unless Qdrant is at least 20% faster at p95 with equal rankings. The other backend stays as a tested alternative.
+6. A tie goes to the simpler configuration. Then **one** test-split run of the chosen configuration and every baseline is reported as it comes out, including negative results, with no changes afterwards.
+
+### 6. Caches and the PR gate
+- **Committed caches (`eval/caches/`, under 2 MB):**
+  - document vectors (150 × 384, float32 `.npy`, no pickle);
+  - query vectors with and without the prefix;
+  - a full query × item cross-encoder score matrix, so rerank depth can change without a cache miss;
+  - C0's LLM verdicts, including the raw reply;
+  - a manifest: embedder fingerprint, reranker model and file hash (a reranker fingerprint is added in item 1 of the workstreams), catalog `data_sha256`, `doc_text_version` and dataset SHA-256.
+- **Building the caches:** `scripts/build_eval_cache.py` builds them locally, where model downloads are allowed. Any change to the catalog, the document text, the dataset or a model means rebuilding them in the same PR. The gate names the stale field.
+- **Gate** (a new step in `ci.yml`, after the tests). It runs the dev split from the caches and is deterministic, so any change in a number comes from a code or data change, not noise. It fails when:
+  - nDCG@3 drops more than 0.02 below `eval/gates/retrieval_baseline.json`;
+  - any violation appears;
+  - a cache is stale;
+  - a cache misses a query or item.
+
+  The baseline changes only in a PR that says why.
+- **Degraded configurations (tested):** pytest runs the gate on a random-order ranker and on a pipeline that drops the SQL filters. Both must fail, which is the DoD's "deliberately degraded config".
+- **Nightly:** it re-embeds the documents and queries and reruns the reranker with freshly downloaded models, then checks them against the caches (cosine ≥ 0.999; rerank scores within 1e-3). This follows the P1 drift pattern.
+
+### 7. Flows, results and Langfuse (F12, F22)
+- **`evaluate`** (Prefect):
+  1. load the dataset and check the caches;
+  2. run every configuration;
+  3. compute metrics and CIs;
+  4. write `eval/results/retrieval_<date>_<split>.json` with git SHA, data hash, fingerprints and machine;
+  5. check the gate;
+  6. mirror to Langfuse.
+- **`report`:** renders `docs/evaluation.md` from the results JSON:
+  - candidates × metrics with CIs;
+  - slices;
+  - the image ladder;
+  - latency;
+  - judged@3 and κ.
+
+  Rendering is deterministic and tested.
+- **CLI:** `python -m food_concierge.flows evaluate|report`.
+- **Nightly:** `evaluate` runs after `build`.
+- **Langfuse:** each query becomes a dataset item, and each configuration becomes one experiment run with per-item scores (nDCG@3, Success@3, Violation@3). The mirror runs only when keys are configured, so in P3 it goes to local Docker Langfuse. GitHub Actions has no Langfuse keys, and a Langfuse Cloud account is P4's decision. Query text is synthetic, with no personal data. A mirror failure is logged and swallowed (rules §4.5).
+
+### Limitations and risks (known before execution)
+
+| Risk or limitation | Effect | Mitigation |
+|---|---|---|
+| Small query set (36 dev, 36 test) | Wide CIs: differences under about 0.05 nDCG@3 are unlikely to be resolved | Paired bootstrap; pre-registered rule that ties go to the simpler stack; the claims stay about this catalog only |
+| One annotator, who also knows the catalog | Label and query bias | Blind, shuffled pools; about 10 queries written without the catalog; κ on a re-graded sample; the bias reported as a slice |
+| Pool bias | Configurations outside the pool look worse | Pool depth 10 across every candidate; judged@3 reported; grade new pairs below 95% |
+| Altered photos are not real photos | Image numbers can mislead either way | Reported as a lower bound next to L0 and L1; real photos are P7 or later |
+| Backdrop change only approximated | Background robustness under-tested | Stated; segmentation is out of scope |
+| Groq free-tier throughput (3–4 photos a minute) and the 900-a-day cap | The photo job takes about 1.5 h; C0 adds about 360 chat calls | Paced, resumable scripts; the two jobs run on different days; no Gemini fallback for photos (ADR-0007) |
+| The vision model was found by a probe and may change (ADR-0007) | L1 and L2 may not be reproducible later | Descriptions are cached with model and prompt version; regenerating them is a new run, not an edit |
+| LLM Yes/No verdicts are non-deterministic | C0 varies between runs | Temperature 0 and a seed, cached once; the raw replies are committed |
+| An English-only cross-encoder | It may hurt the Hinglish and regional slice | Slice reported; the ladder rule decides adoption |
+| Photos and models are not in the repository | Image queries and caches build only locally | CI uses committed caches only; the nightly checks for drift |
+| Latency measured on a laptop | Not representative of the Space | 150 ms guard, half the 300 ms budget; re-measured in P4 |
+| Query prefix inside the embedder fingerprint | Changing the prefix refuses the existing index | Intended; rebuilding is one command |
+
+### Workstreams (one PR each, in order; the owner reviews before each merge)
+
+| # | Branch | Delivers | Owner input | Live calls |
+|---|---|---|---|---|
+| 0 | `docs/p3-plan` | this plan | **approve** the plan and the decision rules | — |
+| 1 | `feat/p3-retriever` | `RetrievalConfig` and `Retriever`: RRF, rerank stage, `dish_key` de-duplication, stage timings, reranker fingerprint; tests with the fake embedder and reranker | — | — |
+| 2 | `feat/p3-eval-core` | `evaluation/`: dataset schemas and split lock, metrics checked against hand-computed values, paired bootstrap, cached embedder and reranker, cache manifest, runner | — | — |
+| 3 | `feat/p3-text-queries` | labelling guide; 72 drafted queries with gold filters; pooling script and review page; graded `retrieval.yaml`; κ sample | **review the queries, write about 10, grade the pools** (about 2 h over several sittings) | — |
+| 4 | `feat/p3-image-queries` | seeded transforms; Groq descriptions of the altered and unaltered photos; L0–L2 query sets | let the paced job run on this machine (it needs the Groq key and the photo cache) | about 254 Groq vision |
+| 5 | `feat/p3-original-baseline` | C0 with cached verdicts and both parsers | — | about 360 Groq chat |
+| 6 | `feat/p3-gate` | `build_eval_cache.py`, committed caches, gate baseline, CI step, degraded-config tests, nightly drift | — | — |
+| 7 | `feat/p3-flows` | `evaluate` and `report` flows, results JSON, `docs/evaluation.md`, nightly `evaluate`, Langfuse mirror | — | — |
+| 8 | `docs/p3-adr-0001` | dev run → decision by the rules → ADR-0001 → one final test run | **accept ADR-0001** | — |
+| 9 | `docs/p3-closeout` | plan, CHANGELOG, architecture, eval/README, report | — | — |
+
+Critical path: workstream 3 (the owner's grading). Workstream 4 runs alongside it.
+
+### Out of scope (deferred, with triggers)
+- Multimodal image embeddings (backlog). Trigger: L2 Recall@10 below 0.5 while L1 stays high.
+- Tuning RRF weights or `k_rrf`, query rewriting, HNSW.
+- An LLM judge for relevance (P6).
+- Natural-language-to-filter parsing (P5).
+
+**DoD:**
+- `retrieval.yaml` holds 72 owner-graded text queries; the image queries carry transform records; the dev/test split is locked by hash.
+- C0–C5 are measured on dev with CIs, slices, judged@3 and latency, and the results are committed.
+- From a clean checkout, `python -m food_concierge.flows evaluate` reproduces the committed dev numbers exactly from the caches, with no network.
+- The PR CI gate is live. The random-ranker and dropped-filter configurations fail it in tests, and a stale cache fails it with a message naming the stale field.
+- The nightly checks the caches against freshly downloaded models.
+- ADR-0001 is accepted from dev evidence under the pre-registered rules, and one test-split run is reported, negative results included.
+- `docs/evaluation.md` is generated, the Langfuse experiment is visible locally, and offline tests stay at 100% coverage.
 
 ## Phase 4 — MCP server, access control, first deploy · `feat/p4-*` · L
 **Goal:** secure, reusable tools, live on HF Spaces.

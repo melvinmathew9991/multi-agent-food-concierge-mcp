@@ -270,7 +270,7 @@ flowchart TD
 Items 3 and 4 run in parallel: the Groq photo job runs while the owner grades.
 
 ### 1. Text queries (`eval/datasets/retrieval.yaml`, A3, A6)
-- **72 queries, 12 per type:**
+- **62 queries, 10–12 per type** (72 were planned, 10 of them the owner's; see the authoring bias below):
 
   | Type | Example | Main metric |
   |---|---|---|
@@ -281,7 +281,7 @@ Items 3 and 4 run in parallel: the Groq photo job runs while the owner grades.
   | Hinglish, regional terms, typos | "paneer wala starter", "bhindi", "panner tikka" | nDCG@3, Success@3 |
   | Semantic need plus gold filters | "light lunch" + vegan, no peanuts, ≤ 450 kcal | nDCG@3, **Violation@3** |
 
-- **Authoring bias:** a query written by someone who has read the catalog reuses its words, which flatters BM25. To limit that, drafted queries must paraphrase rather than copy the menu text, and the owner writes about 10 queries **without looking at the catalog**, spread over the middle four types. Each query records who wrote it, so this bias can be checked as a slice.
+- **Authoring bias:** a query written by someone who has read the catalog reuses its words, which flatters BM25. To limit that, drafted queries must paraphrase rather than copy the menu text, and the owner was to write about 10 queries **without looking at the catalog**, spread over the middle four types. On 2026-10-11 the owner chose to go ahead with the 62 drafted queries only, so every query was written with the catalog in view. The bias can't be checked as a slice; it is stated next to the results instead, and BM25's numbers in particular may be flattered.
 - **Split:** dev and test 50/50, stratified by type with a fixed seed. Near-duplicate queries share a `group` and go to the same side. The dataset file records the test split's SHA-256. The runner refuses `--split test` unless given `--final`, and the final run happens **once**, after ADR-0001's decision.
 - **Grades 0–3:**
   - 3: exactly what was asked;
@@ -322,7 +322,7 @@ Items 3 and 4 run in parallel: the Groq photo job runs while the owner grades.
 | C1 | BM25 | Lexical baseline (A8) |
 | C2 | Dense, FAISS | With and without the BGE query prefix (carried from P1) |
 | C3 | Dense, Qdrant | Both are exact search, so rankings must equal C2's; the comparison is latency, cold load and memory (A26) |
-| C4 | Hybrid: RRF of C1 and C2 | Fixed `k_rrf = 60`, 20 results from each list. Not tuned, so nothing is fitted to 36 dev queries (A16) |
+| C4 | Hybrid: RRF of C1 and C2 | Fixed `k_rrf = 60`, 20 results from each list. Not tuned, so nothing is fitted to about 31 dev queries (A16) |
 | C5 | C4 + cross-encoder rerank, at two depths: top 10 (C5-10) and top 20 (C5-20) | `Xenova/ms-marco-MiniLM-L-6-v2` (F20). Trained on English web search, so the Hinglish slice is reported separately. Depth 10 was added on 2026-10-11, before any graded dev number existed, because the measured rerank latency (about 120 ms for 10, 280 ms for 20 at the median on the reference laptop) puts depth 20 at risk of the 150 ms guard |
 
 Every candidate is also measured with `dish_key` de-duplication on and off (6 dishes appear at two restaurants).
@@ -385,8 +385,8 @@ Every candidate is also measured with `dish_key` de-duplication on and off (6 di
 
 | Risk or limitation | Effect | Mitigation |
 |---|---|---|
-| Small query set (36 dev, 36 test) | Wide CIs: differences under about 0.05 nDCG@3 are unlikely to be resolved | Paired bootstrap; pre-registered rule that ties go to the simpler stack; the claims stay about this catalog only |
-| One annotator, who also knows the catalog | Label and query bias | Blind, shuffled pools; about 10 queries written without the catalog; κ on a re-graded sample; the bias reported as a slice |
+| Small query set (about 31 dev, 31 test) | Wide CIs: differences under about 0.05 nDCG@3 are unlikely to be resolved | Paired bootstrap; pre-registered rule that ties go to the simpler stack; the claims stay about this catalog only |
+| One annotator, who also knows the catalog | Label and query bias | Blind, shuffled pools; κ on a re-graded sample; drafted queries paraphrase the menu. The owner's catalog-blind queries were dropped (2026-10-11), so the bias is stated with the results, not measured |
 | Pool bias | Configurations outside the pool look worse | Pool depth 10 across every candidate; judged@3 reported; grade new pairs below 95% |
 | Altered photos are not real photos | Image numbers can mislead either way | Reported as a lower bound next to L0 and L1; real photos are P7 or later |
 | Backdrop change only approximated | Background robustness under-tested | Stated; segmentation is out of scope |
@@ -405,7 +405,7 @@ Every candidate is also measured with `dish_key` de-duplication on and off (6 di
 | 0 | `docs/p3-plan` | this plan | **approve** the plan and the decision rules | — |
 | 1 | `feat/p3-retriever` | `RetrievalConfig` and `Retriever`: RRF, rerank stage, `dish_key` de-duplication, stage timings, reranker fingerprint; tests with the fake embedder and reranker | — | — |
 | 2 | `feat/p3-eval-core` | `evaluation/`: dataset schemas and split lock, metrics checked against hand-computed values, paired bootstrap, cached embedder and reranker, cache manifest, runner | — | — |
-| 3 | `feat/p3-text-queries` | labelling guide; 72 drafted queries with gold filters; pooling script and review page; graded `retrieval.yaml`; κ sample | **review the queries, write about 10, grade the pools** (about 2 h over several sittings) | — |
+| 3 | `feat/p3-text-queries` | labelling guide; 72 drafted queries with gold filters; pooling script and review page; graded `retrieval.yaml`; κ sample | **review the queries, grade the pools** (writing about 10 was dropped on 2026-10-11) (about 2 h over several sittings) | — |
 | 4 | `feat/p3-image-queries` | seeded transforms; Groq descriptions of the altered and unaltered photos; L0–L2 query sets | let the paced job run on this machine (it needs the Groq key and the photo cache) | about 254 Groq vision |
 | 5 | `feat/p3-original-baseline` | C0 with cached verdicts and both parsers | — | about 360 Groq chat |
 | 6 | `feat/p3-gate` | `build_eval_cache.py`, committed caches, gate baseline, CI step, degraded-config tests, nightly drift | — | — |
@@ -422,7 +422,7 @@ Critical path: workstream 3 (the owner's grading). Workstream 4 runs alongside i
 - Natural-language-to-filter parsing (P5).
 
 **DoD:**
-- `retrieval.yaml` holds 72 owner-graded text queries; the image queries carry transform records; the dev/test split is locked by hash.
+- `retrieval.yaml` holds 62 owner-graded text queries; the image queries carry transform records; the dev/test split is locked by hash.
 - C0–C5 (C5 at depths 10 and 20) are measured on dev with CIs, slices, judged@3 and latency, and the results are committed.
 - From a clean checkout, `python -m food_concierge.flows evaluate` reproduces the committed dev numbers exactly from the caches, with no network.
 - The PR CI gate is live. The random-ranker and dropped-filter configurations fail it in tests, and a stale cache fails it with a message naming the stale field.

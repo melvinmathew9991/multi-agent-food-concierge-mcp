@@ -164,9 +164,9 @@ def test_evaluate_scores_every_candidate_and_compares_the_ladder(
     assert [(c.baseline, c.candidate) for c in results.comparisons] == [
         ("C1_bm25", "C4_hybrid"),
         ("C2_dense", "C4_hybrid"),
-    ("C4_hybrid", "C5_hybrid_rerank10"),
-    ("C4_hybrid", "C5_hybrid_rerank20"),
-    ("C5_hybrid_rerank10", "C5_hybrid_rerank20"),
+        ("C4_hybrid", "C5_hybrid_rerank10"),
+        ("C4_hybrid", "C5_hybrid_rerank20"),
+        ("C5_hybrid_rerank10", "C5_hybrid_rerank20"),
         ("C2_dense", "C2_dense_no_prefix"),
     ]
     assert results.comparisons[0].delta.n == 4

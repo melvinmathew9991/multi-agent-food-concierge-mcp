@@ -51,8 +51,10 @@ class StubTextEmbedding:
 
 
 class StubCrossEncoder:
-    def __init__(self) -> None:
+    def __init__(self, model_dir: Path) -> None:
         self.calls: list[tuple[str, list[str], int]] = []
+        description = SimpleNamespace(model_file="model_optimized.onnx", additional_files=[])
+        self.model = SimpleNamespace(_model_dir=str(model_dir), model_description=description)
 
     def rerank(self, query: str, documents: Iterable[str], batch_size: int = 64) -> Iterator[np.float32]:
         documents = list(documents)
@@ -191,8 +193,8 @@ def test_hashing_embedder_edge_cases() -> None:
     assert embedder.fingerprint.model == "fake-hashing"
 
 
-def test_fast_reranker_scores_each_document(settings: Settings) -> None:
-    stub = StubCrossEncoder()
+def test_fast_reranker_scores_each_document(settings: Settings, snapshot: Path) -> None:
+    stub = StubCrossEncoder(snapshot)
     reranker = FastReranker(settings, model=stub)
 
     scores = reranker.score("curry", ["a", "b"])
@@ -203,8 +205,18 @@ def test_fast_reranker_scores_each_document(settings: Settings) -> None:
     assert reranker.score("curry", []) == []
 
 
+def test_fast_reranker_fingerprint_identifies_the_model_files(settings: Settings, snapshot: Path) -> None:
+    fingerprint = FastReranker(settings, model=StubCrossEncoder(snapshot)).fingerprint
+
+    assert fingerprint.model == settings.rerank_model
+    assert fingerprint.revision == "abc123"
+    assert fingerprint.model_sha256 == hashlib.sha256(b"onnx weights").hexdigest()
+
+
 def test_overlap_reranker() -> None:
     reranker = OverlapReranker()
+
+    assert reranker.fingerprint.model == "fake-overlap"
 
     assert reranker.score("vegan curry", ["vegan chickpea curry", "curry", "cake"]) == [1.0, 0.5, 0.0]
     assert reranker.score("", ["cake"]) == [0.0]
@@ -219,7 +231,7 @@ def test_factories_follow_the_embed_provider(monkeypatch: pytest.MonkeyPatch, sn
 
     def load(model_cls: Any, model_name: str, settings: Settings) -> Any:
         loaded.append(model_name)
-        return StubTextEmbedding(snapshot) if model_name == settings.embed_model else StubCrossEncoder()
+        return StubTextEmbedding(snapshot) if model_name == settings.embed_model else StubCrossEncoder(snapshot)
 
     monkeypatch.setattr(embeddings, "_load", load)
     real = Settings(_env_file=None)
@@ -231,6 +243,8 @@ def test_factories_follow_the_embed_provider(monkeypatch: pytest.MonkeyPatch, sn
 def test_unimplemented_embed_provider_is_a_config_error() -> None:
     with pytest.raises(errors.ConfigError, match="ollama"):
         get_embedder(Settings(_env_file=None, embed_provider="ollama"))
+    with pytest.raises(errors.ConfigError, match="ollama"):
+        get_reranker(Settings(_env_file=None, embed_provider="ollama"))
 
 
 def test_model_loads_into_the_cache_outside_the_repo(settings: Settings) -> None:

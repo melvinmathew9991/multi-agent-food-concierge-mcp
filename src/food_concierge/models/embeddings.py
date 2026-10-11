@@ -55,6 +55,16 @@ class EmbedderFingerprint(BaseModel):
             )
 
 
+class RerankerFingerprint(BaseModel):
+    """Identifies the cross-encoder that produced a set of rerank scores (cached scores are bound to it)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    model: str
+    revision: str
+    model_sha256: str
+
+
 class Embedder(Protocol):
     @property
     def fingerprint(self) -> EmbedderFingerprint: ...
@@ -69,6 +79,9 @@ class Embedder(Protocol):
 
 
 class Reranker(Protocol):
+    @property
+    def fingerprint(self) -> RerankerFingerprint: ...
+
     def score(self, query: str, documents: Sequence[str]) -> list[float]:
         """Relevance of each document to ``query``; higher is more relevant."""
         ...
@@ -124,6 +137,13 @@ class FastReranker:
             model = _load(TextCrossEncoder, settings.rerank_model, settings)
         self._model = model
         self._batch_size = settings.embed_batch_size
+        self._fingerprint = RerankerFingerprint(
+            model=settings.rerank_model, revision=_snapshot_revision(model), model_sha256=_model_file_sha256(model)
+        )
+
+    @property
+    def fingerprint(self) -> RerankerFingerprint:
+        return self._fingerprint
 
     def score(self, query: str, documents: Sequence[str]) -> list[float]:
         if not documents:
@@ -173,6 +193,8 @@ class HashingEmbedder:
 class OverlapReranker:
     """Deterministic offline reranker for tests: the share of query words found in each document."""
 
+    fingerprint = RerankerFingerprint(model="fake-overlap", revision="1", model_sha256="")
+
     def score(self, query: str, documents: Sequence[str]) -> list[float]:
         words = set(_TOKEN.findall(query.lower()))
         if not words:
@@ -191,9 +213,11 @@ def get_embedder(settings: Settings | None = None) -> Embedder:
 
 def get_reranker(settings: Settings | None = None) -> Reranker:
     settings = settings or get_settings()
+    if settings.embed_provider == "fastembed":
+        return FastReranker(settings)
     if settings.embed_provider == "fake":
         return OverlapReranker()
-    return FastReranker(settings)
+    raise ConfigError(f"Reranking with provider '{settings.embed_provider}' is not implemented; use fastembed.")
 
 
 def _load_text_embedding(settings: Settings) -> Any:

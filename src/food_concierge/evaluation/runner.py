@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict
 
 from food_concierge.errors import EvaluationError
 from food_concierge.evaluation.bootstrap import Interval, bootstrap_mean, paired_bootstrap
-from food_concierge.evaluation.dataset import TextQuery
+from food_concierge.evaluation.dataset import TARGETED_TYPES, TextQuery
 from food_concierge.evaluation.metrics import (
     GroundTruth,
     judged_at_k,
@@ -35,7 +35,6 @@ from food_concierge.storage.catalog_db import CatalogStore
 from food_concierge.storage.indexes import build_indexes, load_indexes
 
 DEPTH = 10  # results kept per query, for Recall@10 and MRR; the @3 metrics read the top 3 of these
-NAMED_ITEM_TYPES = frozenset({"known_item", "described"})  # queries with an exact target, scored by recall
 
 
 class Candidate(BaseModel):
@@ -64,7 +63,7 @@ def score_query(query: TextQuery, ranked: Sequence[str], truth: GroundTruth) -> 
             "success@3": success_at_k(ranked, query.grades),
             "judged@3": judged_at_k(ranked, query.grades),
         }
-    if query.type in NAMED_ITEM_TYPES and query.exact:
+    if query.type in TARGETED_TYPES and query.exact:
         metrics |= {
             "recall@3": recall_at_k(ranked, query.exact, 3),
             "recall@10": recall_at_k(ranked, query.exact, 10),

@@ -13,3 +13,4 @@ What is here so far:
 | `results/vision_measurement*_2026-10-09.json` | Phase 2 vision measurement, with Wilson 95% intervals (ADR-0007) | `scripts/vision_measurement.py report` |
 | `datasets/retrieval.yaml` | Phase 3 text queries (six types), gold filters for constrained queries, target dishes, and the owner's grades once imported; dev/test split locked by SHA-256 | drafted, then `scripts/label_queries.py import` and `split` |
 | `datasets/labelling-guide.md` | How the owner grades dishes 0-3, with worked examples | — |
+| `datasets/image_queries.jsonl` | Phase 3 image queries: one per described catalog photo, with its seeded transforms, the altered image's SHA-256, the dev/test side (split by dish) and three description rungs (L0 named and unaltered, local model; L1 name-free and unaltered; L2 name-free and altered, both Groq) | `scripts/image_queries.py build` and `describe` |

@@ -62,5 +62,6 @@ Planning documents live in [`docs/planning/`](docs/planning/):
 | [`engineering-rules.md`](docs/planning/engineering-rules.md) | Engineering rules: libraries, error handling, testing, git |
 | [`design.md`](docs/planning/design.md) | UI theme and components |
 | [`phases.md`](docs/planning/phases.md) | Delivery phases, definitions of done and the audit reference index |
+| [`optimization.md`](docs/planning/optimization.md) | Budgets, token and model usage, performance, scalability, reproducibility, environments and staging |
 
 Architecture decisions are recorded in [`docs/adr/`](docs/adr/). The catalog is described in [`docs/data-card.md`](docs/data-card.md), and the handling of user data in [`docs/data-handling.md`](docs/data-handling.md).

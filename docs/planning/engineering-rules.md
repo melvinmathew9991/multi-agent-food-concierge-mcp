@@ -110,3 +110,14 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, the local project report (`docs/report.md`), user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index/thumbs, `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks and a 5 MB file-size check in CI, and GitHub push protection, catch what it cannot.
 5. Public repo, no LICENSE file. A repository ruleset on `main` blocks force-pushes and deletion and requires a pull request with the `secrets` and `test` checks green.
 6. Architecture decisions recorded as ADRs in `docs/adr/NNNN-title.md`.
+
+## 9. Budgets and optimisation
+
+Targets, levers and the phase that delivers each: `optimization.md`.
+
+1. **Every LLM path has a call budget** (`optimization.md` §1). A scripted-agent test fails when a path exceeds it; once P5 sets token budgets, those are enforced per request too, with retrieval-only as the degraded answer.
+2. **No default changes for efficiency without a measurement** against a stated budget and decision rule, and every such change can be rolled back by a setting.
+3. **Every committed result carries a run record:** git SHA, lock-file hash, catalog data hash, embedder and reranker fingerprints, model names, prompt versions, seeds, and CPU model, cores and OS family (no hostnames, users or paths, §8.4).
+4. **Images are downscaled to the configured size before any vision call**, whatever their source.
+5. **No semantic (similarity-based) response cache** over requests that carry constraints; caches match exactly, and their key includes the resolved filters, prompt version, model, retrieval configuration and catalog data hash.
+6. **Build once, promote the same image:** production runs the image digest that passed staging.

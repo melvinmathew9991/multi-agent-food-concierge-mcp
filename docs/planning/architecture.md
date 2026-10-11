@@ -165,7 +165,7 @@ stateDiagram-v2
 | Prompt registry | Prompts live in `food_concierge/prompts/*.yaml` (source of truth, reviewed in PRs); `scripts/sync_prompts.py` pushes versions to Langfuse; runtime reads the local copy (no network dependency) |
 | Datasets | `eval/datasets/*.yaml` versioned in git, mirrored to Langfuse datasets |
 | Experiments | `eval/run.py` runs a dataset against a config (model, prompt version, retrieval mode) and logs scores to Langfuse + `eval/results/*.json` |
-| Retrieval eval | nDCG@3, Success@3, Recall@k (narrow queries), Violation@3; baselines: legacy index replay, BM25, dense, hybrid |
+| Retrieval eval | nDCG@3, Success@3, Recall@k and MRR (known-item and image queries), Violation@3 against the ground truth; candidates: the original approach re-implemented, BM25, dense (FAISS, Qdrant), hybrid RRF, + cross-encoder rerank; paired bootstrap CIs; plan in `phases.md` Phase 3 |
 | Agent eval | task success, constraint violations (target 0), tool-selection accuracy vs expected tools, steps, repair loops, latency; trajectory assertions |
 | LLM-as-judge | Local Ollama judge for helpfulness/faithfulness of explanations; **calibrated on ~40 human-labelled examples (Cohen's κ reported)** before use |
 | CI gates | (1) offline tests; (2) **retrieval gate** from committed embedding caches, which fails if nDCG@3 drops > 0.02 or any violation appears; (3) agent scenario tests with a scripted fake LLM (trajectory + verifier behaviour). Live-model evals are run manually and results committed. |
@@ -231,7 +231,7 @@ multi-agent-food-concierge-mcp/
 │   ├── prompts/         # versioned YAML prompts + loader
 │   └── api/             # FastAPI app, routes, SSE, middleware
 ├── frontend/            # Streamlit client (api_client, components, .streamlit/config.toml)
-├── eval/                # datasets/, run.py, judge/, gates/, results/, caches/
+├── eval/                # data only: datasets/, caches/, gates/, results/ (runner code in src/food_concierge/evaluation/)
 ├── scripts/             # sync_prompts.py, build_eval_cache.py
 ├── tests/               # unit/, mcp/, agent/, api/ (offline)
 ├── deploy/              # Dockerfile, hf-space/README.md (Space config), streamlit notes

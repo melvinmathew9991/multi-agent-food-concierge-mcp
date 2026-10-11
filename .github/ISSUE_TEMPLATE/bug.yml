@@ -1,0 +1,36 @@
+name: Bug
+description: Something behaves wrongly (code, data, CI or docs that mislead).
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: Observed behaviour, with the exact error text if short.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Minimal steps, command or input. Never paste secrets, API keys or user photos.
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Can it show a user a dish that breaks their constraints (allergen, diet, calories, price)?
+      options: ["No", "Yes", "Not sure"]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Commit SHA, CI run, trace id, results file.

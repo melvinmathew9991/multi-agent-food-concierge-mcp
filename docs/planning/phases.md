@@ -33,6 +33,7 @@ Every phase ends with something demonstrable. The walking skeleton is live at th
 - `main` ← one short-lived branch per workstream, cut from the latest `main` and deleted after merge. Names: `feat/p<N>-<topic>` (e.g. `feat/p1-embeddings`), or `fix/`, `docs/`, `chore/`, `build/` for other kinds of change. The phase heading gives the prefix.
 - One topic per pull request; a phase is the unit of planning, a workstream the unit of review. A branch is never reused after its PR merges, so no "update branch" merges are needed.
 - Conventional Commits with scope; no AI/tool references; no co-author trailers (`engineering-rules.md` §8).
+- **GitHub Issues track the work.** Each phase is a milestone; each workstream, follow-up, audit finding and bug is an issue in it, labelled by type (`task`, `bug`, `follow-up`, `audit`), `area:*` and `priority:*`, plus `needs-owner` and `live-calls` where they apply. A PR names its issue with `Closes #N`, so merging closes it. A bug found mid-work gets its own issue instead of a silent fix inside an unrelated PR. A phase plan creates its workstream issues once the plan merges; carried-forward items stay open in the next milestone.
 - End of each workstream: tests + gates green → push and open the PR → **stop for review** → the owner merges. End of phase: CHANGELOG, plan and ADRs up to date, and the phase marked done.
 - Public repo, no LICENSE. Tags: `v0.1.0` (P4 live MCP), `v0.2.0` (P7 live demo), `v0.3.0` (P8 A2A), `v1.0.0` (P10).
 

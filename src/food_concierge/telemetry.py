@@ -369,6 +369,11 @@ class Telemetry:
     def enabled(self) -> bool:
         return self._client is not None
 
+    @property
+    def client(self) -> Langfuse | None:
+        """The Langfuse client, for direct use such as evaluation datasets; None when tracing is off."""
+        return self._client
+
     @contextmanager
     def observe(
         self,

@@ -57,6 +57,9 @@ def render_report(results: RetrievalResults) -> str:
         " `—` means no query defines it yet (nDCG@3 and Success@3 need the owner's grades). C0 is the "
         "original approach re-implemented; Violation@3 is judged against the reviewed allergens.",
         "",
+        "Every query was drafted with the catalog in view (the owner's catalog-blind queries were dropped), so "
+        "queries tend to reuse menu words, which may flatter BM25 in particular.",
+        "",
         "## Candidates",
         "",
         *_candidates(results.candidates),

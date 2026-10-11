@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     # Routing, extraction, vision and judging run at temperature 0 with this seed where the provider accepts one,
     # so the same input gives the same decision and evaluation runs are repeatable.
     model_seed: int = Field(default=7, ge=0)
+    # Evaluation randomness (dev/test split, bootstrap resamples, image alterations) draws from this seed only.
+    eval_seed: int = Field(default=7, ge=0)
     # Thinking models spend output tokens on hidden reasoning; low effort keeps the visible answer in budget.
     reasoning_effort_chat: ReasoningEffort = "low"
     reasoning_effort_router: ReasoningEffort = "low"

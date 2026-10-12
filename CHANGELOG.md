@@ -29,6 +29,7 @@ Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#
 - `Telemetry` exposes its Langfuse client for the evaluation mirror.
 - `.gitattributes` marks `*.npy` as binary; cache JSON is written with LF line endings.
 - `uv.lock` is git-ignored (#72).
+- The README's install and check commands now match the CI `test` job: install from the hash-checked lock, the lock-file check, the retrieval gate, and `pip-audit` on both lock files (#56, Phase 1 audit L4).
 - The Langfuse mirror was checked against the local Docker Langfuse 4.48.0 (#73): 62 dataset items, 1,054 experiment runs and 1,054 `violation@3` scores, matching the results file. Langfuse 4 runs in events-only mode, so its legacy read endpoints return 404; the v2 observations, v3 scores and v2 metrics endpoints serve the data.
 - The Groq vision daily capacity is corrected to about 100 photos (about 1,900 tokens each), from about 140, in ADR-0007, `optimization.md` and `phases.md`.
 

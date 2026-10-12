@@ -95,6 +95,20 @@ def test_token_cap_counts_reported_usage(ledger: UsageLedger, clock: Clock) -> N
     assert ledger.usage("groq").tokens_last_minute == 0
 
 
+def test_running_token_total_measures_one_call_exactly(ledger: UsageLedger, clock: Clock) -> None:
+    ledger.record_tokens("groq", 1900)
+    clock.now += 50
+    before = ledger.usage("groq")
+    clock.now += 20  # the earlier call leaves the rolling minute while this one is in flight
+    ledger.record_tokens("groq", 1920)
+    after = ledger.usage("groq")
+
+    assert after.tokens_last_minute - before.tokens_last_minute == 20  # the old, undercounting difference (#74)
+    assert after.tokens_total - before.tokens_total == 1920
+    ledger.reset()
+    assert ledger.usage("groq").tokens_total == 0
+
+
 def test_refused_attempts_are_not_counted(ledger: UsageLedger) -> None:
     caps = Caps(per_minute=1)
     ledger.acquire("groq", caps)
@@ -118,6 +132,7 @@ def test_uncapped_zero_and_empty_usage(ledger: UsageLedger) -> None:
         "calls_today": 0,
         "calls_last_minute": 0,
         "tokens_last_minute": 0,
+        "tokens_total": 0,
     }
 
 
@@ -289,6 +304,7 @@ def test_streamed_usage_is_counted_when_reported(settings: Settings) -> None:
         "calls_today": 1,
         "calls_last_minute": 1,
         "tokens_last_minute": 42,
+        "tokens_total": 42,
     }
 
 

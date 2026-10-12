@@ -32,8 +32,8 @@ Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#
 - The Langfuse mirror was checked against the local Docker Langfuse 4.48.0 (#73): 62 dataset items, 1,054 experiment runs and 1,054 `violation@3` scores, matching the results file. Langfuse 4 runs in events-only mode, so its legacy read endpoints return 404; the v2 observations, v3 scores and v2 metrics endpoints serve the data.
 - The Groq vision daily capacity is corrected to about 100 photos (about 1,900 tokens each), from about 140, in ADR-0007, `optimization.md` and `phases.md`.
 
-#### Known issues
-- `scripts/image_queries.py describe` records unreliable per-photo token counts: some rows show 0, or a few hundred, for a normal description (#74). Don't total that field until it is fixed.
+#### Fixed
+- Per-photo token counts in `scripts/image_queries.py describe` and `scripts/vision_measurement.py describe` (#74). They were the change in the ledger's rolling one-minute total, which drops earlier calls that age out mid-call, so some rows read 0 or a few hundred. They now use the ledger's new running total (`Usage.tokens_total`). Rows written before the fix keep their recorded values and can't be recovered without new calls: the low values in `image_queries.jsonl` and in `vision_descriptions_groq.jsonl` (four of its 30 rows, 885–921) are likely undercounts.
 
 ### Phase 2: Data, safety and ingestion flows (closed 2026-10-09)
 

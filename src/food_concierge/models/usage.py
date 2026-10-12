@@ -58,6 +58,7 @@ class Usage(BaseModel):
     calls_today: int
     calls_last_minute: int
     tokens_last_minute: int
+    tokens_total: int  # every reported token since start (or reset); never leaves a window
 
 
 class UsageLedger:
@@ -69,6 +70,7 @@ class UsageLedger:
         self._days: dict[str, tuple[date, int]] = {}
         self._calls: dict[str, deque[float]] = {}
         self._tokens: dict[str, deque[tuple[float, int]]] = {}
+        self._tokens_total: dict[str, int] = {}
 
     def acquire(self, provider: str, caps: Caps) -> None:
         """Count one attempt at ``provider``, or raise ``BudgetExceededError`` if a cap is reached."""
@@ -86,11 +88,12 @@ class UsageLedger:
             self._calls.setdefault(provider, deque()).append(now)
 
     def record_tokens(self, provider: str, tokens: int) -> None:
-        """Add the tokens one reply reported to the rolling minute."""
+        """Add the tokens one reply reported to the rolling minute and the running total."""
         if tokens <= 0:
             return
         with self._lock:
             self._tokens.setdefault(provider, deque()).append((self._clock(), tokens))
+            self._tokens_total[provider] = self._tokens_total.get(provider, 0) + tokens
 
     def usage(self, provider: str) -> Usage:
         with self._lock:
@@ -102,6 +105,7 @@ class UsageLedger:
             self._days.clear()
             self._calls.clear()
             self._tokens.clear()
+            self._tokens_total.clear()
 
     def _usage(self, provider: str, now: float, today: date) -> Usage:
         # Caller holds the lock. Entries older than the window are dropped, so memory stays bounded by the rate.
@@ -117,6 +121,7 @@ class UsageLedger:
             calls_today=count if day == today else 0,
             calls_last_minute=len(calls),
             tokens_last_minute=sum(n for _, n in tokens),
+            tokens_total=self._tokens_total.get(provider, 0),
         )
 
 

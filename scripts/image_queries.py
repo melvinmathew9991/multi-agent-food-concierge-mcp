@@ -110,15 +110,15 @@ def describe_all(settings: Settings, limit: int | None) -> None:
             time.sleep(2)
         time.sleep(max(0.0, last_call + MIN_INTERVAL_S - time.monotonic()))
         last_call = time.monotonic()
-        before = ledger.usage(PROVIDER).tokens_last_minute
+        # The running total, not the rolling minute: calls that age out of the minute mid-call would be subtracted.
+        before = ledger.usage(PROVIDER).tokens_total
         try:
             text, latency_ms = describe(model, image, prompt)
         except (ProviderRateLimitedError, ProviderTimeoutError) as error:
             print(f"{error.code}; retrying in {RATE_LIMIT_WAIT_S:g} s")
             time.sleep(RATE_LIMIT_WAIT_S)
-            before = ledger.usage(PROVIDER).tokens_last_minute
             text, latency_ms = describe(model, image, prompt)
-        tokens = max(0, ledger.usage(PROVIDER).tokens_last_minute - before)
+        tokens = ledger.usage(PROVIDER).tokens_total - before
         expected = max(expected, tokens)
         print(f"{latency_ms} ms, {tokens} tokens")
         return Described(text, latency_ms, tokens)

@@ -366,7 +366,7 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
             continue
         image = ensure_cached(photos[sha], client, settings.photo_cache_dir).read_bytes()
         wait_for_token_budget(measured, provider, expected)
-        before = ledger.usage(provider).tokens_last_minute
+        before = ledger.usage(provider).tokens_total  # not the rolling minute, which drops calls mid-call
         failed = 0
         try:
             text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
@@ -374,9 +374,8 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
             print(f"{entry['item_id']}: {error.code}; retrying in {RATE_LIMIT_WAIT_S:g} s")
             failed = 1
             time.sleep(RATE_LIMIT_WAIT_S)
-            before = ledger.usage(provider).tokens_last_minute
             text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
-        tokens = max(0, ledger.usage(provider).tokens_last_minute - before)
+        tokens = ledger.usage(provider).tokens_total - before
         expected = max(expected, tokens)
         cache[(sha, Variant.NAME_FREE)] = description = HostedDescription(
             sha256=sha,

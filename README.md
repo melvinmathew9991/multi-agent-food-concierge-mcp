@@ -11,18 +11,29 @@ A multimodal food concierge: a LangGraph agent plans meals and recommends dishes
 ```bash
 python -m venv .venv            # keep it outside cloud-synced folders
 .venv/Scripts/activate          # Windows; use `source .venv/bin/activate` elsewhere
-pip install -e ".[dev]"
+python -m pip install --upgrade pip setuptools
+pip install --require-hashes -r requirements-dev.lock   # the locked, hash-checked versions CI uses
+pip install --no-deps -e .
 cp .env.example .env
 ```
 
-The same checks as CI:
+The same checks as the CI `test` job (`.github/workflows/ci.yml`), in its order:
 
 ```bash
+# lock files match pyproject.toml (uv is in the dev lock)
+uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header -q -o requirements.lock
+uv pip compile pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes --no-header -q -o requirements-dev.lock
+git diff --exit-code -- requirements.lock requirements-dev.lock
+
 ruff check . && ruff format --check .
 mypy
-pytest --cov=food_concierge --cov-fail-under=100
-pip-audit --skip-editable
+pytest --cov=food_concierge --cov-report=term-missing --cov-fail-under=100
+python scripts/retrieval_gate.py                # committed caches, no model download
+pip-audit --require-hashes --disable-pip -r requirements.lock
+pip-audit --require-hashes --disable-pip -r requirements-dev.lock
 ```
+
+CI's `secrets` job also scans for secrets with gitleaks and rejects tracked files over 5 MB.
 
 ## Build the catalog and search indexes
 

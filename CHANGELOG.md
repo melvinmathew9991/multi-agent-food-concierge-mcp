@@ -6,7 +6,7 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ### Phase 3: Retrieval evaluation, ranking and baselines (in progress)
 
-Planned in #38. The plan's workstreams 1–7 are merged (#62–#70). Still open: the owner's grades (#42), the remaining image descriptions (#43), ADR-0001 with one final test run (#47), and the close-out (#48). Production retrieval defaults don't change until ADR-0001 is accepted.
+Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#73 followed. Still open: the owner's grades (#42), the remaining image descriptions (#43), ADR-0001 with one final test run (#47), and the close-out (#48). Production retrieval defaults don't change until ADR-0001 is accepted.
 
 #### Added
 - `Retriever` and `RetrievalConfig` (`services/retrieval.py`, #62): BM25, dense or hybrid search over FAISS or Qdrant, reciprocal rank fusion (`k_rrf` 60, 20 results from each list), an optional cross-encoder rerank depth, `dish_key` de-duplication and per-stage timings. The reranker carries a fingerprint, as the embedder does. Evaluation runs this same class, not a copy.
@@ -28,6 +28,12 @@ Planned in #38. The plan's workstreams 1–7 are merged (#62–#70). Still open:
 - The query set is 62 drafted queries. The owner's 10 catalog-blind queries were dropped on 2026-10-11, so the authoring bias is stated rather than measured (#70).
 - `Telemetry` exposes its Langfuse client for the evaluation mirror.
 - `.gitattributes` marks `*.npy` as binary; cache JSON is written with LF line endings.
+- `uv.lock` is git-ignored (#72).
+- The Langfuse mirror was checked against the local Docker Langfuse 4.48.0 (#73): 62 dataset items, 1,054 experiment runs and 1,054 `violation@3` scores, matching the results file. Langfuse 4 runs in events-only mode, so its legacy read endpoints return 404; the v2 observations, v3 scores and v2 metrics endpoints serve the data.
+- The Groq vision daily capacity is corrected to about 100 photos (about 1,900 tokens each), from about 140, in ADR-0007, `optimization.md` and `phases.md`.
+
+#### Known issues
+- `scripts/image_queries.py describe` records unreliable per-photo token counts: some rows show 0, or a few hundred, for a normal description (#74). Don't total that field until it is fixed.
 
 ### Phase 2: Data, safety and ingestion flows (closed 2026-10-09)
 

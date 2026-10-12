@@ -22,7 +22,7 @@ The targets that the sections below are measured against. "Set in P*n*" means th
 | LLM calls a request | fast path 0; recommendation ≤ 3; meal plan ≤ 8 tool calls and ≤ 2 repairs (rules §2.4). The original approach made up to 11 | — | call-count gate on scripted-agent scenarios (P5) |
 | Tokens a request (in + out) | set in P5 for each path, from measurement | — | trace metadata; P6 report p50/p95 |
 | Tokens a photo | ≤ 1,950 now; target from the image-size experiment (§2.4) | p50 1,921 at 1,024 px | ADR-0007 measurement |
-| Groq quota headroom | ≤ 900 calls a day per process (cap below the 1,000 limit); token caps below Groq's figure. Vision is also capped by Groq at about 200,000 tokens a day, or about 140 photos | calls and tokens enforced per provider; the daily vision token cap is not tracked yet | `models/usage.py`; per-model keys in P4 |
+| Groq quota headroom | ≤ 900 calls a day per process (cap below the 1,000 limit); token caps below Groq's figure. Vision is also capped by Groq at about 200,000 tokens a day, or about 100 photos | calls and tokens enforced per provider; the daily vision token cap is not tracked yet | `models/usage.py`; per-model keys in P4 |
 | PR CI | ≤ 5 min | about 3 min, with the retrieval gate | GitHub Actions |
 | Nightly | ≤ 20 min | about 2 min, with the cache drift and reproduction checks | GitHub Actions |
 | Container image and cold start | set in P4 | — | P4 build, `/ready` timing |
@@ -104,7 +104,7 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 | Catalog items | 150; exact search O(n·d) | unchanged | HNSW (FAISS `IndexHNSWFlat`, or Qdrant as a server) behind `VectorStore` | search p95 above 50 ms |
 | Catalog storage | SQLite, read-only, rebuilt atomically | unchanged | Postgres with pgvector (backlog) | writes at runtime, or several instances |
 | LLM quota | free tier: about 1,000 calls a day, so roughly 300 recommendations a day at ≤ 3 calls each | fast path and cache raise answers per call | paid opt-in (`ALLOW_PAID_PROVIDERS`, Bedrock stub-tested) | sustained cap hits in Langfuse |
-| Photos | 3–4 a minute (Groq tokens a minute) and about 140 a day (Groq vision tokens a day) | separate photo budget; a friendly "describe it in words" fallback | paid vision model | photo refusals above 5% |
+| Photos | 3–4 a minute (Groq tokens a minute) and about 100 a day (Groq vision tokens a day) | separate photo budget; a friendly "describe it in words" fallback | paid vision model | photo refusals above 5% |
 | Processes | one Space process; ledger in memory | ledger and checkpointer in shared SQLite on a persistent volume | Redis or Postgres (paid tier) | more than one worker |
 | API | stateless apart from the ledger and checkpointer | horizontal, once those are shared | — | — |
 | Evaluation | 62 text and 127 image queries; caches about 0.5 MB | caches grow linearly; bootstrap stays cheap | sample queries per nightly run | nightly over 20 min |

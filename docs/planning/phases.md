@@ -224,7 +224,7 @@ Sized L rather than M: the owner's relevance labels are real authoring work, as 
 Deviations so far, each recorded in its PR:
 - C0 took 310 Groq calls and about 64k tokens, not about 360 calls, because 62 queries were run instead of 72. The strict and fixed parsers agree on this catalog: the model always replied exactly "Yes" or "No", so defect #4 did not fire.
 - Rerank depth 10 was added as a candidate (#69).
-- The Langfuse experiment view is built but not yet checked against a running local Langfuse.
+- The Langfuse mirror was checked on 2026-10-12 against the local Docker Langfuse (4.48.0), using the committed `retrieval_2026-10-11_all.json`. It wrote the `retrieval-all` dataset with 62 items, 1,054 experiment runs (17 candidates × 62 queries) and 1,054 `violation@3` scores, with the same mean as the results file (0.0047). nDCG@3 and Success@3 appear once the grades are in. Langfuse 4 runs in events-only mode, so the legacy traces, scores and dataset-runs read endpoints return 404. The check read the data back through `/api/public/v2/observations`, `/api/public/v3/scores` and `/api/public/v2/metrics`.
 
 ### What Phase 3 does and does not measure
 - **Measures:** ranking quality given the correct hard filters; how photos degrade search; latency of each retrieval stage; the original approach re-implemented on this catalog.

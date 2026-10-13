@@ -43,8 +43,12 @@ class CleanImage:
         return f"data:{self.mime_type};base64,{base64.b64encode(self.data).decode('ascii')}"
 
 
-def clean_image(data: bytes, *, max_bytes: int) -> CleanImage:
-    """Validate an uploaded image and re-encode it without metadata, in its own format."""
+def clean_image(data: bytes, *, max_bytes: int, max_px: int | None = None) -> CleanImage:
+    """Validate an uploaded image and re-encode it without metadata, in its own format.
+
+    With ``max_px``, the image is also shrunk to fit ``max_px`` on either side (never enlarged), so a phone photo
+    costs a vision model no more tokens than a catalog photo described at the same size.
+    """
     if len(data) > max_bytes:
         raise InputValidationError(f"The image is larger than {max_bytes // (1024 * 1024)} MB.")
     try:
@@ -67,6 +71,8 @@ def clean_image(data: bytes, *, max_bytes: int) -> CleanImage:
         pixels = pixels.convert("RGBA" if "transparency" in pixels.info else "RGB")
     if image_format == "JPEG" and pixels.mode not in ("RGB", "L"):
         pixels = pixels.convert("RGB")
+    if max_px is not None:
+        pixels.thumbnail((max_px, max_px))
     # A fresh image holds pixels only: no EXIF, XMP, ICC profile or text chunks to carry over.
     clean = Image.new(pixels.mode, pixels.size)
     clean.paste(pixels)

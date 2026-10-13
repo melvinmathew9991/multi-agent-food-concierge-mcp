@@ -62,10 +62,10 @@ The levers below are listed by impact.
 - **Output caps per role** come from measured reply sizes, not one global 400.
 
 ### 2.4 Cheaper images (P4)
-- **Downscale user photos before any vision call.** Today only the catalog path resizes, to `DESCRIBE_PX` = 1,024. The P4 vision service applies the same step to uploads. A 12-megapixel phone photo would otherwise cost several times the tokens, or be resized by the provider in ways we don't control.
+- **Downscale user photos before any vision call.** Today only the catalog path resizes, to `DESCRIBE_PX` = 1,024. The P4 vision service applies the same step to uploads. A 12-megapixel phone photo would otherwise cost several times the tokens, or be resized by the provider in ways we don't control. Done in #53: `services/vision.py` shrinks uploads to `VISION_IMAGE_PX` (1,024) during validation.
 - **Image-size experiment:** compare 768 px with 1,024 px on the 30-photo owner-scored sample (ADR-0007's protocol). For Qwen-style vision models, image tokens scale with pixel count, so 768 px should cost about 45% fewer image tokens. 480 px already failed: the model mistook a paneer curry for meat stew.
 - **Decision rule:** adopt the smaller size if dish-type correctness drops by at most 1/30 and false allergen terms do not rise. Rollback is the setting.
-- **Per-session description cache** keyed by image SHA-256, so a user re-sending a photo costs nothing. The existing `cache_ttl_hours` setting is wired up here; it is currently unused.
+- **Per-session description cache** keyed by image SHA-256, so a user re-sending a photo costs nothing. Done in #53: in memory, keyed by SHA-256, model, prompt version and size, for `cache_ttl_hours`, at most `VISION_CACHE_ENTRIES`. Sessions arrive in P5, so it is shared by the process; a hit needs the identical file.
 
 ### 2.5 Response cache (P5)
 - **Exact-match cache:** keyed by normalised query + resolved filters + prompt version + model + retrieval configuration + catalog data hash, with TTL `cache_ttl_hours`. It lives in process (LRU, bounded), so no paid service is needed. The key includes the filters, so a cached answer is only reused for identical constraints.

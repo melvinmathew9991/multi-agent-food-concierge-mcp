@@ -87,7 +87,7 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 | `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified | O(k) |
 | `nutrition` | `meal_totals(dish_ids)`: calories, macros, price, serves | O(k) exact arithmetic |
 | `constraints` | Parse, merge (allergens: union; caps: min; diet: strictest) and **verify** a proposal | O(k) |
-| `vision` | Validate image (Pillow), downscale, re-encode, describe via the vision model (Groq `qwen/qwen3.8-27b`; on failure ask the user to describe the dish in words), cache by sha256 | 1 LLM call (~1,900 tokens), cached |
+| `vision` | Validate image (Pillow), downscale to `vision_image_px` (the catalog's 1,024), re-encode, describe via the vision model with the name-free prompt (Groq `qwen/qwen3.8-27b`; on failure ask the user to describe the dish in words), cache the description by sha256 for `cache_ttl_hours` | 1 LLM call (~1,900 tokens), cached |
 
 ## 5. MCP server (`food_concierge/mcp_server/`)
 

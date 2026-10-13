@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     max_output_tokens: int = Field(default=400, gt=0, le=4096)
     max_query_chars: int = Field(default=500, gt=0)
     max_image_mb: float = Field(default=5.0, gt=0)
+    # User photos are shrunk to this many pixels on the longer side before the vision model sees them: the
+    # catalog's size (DESCRIBE_PX), so a phone photo costs about the same ~1,900 tokens (#53).
+    vision_image_px: int = Field(default=1024, ge=256, le=2048)
+    vision_cache_entries: int = Field(default=256, ge=0)  # descriptions kept in memory, for cache_ttl_hours
     max_history_turns: int = Field(default=4, ge=0)
 
     # Caps for each model of a provider, enforced in models/usage.py: paid ones bound cost, free ones stay

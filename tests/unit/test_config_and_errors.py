@@ -169,6 +169,7 @@ def test_derived_paths_and_limits(settings: Settings) -> None:
     assert settings.raw_dir == settings.data_dir / "raw"
     assert settings.processed_dir == settings.data_dir / "processed"
     assert settings.max_image_bytes == 5 * 1024 * 1024
+    assert settings.max_image_pixels == 40_000_000
 
 
 def test_get_settings_is_cached(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

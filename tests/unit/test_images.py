@@ -9,10 +9,11 @@ from langchain_core.messages import AIMessage, HumanMessage
 from PIL import Image, PngImagePlugin
 
 from food_concierge import errors
-from food_concierge.models import images
+from food_concierge.config import Settings
 from food_concierge.models.images import clean_image, clean_message_images
 
 MB = 1024 * 1024
+MP = Settings(_env_file=None).max_image_pixels
 DEVICE = "SecretPhone X"
 
 
@@ -37,7 +38,7 @@ def test_jpeg_metadata_is_dropped_and_orientation_kept() -> None:
     assert DEVICE.encode() in source
     assert Image.open(io.BytesIO(source)).getexif().get_ifd(0x8825)
 
-    cleaned = clean_image(source, max_bytes=MB)
+    cleaned = clean_image(source, max_bytes=MB, max_pixels=MP)
 
     reopened = Image.open(io.BytesIO(cleaned.data))
     assert DEVICE.encode() not in cleaned.data
@@ -49,8 +50,8 @@ def test_jpeg_metadata_is_dropped_and_orientation_kept() -> None:
 
 
 def test_max_px_shrinks_after_orientation_and_never_enlarges() -> None:
-    shrunk = clean_image(_jpeg_with_exif(size=(4000, 3000)), max_bytes=MB, max_px=1024)
-    small = clean_image(_jpeg_with_exif(size=(400, 300), orientation=1), max_bytes=MB, max_px=1024)
+    shrunk = clean_image(_jpeg_with_exif(size=(4000, 3000)), max_bytes=MB, max_pixels=MP, max_px=1024)
+    small = clean_image(_jpeg_with_exif(size=(400, 300), orientation=1), max_bytes=MB, max_pixels=MP, max_px=1024)
 
     assert (shrunk.width, shrunk.height) == (768, 1024)  # rotated upright first, then fitted
     assert DEVICE.encode() not in shrunk.data
@@ -64,7 +65,7 @@ def test_png_text_chunks_are_dropped_and_palette_transparency_kept() -> None:
     info.add_text("Author", "priya@example.com")
     source = _encode(palette, "PNG", pnginfo=info, transparency=0)
 
-    cleaned = clean_image(source, max_bytes=MB)
+    cleaned = clean_image(source, max_bytes=MB, max_pixels=MP)
 
     reopened = Image.open(io.BytesIO(cleaned.data))
     assert b"priya@example.com" not in cleaned.data
@@ -74,8 +75,8 @@ def test_png_text_chunks_are_dropped_and_palette_transparency_kept() -> None:
 
 
 def test_webp_and_cmyk_jpeg_are_accepted() -> None:
-    webp = clean_image(_encode(Image.new("RGB", (4, 4), "blue"), "WEBP"), max_bytes=MB)
-    cmyk = clean_image(_encode(Image.new("CMYK", (4, 4)), "JPEG"), max_bytes=MB)
+    webp = clean_image(_encode(Image.new("RGB", (4, 4), "blue"), "WEBP"), max_bytes=MB, max_pixels=MP)
+    cmyk = clean_image(_encode(Image.new("CMYK", (4, 4)), "JPEG"), max_bytes=MB, max_pixels=MP)
 
     assert webp.mime_type == "image/webp"
     assert Image.open(io.BytesIO(cmyk.data)).mode == "RGB"
@@ -92,21 +93,19 @@ def test_webp_and_cmyk_jpeg_are_accepted() -> None:
 )
 def test_unacceptable_files_are_refused(data: bytes, message: str) -> None:
     with pytest.raises(errors.InputValidationError, match=message):
-        clean_image(data, max_bytes=MB)
+        clean_image(data, max_bytes=MB, max_pixels=MP)
 
 
-def test_too_many_pixels_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(images, "MAX_PIXELS", 10)
-
+def test_too_many_pixels_are_refused() -> None:
     with pytest.raises(errors.InputValidationError, match="too many pixels"):
-        clean_image(_encode(Image.new("RGB", (4, 4)), "PNG"), max_bytes=MB)
+        clean_image(_encode(Image.new("RGB", (4, 4)), "PNG"), max_bytes=MB, max_pixels=10)
 
 
 def test_decompression_bombs_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 10)
 
     with pytest.raises(errors.InputValidationError, match="not a readable image"):
-        clean_image(_encode(Image.new("RGB", (4, 4)), "PNG"), max_bytes=MB)
+        clean_image(_encode(Image.new("RGB", (4, 4)), "PNG"), max_bytes=MB, max_pixels=MP)
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +135,7 @@ def _decoded(text: str) -> bytes:
 def test_inline_images_in_messages_are_cleaned(block: dict[str, Any], read: Any) -> None:
     message = HumanMessage(content=[{"type": "text", "text": "what is this?"}, block])
 
-    (cleaned,) = clean_message_images([message], max_bytes=MB)
+    (cleaned,) = clean_message_images([message], max_bytes=MB, max_pixels=MP)
 
     assert isinstance(cleaned.content, list)
     sent = cleaned.content[1]
@@ -155,7 +154,7 @@ def test_messages_without_inline_images_pass_through_unchanged() -> None:
     mixed = AIMessage(content=["a bare string block", {"type": "text", "text": "hi"}])
 
     messages = [remote, standard_remote, text, mixed]
-    cleaned = clean_message_images(messages, max_bytes=MB)
+    cleaned = clean_message_images(messages, max_bytes=MB, max_pixels=MP)
 
     assert all(after is before for after, before in zip(cleaned, messages, strict=True))
 
@@ -170,4 +169,4 @@ def test_messages_without_inline_images_pass_through_unchanged() -> None:
 )
 def test_malformed_inline_images_are_refused(block: dict[str, Any]) -> None:
     with pytest.raises(errors.InputValidationError):
-        clean_message_images([HumanMessage(content=[block])], max_bytes=MB)
+        clean_message_images([HumanMessage(content=[block])], max_bytes=MB, max_pixels=MP)

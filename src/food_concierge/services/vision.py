@@ -78,7 +78,12 @@ class VisionService:
         found = self._cached(key)
         if found is not None:
             return PhotoDescription(sha256=sha256, text=found, cached=True)
-        image = clean_image(data, max_bytes=self._settings.max_image_bytes, max_px=self._settings.vision_image_px)
+        image = clean_image(
+            data,
+            max_bytes=self._settings.max_image_bytes,
+            max_pixels=self._settings.max_image_pixels,
+            max_px=self._settings.vision_image_px,
+        )
         try:
             text, latency_ms = describe_data_uri(self._model, image.data_uri, prompt_for(Variant.NAME_FREE, ""))
         except ProviderError as error:

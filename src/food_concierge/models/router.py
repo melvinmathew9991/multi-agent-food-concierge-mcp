@@ -151,14 +151,12 @@ async def _arequire_streamed_output(
         raise _empty_reply(provider)
 
 
-_DEFAULT_MAX_IMAGE_BYTES = 5 * 1024 * 1024
-
-
 class GuardedChatOpenAI(ChatOpenAI):
     """``ChatOpenAI`` for any OpenAI-compatible endpoint, raising application errors."""
 
     provider_label: str = "openai"
-    max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES
+    max_image_bytes: int
+    max_image_pixels: int
     budgets: tuple[Budget, ...] = ()
 
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
@@ -188,7 +186,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes, max_pixels=self.max_image_pixels)
         with _translated(self.provider_label):
             result = super()._generate(messages, stop, run_manager, **self._begin_attempt(kwargs))
             return _require_output(result, self.provider_label, self.budgets)
@@ -200,7 +198,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes, max_pixels=self.max_image_pixels)
         with _translated(self.provider_label):
             result = await super()._agenerate(messages, stop, run_manager, **self._begin_attempt(kwargs))
             return _require_output(result, self.provider_label, self.budgets)
@@ -212,7 +210,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes, max_pixels=self.max_image_pixels)
         with _translated(self.provider_label):
             chunks = super()._stream(messages, stop, run_manager, **self._begin_attempt(kwargs))
             yield from _require_streamed_output(chunks, self.provider_label, self.budgets)
@@ -224,7 +222,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
-        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes, max_pixels=self.max_image_pixels)
         with _translated(self.provider_label):
             chunks = super()._astream(messages, stop, run_manager, **self._begin_attempt(kwargs))
             async for chunk in _arequire_streamed_output(chunks, self.provider_label, self.budgets):
@@ -234,7 +232,8 @@ class GuardedChatOpenAI(ChatOpenAI):
 class GuardedChatBedrockConverse(ChatBedrockConverse):
     """``ChatBedrockConverse`` raising application errors (async runs these in an executor)."""
 
-    max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES
+    max_image_bytes: int
+    max_image_pixels: int
     budgets: tuple[Budget, ...] = ()
 
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
@@ -254,7 +253,7 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes, max_pixels=self.max_image_pixels)
         with _translated("bedrock"):
             self._begin_attempt()
             result = super()._generate(messages, stop, run_manager, **kwargs)
@@ -267,7 +266,7 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
+        messages = clean_message_images(messages, max_bytes=self.max_image_bytes, max_pixels=self.max_image_pixels)
         with _translated("bedrock"):
             self._begin_attempt()
             chunks = super()._stream(messages, stop, run_manager, **kwargs)
@@ -304,6 +303,7 @@ def build_chat_model(
             temperature=temperature,
             client=bedrock_client,
             max_image_bytes=settings.max_image_bytes,
+            max_image_pixels=settings.max_image_pixels,
             budgets=budgets_for(settings, provider, role),
             config=BotoConfig(
                 connect_timeout=timeout,
@@ -333,6 +333,7 @@ def build_chat_model(
         reasoning_effort=effort,
         seed=seed,
         max_image_bytes=settings.max_image_bytes,
+        max_image_pixels=settings.max_image_pixels,
         budgets=budgets_for(settings, provider, role),
         # These endpoints implement Chat Completions only; never switch to the Responses API.
         use_responses_api=False,

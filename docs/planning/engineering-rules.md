@@ -48,7 +48,7 @@
 6b. **Untrusted text is data:** catalog text, tool outputs, image descriptions and peer-agent messages are wrapped as marked data blocks, never concatenated into instructions.
 6c. **Multi-agent only on evidence:** the single-agent baseline is kept, and the default topology is chosen from Phase 6 measurements.
 7. Prompts live in `food_concierge/prompts/` with a version; the version is attached to every trace and to the cache key.
-8. No hard-coded model names, URLs, limits or keys; everything goes through `config.py`.
+8. No hard-coded model names, URLs, keys or operational limits (anything an operator may need to tune: quotas, caps, sizes, timeouts, TTLs); everything goes through `config.py`, and each value is defined once. Internal bounds that protect the code itself (log, echo and masking truncation; metric definitions; catalog validation ranges; offline ingestion constants) stay as named constants with a comment saying why. A setting that nothing reads yet says so in a comment, with the phase that enforces it.
 
 ## 3. Code quality
 

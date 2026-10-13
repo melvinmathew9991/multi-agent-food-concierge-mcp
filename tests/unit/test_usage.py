@@ -1,4 +1,4 @@
-"""Call and token caps per provider: the ledger itself, then enforcement through the router."""
+"""Call and token caps per model and the photo budget: the ledger itself, then enforcement through the router."""
 
 import json
 import logging
@@ -17,7 +17,7 @@ from food_concierge.config import Settings
 from food_concierge.models import deadline
 from food_concierge.models.deadline import model_deadline
 from food_concierge.models.router import build_chat_model, get_chat_model
-from food_concierge.models.usage import Caps, UsageLedger, get_usage_ledger
+from food_concierge.models.usage import PHOTO_LIMIT, PHOTOS, Budget, Caps, UsageLedger, budgets_for, get_usage_ledger
 
 GROQ = "api.groq.com"
 GEMINI = "generativelanguage.googleapis.com"
@@ -42,6 +42,10 @@ def ledger(clock: Clock) -> UsageLedger:
     return UsageLedger(clock=clock)
 
 
+def one(key: str, caps: Caps) -> list[Budget]:
+    return [Budget(key=key, caps=caps)]
+
+
 # ---------------------------------------------------------------------------
 # The ledger
 # ---------------------------------------------------------------------------
@@ -49,49 +53,49 @@ def ledger(clock: Clock) -> UsageLedger:
 
 def test_daily_cap_resets_at_utc_midnight(ledger: UsageLedger, clock: Clock) -> None:
     caps = Caps(per_day=2)
-    ledger.acquire("groq", caps)
+    ledger.acquire("groq", one("groq", caps))
     clock.now += 3600
-    ledger.acquire("groq", caps)
+    ledger.acquire("groq", one("groq", caps))
 
     with pytest.raises(errors.BudgetExceededError) as caught:
-        ledger.acquire("groq", caps)
+        ledger.acquire("groq", one("groq", caps))
     assert caught.value.provider == "groq"
     assert caught.value.falls_back
     assert "Today's" in caught.value.message
 
     clock.now = datetime(2026, 10, 7, 0, 0, 1, tzinfo=UTC).timestamp()
-    ledger.acquire("groq", caps)
+    ledger.acquire("groq", one("groq", caps))
     assert ledger.usage("groq").calls_today == 1
 
 
 def test_minute_cap_is_a_rolling_window(ledger: UsageLedger, clock: Clock) -> None:
     caps = Caps(per_minute=2)
-    ledger.acquire("gemini", caps)
+    ledger.acquire("gemini", one("gemini", caps))
     clock.now += 30
-    ledger.acquire("gemini", caps)
+    ledger.acquire("gemini", one("gemini", caps))
     clock.now += 29
 
     with pytest.raises(errors.BudgetExceededError, match="busy"):
-        ledger.acquire("gemini", caps)
+        ledger.acquire("gemini", one("gemini", caps))
 
     clock.now += 1  # the first call is now a minute old
-    ledger.acquire("gemini", caps)
+    ledger.acquire("gemini", one("gemini", caps))
     assert ledger.usage("gemini").calls_last_minute == 2
     assert ledger.usage("gemini").calls_today == 3
 
 
 def test_token_cap_counts_reported_usage(ledger: UsageLedger, clock: Clock) -> None:
     caps = Caps(tokens_per_minute=1000)
-    ledger.acquire("groq", caps)
+    ledger.acquire("groq", one("groq", caps))
     ledger.record_tokens("groq", 600)
-    ledger.acquire("groq", caps)  # 600 < 1000: the next call may start
+    ledger.acquire("groq", one("groq", caps))  # 600 < 1000: the next call may start
     ledger.record_tokens("groq", 500)
 
     with pytest.raises(errors.BudgetExceededError, match="busy"):
-        ledger.acquire("groq", caps)
+        ledger.acquire("groq", one("groq", caps))
 
     clock.now += 61
-    ledger.acquire("groq", caps)
+    ledger.acquire("groq", one("groq", caps))
     assert ledger.usage("groq").tokens_last_minute == 0
 
 
@@ -111,35 +115,36 @@ def test_running_token_total_measures_one_call_exactly(ledger: UsageLedger, cloc
 
 def test_refused_attempts_are_not_counted(ledger: UsageLedger) -> None:
     caps = Caps(per_minute=1)
-    ledger.acquire("groq", caps)
+    ledger.acquire("groq", one("groq", caps))
     for _ in range(3):
         with pytest.raises(errors.BudgetExceededError):
-            ledger.acquire("groq", caps)
+            ledger.acquire("groq", one("groq", caps))
 
     assert ledger.usage("groq").calls_today == 1
 
 
 def test_uncapped_zero_and_empty_usage(ledger: UsageLedger) -> None:
     for _ in range(500):
-        ledger.acquire("ollama", Caps())
+        ledger.acquire("ollama", one("ollama", Caps()))
     ledger.record_tokens("ollama", 0)
     ledger.record_tokens("ollama", -5)
 
     assert ledger.usage("ollama").tokens_last_minute == 0
     with pytest.raises(errors.BudgetExceededError):
-        ledger.acquire("groq", Caps(per_day=0))  # 0 switches a provider off
+        ledger.acquire("groq", one("groq", Caps(per_day=0)))  # 0 switches a provider off
     assert ledger.usage("never-called").model_dump() == {
         "calls_today": 0,
         "calls_last_minute": 0,
         "tokens_last_minute": 0,
+        "tokens_last_day": 0,
         "tokens_total": 0,
     }
 
 
 def test_providers_are_counted_separately(ledger: UsageLedger) -> None:
     caps = Caps(per_minute=1)
-    ledger.acquire("groq", caps)
-    ledger.acquire("gemini", caps)
+    ledger.acquire("groq", one("groq", caps))
+    ledger.acquire("gemini", one("gemini", caps))
 
     ledger.reset()
     assert ledger.usage("groq").calls_today == 0
@@ -152,7 +157,7 @@ def test_concurrent_attempts_never_exceed_a_cap(ledger: UsageLedger) -> None:
 
     def attempt() -> None:
         try:
-            ledger.acquire("groq", caps)
+            ledger.acquire("groq", one("groq", caps))
             ok = True
         except errors.BudgetExceededError:
             ok = False
@@ -168,10 +173,56 @@ def test_concurrent_attempts_never_exceed_a_cap(ledger: UsageLedger) -> None:
     assert admitted.count(True) == 25
 
 
+def test_daily_token_cap_is_a_rolling_day(ledger: UsageLedger, clock: Clock) -> None:
+    caps = Caps(tokens_per_day=3000)
+    ledger.acquire("groq", one("groq", caps))
+    ledger.record_tokens("groq", 1900)
+    clock.now += 12 * 3600
+    ledger.acquire("groq", one("groq", caps))
+    ledger.record_tokens("groq", 1900)
+
+    with pytest.raises(errors.BudgetExceededError, match="Today's"):
+        ledger.acquire("groq", one("groq", caps))
+    assert ledger.usage("groq").tokens_last_minute == 1900
+
+    clock.now += 12 * 3600  # the first reply is now a day old; Groq's window rolls, it does not reset at midnight
+    ledger.acquire("groq", one("groq", caps))
+    assert ledger.usage("groq").tokens_last_day == 1900
+
+
+def test_a_refusing_budget_counts_the_attempt_nowhere(ledger: UsageLedger) -> None:
+    model = Budget(key="groq/vision", caps=Caps(per_day=10))
+    photos = Budget(key=PHOTOS, caps=Caps(per_day=1), day_message="No more photos today.")
+    ledger.acquire("groq", [model, photos])
+
+    with pytest.raises(errors.BudgetExceededError, match="No more photos today"):
+        ledger.acquire("groq", [model, photos])
+
+    assert ledger.usage("groq/vision").calls_today == 1
+    assert ledger.usage(PHOTOS).calls_today == 1
+
+
+def test_budgets_are_per_model_and_photos_only_on_hosted_vision() -> None:
+    s = Settings(_env_file=None, groq_chat_model="groq-chat", groq_vision_model="groq-vision", daily_photo_limit=5)
+
+    (chat,) = budgets_for(s, "groq", "chat")
+    vision, photos = budgets_for(s, "groq", "vision")
+    (local,) = budgets_for(s, "ollama", "vision")
+
+    assert (chat.key, vision.key) == ("groq/groq-chat", "groq/groq-vision")
+    assert chat.caps == vision.caps == Caps.for_provider(s, "groq")
+    assert photos == Budget(key=PHOTOS, caps=Caps(per_day=5), day_message=PHOTO_LIMIT)
+    assert "describe the dish in words" in PHOTO_LIMIT
+    assert local.key == f"ollama/{s.ollama_vision_model}"
+    assert local.caps == Caps()
+
+
 def test_caps_come_from_settings() -> None:
     s = Settings(_env_file=None)
 
-    assert Caps.for_provider(s, "groq") == Caps(per_day=900, per_minute=25, tokens_per_minute=8000)
+    assert Caps.for_provider(s, "groq") == Caps(
+        per_day=900, per_minute=25, tokens_per_minute=8000, tokens_per_day=180_000
+    )
     assert Caps.for_provider(s, "gemini") == Caps(per_day=200, per_minute=8)
     assert Caps.for_provider(s, "bedrock") == Caps(per_day=200)
     assert Caps.for_provider(s, "ollama") == Caps()
@@ -190,9 +241,13 @@ def settings() -> Settings:
         groq_api_key=SecretStr("gsk-test"),
         gemini_api_key=SecretStr("gemini-test"),
         groq_chat_model="groq-chat",
+        groq_vision_model="groq-vision",
         gemini_chat_model="gemini-chat",
         minute_call_limit_groq=2,
     )
+
+
+GROQ_CHAT = "groq/groq-chat"
 
 
 def _completion(total_tokens: int = 7) -> dict[str, Any]:
@@ -238,7 +293,7 @@ def test_a_capped_provider_falls_back_without_a_request(settings: Settings, capl
 
     assert fake.hosts() == [GROQ, GROQ, GEMINI]
     assert [getattr(r, "error_code", None) for r in caplog.records] == ["budget_exceeded"]
-    assert get_usage_ledger().usage("groq").calls_today == 2
+    assert get_usage_ledger().usage(GROQ_CHAT).calls_today == 2
 
 
 async def test_async_calls_are_capped_too(settings: Settings) -> None:
@@ -267,7 +322,7 @@ def test_failed_attempts_use_quota(settings: Settings) -> None:
 
     get_chat_model("chat", settings, http_client=fake.client()).invoke("hi")
 
-    assert get_usage_ledger().usage("groq").calls_today == 1  # the provider counted the rejected request too
+    assert get_usage_ledger().usage(GROQ_CHAT).calls_today == 1  # the provider counted the rejected request too
 
 
 def test_reported_tokens_reach_the_token_cap(settings: Settings) -> None:
@@ -278,7 +333,7 @@ def test_reported_tokens_reach_the_token_cap(settings: Settings) -> None:
     for _ in range(3):
         model.invoke("hi")
 
-    assert get_usage_ledger().usage("groq").tokens_last_minute == 1200
+    assert get_usage_ledger().usage(GROQ_CHAT).tokens_last_minute == 1200
     assert fake.hosts() == [GROQ, GROQ, GEMINI]
 
 
@@ -300,10 +355,11 @@ def test_streamed_usage_is_counted_when_reported(settings: Settings) -> None:
 
     list(model.stream("hi"))
 
-    assert get_usage_ledger().usage("groq").model_dump() == {
+    assert get_usage_ledger().usage(GROQ_CHAT).model_dump() == {
         "calls_today": 1,
         "calls_last_minute": 1,
         "tokens_last_minute": 42,
+        "tokens_last_day": 42,
         "tokens_total": 42,
     }
 
@@ -320,7 +376,7 @@ async def test_async_streamed_usage_is_counted_when_reported(settings: Settings)
 
     [chunk async for chunk in model.astream("hi")]
 
-    assert get_usage_ledger().usage("groq").tokens_last_minute == 42
+    assert get_usage_ledger().usage(GROQ_CHAT).tokens_last_minute == 42
 
 
 def test_an_attempt_refused_by_the_deadline_uses_no_quota(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -333,7 +389,36 @@ def test_an_attempt_refused_by_the_deadline_uses_no_quota(settings: Settings, mo
         with pytest.raises(errors.DeadlineExceededError):
             model.invoke("hi")
 
-    assert get_usage_ledger().usage("groq").calls_today == 0
+    assert get_usage_ledger().usage(GROQ_CHAT).calls_today == 0
+
+
+def test_photos_stop_at_the_photo_budget_and_chat_goes_on(settings: Settings) -> None:
+    s = settings.model_copy(update={"daily_photo_limit": 1})
+    fake = Providers()
+    vision = build_chat_model("groq", "vision", s, http_client=fake.client())
+    chat = build_chat_model("groq", "chat", s, http_client=fake.client())
+
+    vision.invoke("describe this")
+    with pytest.raises(errors.BudgetExceededError, match="photo limit"):
+        vision.invoke("describe this")
+    chat.invoke("hi")
+
+    assert fake.hosts() == [GROQ, GROQ]
+    ledger = get_usage_ledger()
+    assert ledger.usage(PHOTOS).calls_today == 1
+    assert ledger.usage(PHOTOS).tokens_total == 7  # photo tokens are counted too
+    assert ledger.usage("groq/groq-vision").calls_today == 1
+    assert ledger.usage(GROQ_CHAT).calls_today == 1
+
+
+def test_models_on_one_provider_are_capped_separately(settings: Settings) -> None:
+    s = settings.model_copy(update={"minute_call_limit_groq": 1})
+    fake = Providers()
+
+    build_chat_model("groq", "chat", s, http_client=fake.client()).invoke("hi")
+    build_chat_model("groq", "vision", s, http_client=fake.client()).invoke("describe this")
+
+    assert fake.hosts() == [GROQ, GROQ]  # one call a minute each: Groq limits every model on its own
 
 
 def test_bedrock_is_capped_too() -> None:

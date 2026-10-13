@@ -48,7 +48,7 @@ from food_concierge.ingestion.descriptions import (
 from food_concierge.ingestion.loader import load_catalog
 from food_concierge.ingestion.photos import CommonsClient, ensure_cached
 from food_concierge.models.router import build_chat_model
-from food_concierge.models.usage import get_usage_ledger
+from food_concierge.models.usage import budget_key, get_usage_ledger
 from food_concierge.storage.catalog_db import dish_key
 
 DATASET = REPO_ROOT / "eval" / "datasets" / "image_queries.jsonl"
@@ -100,6 +100,7 @@ def describe_all(settings: Settings, limit: int | None) -> None:
     )
     model = build_chat_model(PROVIDER, "vision", measured)
     ledger = get_usage_ledger()
+    key = budget_key(PROVIDER, measured.require_model_id(PROVIDER, "vision"))
     cap = measured.minute_token_limit(PROVIDER) or 0
     expected = 0  # the most tokens one photo has cost so far
     last_call = 0.0
@@ -107,19 +108,19 @@ def describe_all(settings: Settings, limit: int | None) -> None:
 
     def describe_one(image: bytes) -> Described:
         nonlocal expected, last_call
-        while ledger.usage(PROVIDER).tokens_last_minute + expected > cap:
+        while ledger.usage(key).tokens_last_minute + expected > cap:
             time.sleep(2)
         time.sleep(max(0.0, last_call + MIN_INTERVAL_S - time.monotonic()))
         last_call = time.monotonic()
         # The running total, not the rolling minute: calls that age out of the minute mid-call would be subtracted.
-        before = ledger.usage(PROVIDER).tokens_total
+        before = ledger.usage(key).tokens_total
         try:
             text, latency_ms = describe(model, image, prompt)
         except (ProviderRateLimitedError, ProviderTimeoutError) as error:
             print(f"{error.code}; retrying in {RATE_LIMIT_WAIT_S:g} s")
             time.sleep(RATE_LIMIT_WAIT_S)
             text, latency_ms = describe(model, image, prompt)
-        tokens = ledger.usage(PROVIDER).tokens_total - before
+        tokens = ledger.usage(key).tokens_total - before
         expected = max(expected, tokens)
         print(f"{latency_ms} ms, {tokens} tokens")
         return Described(text, latency_ms, tokens)

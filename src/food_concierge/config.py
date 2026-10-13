@@ -135,10 +135,10 @@ class Settings(BaseSettings):
     max_image_mb: float = Field(default=5.0, gt=0)
     max_history_turns: int = Field(default=4, ge=0)
 
-    # Caps per provider, enforced in models/usage.py: paid ones bound cost, free ones stay under the
-    # free-tier quotas. Groq's sit under its rate-limit headers (1,000 requests a day, 8,000 tokens a minute
-    # per model; ADR-0006); Gemini reports none, so its caps are conservative. Local providers are uncapped.
-    # 0 refuses every call to that provider.
+    # Caps for each model of a provider, enforced in models/usage.py: paid ones bound cost, free ones stay
+    # under the free-tier quotas. Groq's sit under its limits (1,000 requests a day and 8,000 tokens a minute
+    # per model in its headers, ADR-0006; 200,000 tokens a rolling day per model in its 429 body, ADR-0007);
+    # Gemini reports none, so its caps are conservative. Local providers are uncapped. 0 refuses every call.
     daily_call_limit_bedrock: int = Field(default=200, ge=0)
     daily_call_limit_openai: int = Field(default=200, ge=0)
     daily_call_limit_groq: int = Field(default=900, ge=0)
@@ -146,6 +146,10 @@ class Settings(BaseSettings):
     minute_call_limit_groq: int = Field(default=25, ge=0)
     minute_call_limit_gemini: int = Field(default=8, ge=0)
     minute_token_limit_groq: int = Field(default=8000, ge=0)
+    daily_token_limit_groq: int = Field(default=180_000, ge=0)
+    # Photos described by a hosted provider per UTC day, across providers: about 100 fit Groq's daily vision
+    # tokens at ~1,900 each (ADR-0007), and this keeps photos from spending the whole quota.
+    daily_photo_limit: int = Field(default=90, ge=0)
     cache_ttl_hours: int = Field(default=168, ge=0)
 
     # API access: one token per scope (public / agent / admin)
@@ -229,6 +233,10 @@ class Settings(BaseSettings):
     def minute_token_limit(self, provider: ProviderName) -> int | None:
         """Tokens allowed per rolling minute where the provider limits tokens; ``None`` means uncapped."""
         return {"groq": self.minute_token_limit_groq}.get(provider)
+
+    def daily_token_limit(self, provider: ProviderName) -> int | None:
+        """Tokens allowed per rolling 24 hours where the provider limits them; ``None`` means uncapped."""
+        return {"groq": self.daily_token_limit_groq}.get(provider)
 
     def exported_trace_content(self) -> TraceContent:
         """What traces export: ``TRACE_CONTENT`` if set, otherwise metadata only in production."""

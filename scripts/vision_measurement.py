@@ -76,7 +76,7 @@ from food_concierge.ingestion.loader import load_catalog
 from food_concierge.ingestion.photos import CommonsClient, ensure_cached
 from food_concierge.ingestion.taxonomy import with_implied
 from food_concierge.models.router import build_chat_model
-from food_concierge.models.usage import get_usage_ledger
+from food_concierge.models.usage import budget_key, get_usage_ledger
 
 DATASET = REPO_ROOT / "eval" / "datasets" / "vision_sample.yaml"
 RESULTS = REPO_ROOT / "eval" / "results"
@@ -341,7 +341,8 @@ def wait_for_token_budget(settings: Settings, provider: ProviderName, expected: 
     """Sleep until a call of about ``expected`` tokens fits under the provider's tokens-a-minute cap."""
     cap = settings.minute_token_limit(provider)
     ledger = get_usage_ledger()
-    while cap is not None and ledger.usage(provider).tokens_last_minute + expected > cap:
+    key = budget_key(provider, settings.require_model_id(provider, "vision"))
+    while cap is not None and ledger.usage(key).tokens_last_minute + expected > cap:
         time.sleep(2)
 
 
@@ -357,6 +358,7 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
     model = build_chat_model(provider, "vision", measured)
     client = CommonsClient()
     ledger = get_usage_ledger()
+    key = budget_key(provider, measured.require_model_id(provider, "vision"))
     new: list[HostedDescription] = []
     expected = 0  # the most tokens one photo has cost so far
     for entry in sample:
@@ -366,7 +368,7 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
             continue
         image = ensure_cached(photos[sha], client, settings.photo_cache_dir).read_bytes()
         wait_for_token_budget(measured, provider, expected)
-        before = ledger.usage(provider).tokens_total  # not the rolling minute, which drops calls mid-call
+        before = ledger.usage(key).tokens_total  # not the rolling minute, which drops calls mid-call
         failed = 0
         try:
             text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
@@ -375,7 +377,7 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
             failed = 1
             time.sleep(RATE_LIMIT_WAIT_S)
             text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
-        tokens = ledger.usage(provider).tokens_total - before
+        tokens = ledger.usage(key).tokens_total - before
         expected = max(expected, tokens)
         cache[(sha, Variant.NAME_FREE)] = description = HostedDescription(
             sha256=sha,

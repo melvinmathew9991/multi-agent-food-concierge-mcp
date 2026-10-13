@@ -23,6 +23,7 @@ Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#
 - `evaluate` and `report` Prefect flows (`python -m food_concierge.flows evaluate [--check] [--split test --final]`, `report`, #68). They write `eval/results/retrieval_<date>_<split>.json` with bootstrap intervals overall and per slice, the ladder comparisons and the gate outcome. `report` renders `docs/evaluation.md` deterministically. A Langfuse mirror (a dataset item per query, an experiment run per candidate) runs only when keys are configured, and its failures are swallowed.
 - Rerank depth 10 (`C5_hybrid_rerank10`, #69), added alongside depth 20 before any graded number existed, because the measured rerank latency puts depth 20 at risk of the 150 ms guard.
 - Nightly: the caches are checked against freshly downloaded models (cosine ≥ 0.999, rerank scores within 1e-3), and `evaluate --check` reproduces the committed results.
+- A provider-notes section in `architecture.md` (§18): the measured quirks of Groq, Gemini, Langfuse 4 and Wikimedia Commons in one table, linked from the scripts that hit them.
 
 #### Changed
 - The query set is 62 drafted queries. The owner's 10 catalog-blind queries were dropped on 2026-10-11, so the authoring bias is stated rather than measured (#70).

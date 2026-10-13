@@ -15,6 +15,7 @@ Both write eval/datasets/image_queries.jsonl.
 Groq's free tier allows this model 200,000 tokens a day (measured 2026-10-11; the 429 body says so, the rate-limit
 headers do not), so at about 2,000 tokens a photo one day covers about 95 descriptions. The full set takes two to
 three days: run ``describe`` once a day until nothing is missing.
+Provider quirks: ``docs/planning/architecture.md`` §18.
 """
 
 from __future__ import annotations

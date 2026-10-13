@@ -5,7 +5,8 @@ refused. The owner approves one candidate per dish (or none). Approved files are
 with author, licence and SHA-256, and fetched into ``Settings.photo_cache_dir``, never into the repository. A file
 whose bytes no longer match its pinned hash is refused.
 
-Commons API etiquette: a descriptive User-Agent naming the project, and at most one request per second.
+Commons API etiquette: a descriptive User-Agent naming the project, and at most one request per second
+(``docs/planning/architecture.md`` §18).
 """
 
 from __future__ import annotations

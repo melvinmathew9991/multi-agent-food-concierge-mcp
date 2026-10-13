@@ -301,3 +301,17 @@ Tasks retry only on transient failures. Unchanged inputs are skipped by explicit
 | Compliance mapping | Each obligation mapped to its control (AI-interaction disclosure, allergen information caveat, data minimisation and deletion) | table; explicitly "engineering mapping, not legal advice" |
 
 Output: `system-card.md` (intended use, users, limitations, risks, mitigations, evaluation results, known failure modes), organised by the NIST AI RMF functions Govern / Map / Measure / Manage. This is the public equivalent of an internal AI review board ("AIRB") assessment.
+
+## 18. Provider notes
+
+Quirks of the external services, as measured. Look here before debugging a provider error from scratch, and add a line when a new one turns up. The evidence and dates are in the linked ADRs and scripts.
+
+| Provider | Note | Where it matters |
+|---|---|---|
+| Groq (all models) | 8,000 tokens a minute per model. It binds before the request caps once a request makes several calls (ADR-0006). | P4/P5 budgets need a token-rate limit, not only call counts |
+| Groq (all models) | Counts more per call than the reply's `usage` reports: pacing by reported tokens still drew 429s on about half the photo calls (ADR-0007). Space calls by time as well. | `scripts/image_queries.py` (`MIN_INTERVAL_S`), `scripts/vision_measurement.py` |
+| Groq `qwen/qwen3.8-27b` (vision) | About 200,000 tokens a day in a rolling 24 hours, about 100 photos at ~1,900 tokens each. Only the 429 body states it; the rate-limit headers do not (ADR-0007). | Long describe jobs span days and resume per photo; the P4 photo budget needs a daily token limit |
+| Groq `openai/gpt-oss-20b` (chat) | 1,000 requests and 200,000 tokens a day, separate from the vision model's quota; the process caps itself at 900 calls (ADR-0006). | `config.py` (`daily_call_limit_groq`), `models/usage.py`; `scripts/original_baseline.py` |
+| Gemini | Lists models that return 404 for new accounts (2.5 family, 2026-09-30 and 10-01): a listing is not proof of access. No rate-limit headers, so quotas are known only from 429s; the larger Flash models' free quotas ran out after a few dozen calls (ADR-0006). | Model names are set only after `scripts/model_profile.py` measures them |
+| Langfuse 4 (self-hosted) | "Events-only": the legacy read APIs (`/api/public/traces`, scores, runs) return 404. Read with `/api/public/v2/observations`, `/api/public/v3/scores` and `/api/public/v2/metrics`. Ingestion is asynchronous, so poll after writing. | `scripts/smoke_live.py` (`fetch_trace`), checking the evaluation mirror |
+| Wikimedia Commons | API etiquette: a descriptive User-Agent naming the project, and at most one request a second. | `ingestion/photos.py` (`CommonsClient`), `scripts/fetch_photos.py` |

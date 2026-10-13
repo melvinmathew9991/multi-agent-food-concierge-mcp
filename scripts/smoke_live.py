@@ -210,7 +210,7 @@ def fetch_trace(settings: Settings, trace_id: str, wait_s: float = TRACE_WAIT_S)
     """The trace's observations as stored by the Langfuse server, as JSON text; ``None`` if they never arrived.
 
     Langfuse v4 servers ("events_only" mode) no longer serve ``/api/public/traces``; observations are read
-    from the v2 endpoint, with every field group that can carry content.
+    from the v2 endpoint, with every field group that can carry content (``docs/planning/architecture.md`` §18).
     """
     public = settings.langfuse_public_key.get_secret_value() if settings.langfuse_public_key else ""
     secret = settings.langfuse_secret_key.get_secret_value() if settings.langfuse_secret_key else ""

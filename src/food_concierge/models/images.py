@@ -6,8 +6,9 @@ holds is applied to the pixels first, so the image still looks the same.
 
 Every chat model the router builds cleans images in its messages before
 sending them (``clean_message_images``), whatever the caller passed. Only
-inline images (data URIs and base64 blocks) are cleaned; an http(s) URL is
-fetched by the provider, not by us, and passes through unchanged.
+inline images (data URIs and base64 blocks) are accepted. An image given by URL
+or file id is refused: the provider would fetch it, so its metadata would
+survive, and a caller could make the provider fetch any address (audit L7, #60).
 """
 
 from __future__ import annotations
@@ -24,6 +25,8 @@ from langchain_core.messages import BaseMessage
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from food_concierge.errors import InputValidationError
+
+INLINE_ONLY = "Images must be sent inline (uploaded), not as a link."
 
 # Pillow format name -> MIME type. Formats with animation or scripting (GIF, SVG) are refused.
 MIME_TYPES: dict[str, str] = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
@@ -102,11 +105,11 @@ def _clean_block(block: Any, max_bytes: int, max_pixels: int) -> Any:
         # OpenAI shape: {"type": "image_url", "image_url": {"url": ...}} (or the URL as a bare string).
         holder = block.get("image_url")
         url = holder.get("url") if isinstance(holder, dict) else holder
-        if isinstance(url, str) and url.startswith("data:"):
-            cleaned = _clean_data_uri(url, max_bytes, max_pixels)
-            new_holder = {**holder, "url": cleaned} if isinstance(holder, dict) else cleaned
-            return {**block, "image_url": new_holder}
-        return block
+        if not (isinstance(url, str) and url.startswith("data:")):
+            raise InputValidationError(INLINE_ONLY)
+        cleaned = _clean_data_uri(url, max_bytes, max_pixels)
+        new_holder = {**holder, "url": cleaned} if isinstance(holder, dict) else cleaned
+        return {**block, "image_url": new_holder}
     if kind == "image":
         # LangChain standard blocks: v1 {"base64": ...} and v0.3 {"source_type": "base64", "data": ...}.
         key = "base64" if "base64" in block else "data" if block.get("source_type") == "base64" else None
@@ -114,13 +117,17 @@ def _clean_block(block: Any, max_bytes: int, max_pixels: int) -> Any:
             image = clean_image(_decode_base64(str(block[key])), max_bytes=max_bytes, max_pixels=max_pixels)
             return {**block, key: base64.b64encode(image.data).decode("ascii"), "mime_type": image.mime_type}
         url = block.get("url")
-        if isinstance(url, str) and url.startswith("data:"):
-            return {**block, "url": _clean_data_uri(url, max_bytes, max_pixels)}
+        if not (isinstance(url, str) and url.startswith("data:")):
+            raise InputValidationError(INLINE_ONLY)
+        return {**block, "url": _clean_data_uri(url, max_bytes, max_pixels)}
     return block
 
 
 def clean_message_images(messages: Sequence[BaseMessage], *, max_bytes: int, max_pixels: int) -> list[BaseMessage]:
-    """Messages with every inline image cleaned; messages without images are returned as they are."""
+    """Messages with every inline image cleaned; messages without images are returned as they are.
+
+    Raises ``InputValidationError`` for an image that is not inline (a URL or a file id).
+    """
     cleaned: list[BaseMessage] = []
     for message in messages:
         if isinstance(message.content, list):

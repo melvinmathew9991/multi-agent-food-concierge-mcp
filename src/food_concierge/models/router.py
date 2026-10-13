@@ -11,8 +11,9 @@ providers are allowed. Each provider model is wrapped so that it
   stream is held back until its first chunk with content, so an empty stream
   fails before anything is yielded and the next provider can still take over;
 - re-encodes every inline image without metadata before it is sent (``images.py``);
-- counts every attempt against its provider's call and token caps (``usage.py``), and
-  is refused with ``BudgetExceededError``, which falls back, once a cap is reached.
+- counts every attempt against its model's call and token caps, and a vision call also
+  against the daily photo budget (``usage.py``); it is refused with
+  ``BudgetExceededError``, which falls back, once a cap is reached.
 
 Roles other than ``chat`` run at temperature 0, with a seed where the provider
 accepts one. Typed output goes through ``models/structured.py``.
@@ -31,7 +32,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import AsyncIterator, Generator, Iterator
+from collections.abc import AsyncIterator, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -44,7 +45,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
-from pydantic import Field, SecretStr
+from pydantic import SecretStr
 
 from food_concierge.config import PAID_PROVIDERS, ModelRole, ProviderName, Settings, get_settings
 from food_concierge.errors import AppError, ConfigError, ProviderError, ProviderResponseError
@@ -53,7 +54,7 @@ from food_concierge.models.deadline import attempt_timeout, time_left
 from food_concierge.models.fake import ScriptedChatModel
 from food_concierge.models.images import clean_message_images
 from food_concierge.models.provider_errors import FALLBACK_ERRORS, translate_provider_error
-from food_concierge.models.usage import Caps, get_usage_ledger
+from food_concierge.models.usage import Budget, budgets_for, get_usage_ledger
 
 logger = logging.getLogger(__name__)
 
@@ -96,27 +97,30 @@ def _empty_reply(provider: str) -> ProviderResponseError:
     return ProviderResponseError("The model returned an empty reply.", provider=provider)
 
 
-def _record_usage(message: BaseMessage, provider: str) -> None:
+def _record_usage(message: BaseMessage, budgets: Sequence[Budget]) -> None:
     usage = getattr(message, "usage_metadata", None)
     if usage:
-        get_usage_ledger().record_tokens(provider, int(usage.get("total_tokens", 0)))
+        for budget in budgets:
+            get_usage_ledger().record_tokens(budget.key, int(usage.get("total_tokens", 0)))
 
 
-def _require_output(result: ChatResult, provider: str) -> ChatResult:
+def _require_output(result: ChatResult, provider: str, budgets: Sequence[Budget]) -> ChatResult:
     for generation in result.generations:
-        _record_usage(generation.message, provider)
+        _record_usage(generation.message, budgets)
     if any(_has_output(generation.message) for generation in result.generations):
         return result
     raise _empty_reply(provider)
 
 
-def _require_streamed_output(chunks: Iterator[ChatGenerationChunk], provider: str) -> Iterator[ChatGenerationChunk]:
+def _require_streamed_output(
+    chunks: Iterator[ChatGenerationChunk], provider: str, budgets: Sequence[Budget]
+) -> Iterator[ChatGenerationChunk]:
     # Chunks before the first one with content (role, usage) are held back: the fallback chain
     # moves on only if a stream fails before its first chunk.
     held: list[ChatGenerationChunk] = []
     started = False
     for chunk in chunks:
-        _record_usage(chunk.message, provider)
+        _record_usage(chunk.message, budgets)
         if not started and not _has_output(chunk.message):
             held.append(chunk)
             continue
@@ -129,12 +133,12 @@ def _require_streamed_output(chunks: Iterator[ChatGenerationChunk], provider: st
 
 
 async def _arequire_streamed_output(
-    chunks: AsyncIterator[ChatGenerationChunk], provider: str
+    chunks: AsyncIterator[ChatGenerationChunk], provider: str, budgets: Sequence[Budget]
 ) -> AsyncIterator[ChatGenerationChunk]:
     held: list[ChatGenerationChunk] = []
     started = False
     async for chunk in chunks:
-        _record_usage(chunk.message, provider)
+        _record_usage(chunk.message, budgets)
         if not started and not _has_output(chunk.message):
             held.append(chunk)
             continue
@@ -155,7 +159,7 @@ class GuardedChatOpenAI(ChatOpenAI):
 
     provider_label: str = "openai"
     max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES
-    caps: Caps = Field(default_factory=Caps)
+    budgets: tuple[Budget, ...] = ()
 
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
         # Traces and ModelCallRecorder name the real provider, not "openai" for every compatible endpoint.
@@ -174,7 +178,7 @@ class GuardedChatOpenAI(ChatOpenAI):
     def _begin_attempt(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         # The deadline first: an attempt that cannot start in time must not use quota.
         kwargs = self._timed(kwargs)
-        get_usage_ledger().acquire(self.provider_label, self.caps)
+        get_usage_ledger().acquire(self.provider_label, self.budgets)
         return kwargs
 
     def _generate(
@@ -187,7 +191,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
             result = super()._generate(messages, stop, run_manager, **self._begin_attempt(kwargs))
-            return _require_output(result, self.provider_label)
+            return _require_output(result, self.provider_label, self.budgets)
 
     async def _agenerate(
         self,
@@ -199,7 +203,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
             result = await super()._agenerate(messages, stop, run_manager, **self._begin_attempt(kwargs))
-            return _require_output(result, self.provider_label)
+            return _require_output(result, self.provider_label, self.budgets)
 
     def _stream(
         self,
@@ -211,7 +215,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
             chunks = super()._stream(messages, stop, run_manager, **self._begin_attempt(kwargs))
-            yield from _require_streamed_output(chunks, self.provider_label)
+            yield from _require_streamed_output(chunks, self.provider_label, self.budgets)
 
     async def _astream(
         self,
@@ -223,7 +227,7 @@ class GuardedChatOpenAI(ChatOpenAI):
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated(self.provider_label):
             chunks = super()._astream(messages, stop, run_manager, **self._begin_attempt(kwargs))
-            async for chunk in _arequire_streamed_output(chunks, self.provider_label):
+            async for chunk in _arequire_streamed_output(chunks, self.provider_label, self.budgets):
                 yield chunk
 
 
@@ -231,7 +235,7 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
     """``ChatBedrockConverse`` raising application errors (async runs these in an executor)."""
 
     max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES
-    caps: Caps = Field(default_factory=Caps)
+    budgets: tuple[Budget, ...] = ()
 
     def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> LangSmithParams:
         params = super()._get_ls_params(stop=stop, **kwargs)
@@ -241,7 +245,7 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
     def _begin_attempt(self) -> None:
         # Bedrock's timeouts are fixed in its client config: a deadline can only refuse to start an attempt.
         attempt_timeout(math.inf, "bedrock")
-        get_usage_ledger().acquire("bedrock", self.caps)
+        get_usage_ledger().acquire("bedrock", self.budgets)
 
     def _generate(
         self,
@@ -254,7 +258,7 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
         with _translated("bedrock"):
             self._begin_attempt()
             result = super()._generate(messages, stop, run_manager, **kwargs)
-            return _require_output(result, "bedrock")
+            return _require_output(result, "bedrock", self.budgets)
 
     def _stream(
         self,
@@ -266,7 +270,8 @@ class GuardedChatBedrockConverse(ChatBedrockConverse):
         messages = clean_message_images(messages, max_bytes=self.max_image_bytes)
         with _translated("bedrock"):
             self._begin_attempt()
-            yield from _require_streamed_output(super()._stream(messages, stop, run_manager, **kwargs), "bedrock")
+            chunks = super()._stream(messages, stop, run_manager, **kwargs)
+            yield from _require_streamed_output(chunks, "bedrock", self.budgets)
 
 
 def build_chat_model(
@@ -299,7 +304,7 @@ def build_chat_model(
             temperature=temperature,
             client=bedrock_client,
             max_image_bytes=settings.max_image_bytes,
-            caps=Caps.for_provider(settings, provider),
+            budgets=budgets_for(settings, provider, role),
             config=BotoConfig(
                 connect_timeout=timeout,
                 read_timeout=timeout,
@@ -328,7 +333,7 @@ def build_chat_model(
         reasoning_effort=effort,
         seed=seed,
         max_image_bytes=settings.max_image_bytes,
-        caps=Caps.for_provider(settings, provider),
+        budgets=budgets_for(settings, provider, role),
         # These endpoints implement Chat Completions only; never switch to the Responses API.
         use_responses_api=False,
         http_client=http_client,

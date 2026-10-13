@@ -4,6 +4,11 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ## [Unreleased]
 
+### Phase 4: MCP server and first deploy (in progress)
+
+#### Changed
+- The usage ledger counts each model separately (`groq/<model>`), as Groq limits each model on its own, and caps tokens per rolling 24 hours as well as per minute (`DAILY_TOKEN_LIMIT_GROQ`, 180,000 against Groq's 200,000). A vision call on a hosted provider also counts against a daily photo budget shared across providers (`DAILY_PHOTO_LIMIT`, 90, against about 100 a day that Groq's vision quota allows), so photos cannot spend chat's quota; at the cap the user is asked to describe the dish in words. An attempt that any of its budgets refuses is counted in none (#49).
+
 ### Phase 3: Retrieval evaluation, ranking and baselines (in progress)
 
 Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#73 followed. Still open: the owner's grades (#42), the remaining image descriptions (#43), ADR-0001 with one final test run (#47), and the close-out (#48). Production retrieval defaults don't change until ADR-0001 is accepted.

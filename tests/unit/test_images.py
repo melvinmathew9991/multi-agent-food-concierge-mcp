@@ -10,7 +10,7 @@ from PIL import Image, PngImagePlugin
 
 from food_concierge import errors
 from food_concierge.config import Settings
-from food_concierge.models.images import clean_image, clean_message_images
+from food_concierge.models.images import INLINE_ONLY, clean_image, clean_message_images
 
 MB = 1024 * 1024
 MP = Settings(_env_file=None).max_image_pixels
@@ -147,16 +147,35 @@ def test_inline_images_in_messages_are_cleaned(block: dict[str, Any], read: Any)
         assert sent["image_url"]["detail"] == "low"
 
 
-def test_messages_without_inline_images_pass_through_unchanged() -> None:
-    remote = HumanMessage(content=[{"type": "image_url", "image_url": {"url": "https://example.org/dal.jpg"}}])
-    standard_remote = HumanMessage(content=[{"type": "image", "url": "https://example.org/dal.jpg"}])
+def test_messages_without_images_pass_through_unchanged() -> None:
     text = HumanMessage("plain text")
     mixed = AIMessage(content=["a bare string block", {"type": "text", "text": "hi"}])
 
-    messages = [remote, standard_remote, text, mixed]
+    messages = [text, mixed]
     cleaned = clean_message_images(messages, max_bytes=MB, max_pixels=MP)
 
     assert all(after is before for after, before in zip(cleaned, messages, strict=True))
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        {"type": "image_url", "image_url": {"url": "https://example.org/dal.jpg"}},
+        {"type": "image_url", "image_url": "http://169.254.169.254/latest/meta-data"},
+        {"type": "image_url", "image_url": {"url": "  data:image/jpeg;base64,AAAA"}},
+        {"type": "image_url"},
+        {"type": "image", "url": "https://example.org/dal.jpg"},
+        {"type": "image", "source_type": "url", "url": "https://example.org/dal.jpg"},
+        {"type": "image", "file_id": "file-abc123"},
+    ],
+    ids=["url", "bare-url", "padded-data-uri", "no-url", "standard-url", "v0-url", "file-id"],
+)
+def test_images_that_are_not_inline_are_refused(block: dict[str, Any]) -> None:
+    with pytest.raises(errors.InputValidationError, match="inline") as caught:
+        clean_message_images(
+            [HumanMessage(content=[{"type": "text", "text": "what is this?"}, block])], max_bytes=MB, max_pixels=MP
+        )
+    assert str(caught.value) == INLINE_ONLY  # the address is never echoed back
 
 
 @pytest.mark.parametrize(

@@ -48,6 +48,15 @@ def test_jpeg_metadata_is_dropped_and_orientation_kept() -> None:
     assert cleaned.data_uri.startswith("data:image/jpeg;base64,")
 
 
+def test_max_px_shrinks_after_orientation_and_never_enlarges() -> None:
+    shrunk = clean_image(_jpeg_with_exif(size=(4000, 3000)), max_bytes=MB, max_px=1024)
+    small = clean_image(_jpeg_with_exif(size=(400, 300), orientation=1), max_bytes=MB, max_px=1024)
+
+    assert (shrunk.width, shrunk.height) == (768, 1024)  # rotated upright first, then fitted
+    assert DEVICE.encode() not in shrunk.data
+    assert (small.width, small.height) == (400, 300)
+
+
 def test_png_text_chunks_are_dropped_and_palette_transparency_kept() -> None:
     palette = Image.new("P", (8, 8), 0)
     palette.putpalette([255, 0, 0, 0, 255, 0])

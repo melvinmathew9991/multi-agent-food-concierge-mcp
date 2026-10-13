@@ -19,8 +19,9 @@ from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
 
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage
+from langchain_core.language_models import BaseChatModel, LanguageModelInput
+from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.runnables import Runnable
 from pydantic import BaseModel, ConfigDict, Field
 
 from food_concierge.ingestion.photos import make_thumbnail
@@ -144,7 +145,11 @@ def describe_missing(
 def describe(model: BaseChatModel, image: bytes, prompt: str) -> tuple[str, int]:
     """One description of ``image`` (any original), sent at ``DESCRIBE_PX`` without metadata; text and latency."""
     resized = make_thumbnail(image, DESCRIBE_PX)
-    data_uri = clean_image(resized, max_bytes=len(resized) + 1).data_uri
+    return describe_data_uri(model, clean_image(resized, max_bytes=len(resized) + 1).data_uri, prompt)
+
+
+def describe_data_uri(model: Runnable[LanguageModelInput, BaseMessage], data_uri: str, prompt: str) -> tuple[str, int]:
+    """One description of an image already prepared as a data URI; whitespace-normalised text and latency."""
     message = HumanMessage(
         content=[{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": data_uri}}]
     )

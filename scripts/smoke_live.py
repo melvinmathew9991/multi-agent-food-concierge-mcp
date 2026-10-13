@@ -257,7 +257,7 @@ def check_vision(telemetry: Telemetry, settings: Settings, photos: list[Path]) -
     model = build_chat_model("ollama", "vision", single)
     results: list[dict[str, Any]] = []
     for index, path in enumerate(photos, start=1):
-        image = clean_image(path.read_bytes(), max_bytes=settings.max_image_bytes)
+        image = clean_image(path.read_bytes(), max_bytes=settings.max_image_bytes, max_pixels=settings.max_image_pixels)
         prompt = HumanMessage(
             content=[
                 {"type": "text", "text": "Describe the food in this photo in one sentence. Do not guess its name."},

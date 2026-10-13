@@ -27,8 +27,6 @@ from food_concierge.errors import InputValidationError
 
 # Pillow format name -> MIME type. Formats with animation or scripting (GIF, SVG) are refused.
 MIME_TYPES: dict[str, str] = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
-# Large enough for any phone camera; refuses decompression bombs before pixels are decoded.
-MAX_PIXELS = 40_000_000
 
 
 @dataclass(frozen=True)
@@ -43,7 +41,7 @@ class CleanImage:
         return f"data:{self.mime_type};base64,{base64.b64encode(self.data).decode('ascii')}"
 
 
-def clean_image(data: bytes, *, max_bytes: int, max_px: int | None = None) -> CleanImage:
+def clean_image(data: bytes, *, max_bytes: int, max_pixels: int, max_px: int | None = None) -> CleanImage:
     """Validate an uploaded image and re-encode it without metadata, in its own format.
 
     With ``max_px``, the image is also shrunk to fit ``max_px`` on either side (never enlarged), so a phone photo
@@ -58,7 +56,7 @@ def clean_image(data: bytes, *, max_bytes: int, max_px: int | None = None) -> Cl
             image_format = source.format or ""
             if image_format not in MIME_TYPES:
                 raise InputValidationError("Only JPEG, PNG and WebP images are accepted.")
-            if source.width * source.height > MAX_PIXELS:
+            if source.width * source.height > max_pixels:
                 raise InputValidationError("The image has too many pixels.")
             pixels = ImageOps.exif_transpose(source)
     except InputValidationError:
@@ -89,14 +87,14 @@ def _decode_base64(text: str) -> bytes:
         raise InputValidationError("The image data is not valid base64.") from exc
 
 
-def _clean_data_uri(uri: str, max_bytes: int) -> str:
+def _clean_data_uri(uri: str, max_bytes: int, max_pixels: int) -> str:
     header, _, payload = uri.partition(",")
     if not header.endswith(";base64"):
         raise InputValidationError("Inline images must be base64 data URIs.")
-    return clean_image(_decode_base64(payload), max_bytes=max_bytes).data_uri
+    return clean_image(_decode_base64(payload), max_bytes=max_bytes, max_pixels=max_pixels).data_uri
 
 
-def _clean_block(block: Any, max_bytes: int) -> Any:
+def _clean_block(block: Any, max_bytes: int, max_pixels: int) -> Any:
     if not isinstance(block, dict):
         return block
     kind = block.get("type")
@@ -105,7 +103,7 @@ def _clean_block(block: Any, max_bytes: int) -> Any:
         holder = block.get("image_url")
         url = holder.get("url") if isinstance(holder, dict) else holder
         if isinstance(url, str) and url.startswith("data:"):
-            cleaned = _clean_data_uri(url, max_bytes)
+            cleaned = _clean_data_uri(url, max_bytes, max_pixels)
             new_holder = {**holder, "url": cleaned} if isinstance(holder, dict) else cleaned
             return {**block, "image_url": new_holder}
         return block
@@ -113,20 +111,20 @@ def _clean_block(block: Any, max_bytes: int) -> Any:
         # LangChain standard blocks: v1 {"base64": ...} and v0.3 {"source_type": "base64", "data": ...}.
         key = "base64" if "base64" in block else "data" if block.get("source_type") == "base64" else None
         if key is not None:
-            image = clean_image(_decode_base64(str(block[key])), max_bytes=max_bytes)
+            image = clean_image(_decode_base64(str(block[key])), max_bytes=max_bytes, max_pixels=max_pixels)
             return {**block, key: base64.b64encode(image.data).decode("ascii"), "mime_type": image.mime_type}
         url = block.get("url")
         if isinstance(url, str) and url.startswith("data:"):
-            return {**block, "url": _clean_data_uri(url, max_bytes)}
+            return {**block, "url": _clean_data_uri(url, max_bytes, max_pixels)}
     return block
 
 
-def clean_message_images(messages: Sequence[BaseMessage], *, max_bytes: int) -> list[BaseMessage]:
+def clean_message_images(messages: Sequence[BaseMessage], *, max_bytes: int, max_pixels: int) -> list[BaseMessage]:
     """Messages with every inline image cleaned; messages without images are returned as they are."""
     cleaned: list[BaseMessage] = []
     for message in messages:
         if isinstance(message.content, list):
-            content = [_clean_block(block, max_bytes) for block in message.content]
+            content = [_clean_block(block, max_bytes, max_pixels) for block in message.content]
             if content != message.content:
                 message = message.model_copy(update={"content": content})
         cleaned.append(message)

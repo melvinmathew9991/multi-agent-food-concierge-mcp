@@ -131,13 +131,15 @@ class Settings(BaseSettings):
     reasoning_effort_router: ReasoningEffort = "low"
     reasoning_effort_judge: ReasoningEffort = "medium"
     max_output_tokens: int = Field(default=400, gt=0, le=4096)
-    max_query_chars: int = Field(default=500, gt=0)
+    max_query_chars: int = Field(default=500, gt=0)  # reserved: no reader yet; enforced from P4 (MCP tool inputs)
     max_image_mb: float = Field(default=5.0, gt=0)
+    # Large enough for any phone camera; refuses decompression bombs before pixels are decoded.
+    max_image_megapixels: float = Field(default=40.0, gt=0)
     # User photos are shrunk to this many pixels on the longer side before the vision model sees them: the
     # catalog's size (DESCRIBE_PX), so a phone photo costs about the same ~1,900 tokens (#53).
     vision_image_px: int = Field(default=1024, ge=256, le=2048)
     vision_cache_entries: int = Field(default=256, ge=0)  # descriptions kept in memory, for cache_ttl_hours
-    max_history_turns: int = Field(default=4, ge=0)
+    max_history_turns: int = Field(default=4, ge=0)  # reserved: no reader yet; enforced from P5 (agent memory)
 
     # Caps for each model of a provider, enforced in models/usage.py: paid ones bound cost, free ones stay
     # under the free-tier quotas. Groq's sit under its limits (1,000 requests a day and 8,000 tokens a minute
@@ -154,8 +156,10 @@ class Settings(BaseSettings):
     # Photos described by a hosted provider per UTC day, across providers: about 100 fit Groq's daily vision
     # tokens at ~1,900 each (ADR-0007), and this keeps photos from spending the whole quota.
     daily_photo_limit: int = Field(default=90, ge=0)
-    cache_ttl_hours: int = Field(default=168, ge=0)
+    cache_ttl_hours: int = Field(default=168, ge=0)  # photo descriptions (services/vision.py); P5 response cache
 
+    # Reserved: nothing reads these yet. Scoped tokens and rate limits are enforced from P4 (MCP over HTTP),
+    # CORS from P7 (API and UI). Until then, setting them protects nothing.
     # API access: one token per scope (public / agent / admin)
     api_token_public: SecretStr | None = None
     api_token_agent: SecretStr | None = None
@@ -217,6 +221,10 @@ class Settings(BaseSettings):
     @property
     def max_image_bytes(self) -> int:
         return int(self.max_image_mb * 1024 * 1024)
+
+    @property
+    def max_image_pixels(self) -> int:
+        return int(self.max_image_megapixels * 1_000_000)
 
     def daily_call_limit(self, provider: ProviderName) -> int | None:
         """Calls allowed per UTC day; ``None`` means uncapped (local and fake providers)."""

@@ -145,7 +145,9 @@ def describe_missing(
 def describe(model: BaseChatModel, image: bytes, prompt: str) -> tuple[str, int]:
     """One description of ``image`` (any original), sent at ``DESCRIBE_PX`` without metadata; text and latency."""
     resized = make_thumbnail(image, DESCRIBE_PX)
-    return describe_data_uri(model, clean_image(resized, max_bytes=len(resized) + 1).data_uri, prompt)
+    return describe_data_uri(
+        model, clean_image(resized, max_bytes=len(resized) + 1, max_pixels=DESCRIBE_PX * DESCRIBE_PX).data_uri, prompt
+    )
 
 
 def describe_data_uri(model: Runnable[LanguageModelInput, BaseMessage], data_uri: str, prompt: str) -> tuple[str, int]:

@@ -67,7 +67,7 @@ flowchart LR
 3. **Allergens (EU-14 ∪ US Big-9)** from three sources, each tag stored with `source` and `level`:
    - `label`: parsed `dietary_warnings` → level `contains`.
    - `lexicon`: ingredient terms (`flour|bread|bun|croutons|tortilla|soy sauce → gluten`, `cheese|cream|butter|ghee|yogurt → milk`, `crab|shrimp → crustaceans`, `almond|cashew → tree_nuts`…) → `contains`.
-   - `vision`: allergen terms found in the image description → `may_contain`. Shown as a warning, never filtered on (ADR-0007).
+   - `vision`: allergen terms found in the image description → `may_contain`. Shown as a warning, never filtered on (ADR-0007). Terms the description denies ("no visible nuts") are skipped; ingredient terms never are (#54).
    - Hard filters exclude a dish when an excluded allergen is in `contains`, or when the dish is unverified (unless the caller includes unverified dishes). The safety gate checks recall of `contains` against the ground truth.
    - Opaque ingredients (`vegan dressing`, `plant-based patty`, `spices`, `spring roll wrappers`) → `unverified = 1`.
 4. **Descriptions:** `scripts/describe_photos.py` runs the local Ollama vision model (`qwen2.5vl:7b`, $0) on new or changed photos only, sent at 1024 px without metadata. Two variants per photo: **name-free** (the tagger's vision source, and the stand-in for a user's photo in Phase 3, audit #7) and **named** (for comparison). Cached by image sha256 and prompt version in the tracked `data/processed/image_descriptions.jsonl`, which is part of `data_sha256`; the build reads only the cache.

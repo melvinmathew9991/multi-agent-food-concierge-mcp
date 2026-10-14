@@ -19,7 +19,7 @@ Notable changes, grouped by delivery phase (`docs/planning/phases.md`). Format b
 
 ### Phase 3: Retrieval evaluation, ranking and baselines (in progress)
 
-Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#73 followed. Still open: the owner's grades (#42), the remaining image descriptions (#43), ADR-0001 with one final test run (#47), and the close-out (#48). Production retrieval defaults don't change until ADR-0001 is accepted.
+Planned in #38. The plan's workstreams 1–7 are merged (#62–#70), and #71–#73 followed. Still open: the owner's grades (#42), the remaining image descriptions (#43; 113 of 127 complete on 2026-10-14, 111 of them on main), ADR-0001 with one final test run (#47), and the close-out (#48). Production retrieval defaults don't change until ADR-0001 is accepted.
 
 #### Added
 - `Retriever` and `RetrievalConfig` (`services/retrieval.py`, #62): BM25, dense or hybrid search over FAISS or Qdrant, reciprocal rank fusion (`k_rrf` 60, 20 results from each list), an optional cross-encoder rerank depth, `dish_key` de-duplication and per-stage timings. The reranker carries a fingerprint, as the embedder does. Evaluation runs this same class, not a copy.

@@ -209,18 +209,14 @@ entries:
     next to a textured gray tile wall. The beverage has a uniform, creamy appearance with no visible foam, ice,
     or solid ingredients like fruit or nuts. A thin ring of the same brown liquid clings to the inner rim of the
     mug just below the top edge.
-  allergen_terms:
-    nuts:
-    - peanuts
-    - tree_nuts
+  allergen_terms: {}
   dish_type: correct
   seen:
   - tea
   not_seen: []
-  not_visible:
-  - nuts
-  note: '''no visible ... fruit or nuts'' is a negation; the lexicon has no negation handling, so it becomes a false
-    peanut and tree-nut tag.'
+  not_visible: []
+  note: '''no visible ... fruit or nuts'' is a negation; it was a false peanut and tree-nut tag until descriptions
+    skipped denied terms (#54).'
 - sha256: 91d09acf8d64a02ec5fa9b4a4686d76fd119a5e902b0baaeffc2608aba9e442a
   item_id: b04
   dish: Luchi

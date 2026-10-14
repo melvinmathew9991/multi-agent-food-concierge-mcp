@@ -208,7 +208,7 @@ Deviations from the plan above, each recorded in the PR that made it:
 - Vision `may_contain` tags do not filter search, and the gate checks `contains` only (ADR-0007). Item 4 planned vision tags as a filter and part of the gate.
 Follow-ups carried forward:
 - P4: the usage ledger keys token caps by model (Groq limits per model), budgets photos separately from chat, and stays below Groq's figure (ADR-0007).
-- Lexicon: negations ("no nuts") and hedged alternatives ("spices or nuts") produce false vision terms; fix when the lexicon next changes.
+- Lexicon: negations ("no nuts") and hedged alternatives ("spices or nuts") produce false vision terms; fix when the lexicon next changes. (Negations done in #54; hedges kept, as most are right: ADR-0007.)
 
 ## Phase 3 — Retrieval evaluation, ranking and baselines · `feat/p3-*` · L
 **Goal:** the "before" numbers and a CI gate, before any agent logic (A5). Phase 3 measures how well each retrieval stack finds the right dishes on the Phase 2 catalog, picks the stack and vector backend from development-split evidence (ADR-0001), and makes any later regression fail CI. P4's `/v1/search` and MCP `search` tool use the configuration chosen here.

@@ -139,7 +139,7 @@ def draw(shas: Sequence[str], size: int = SAMPLE_SIZE, seed: int = SEED) -> list
 def allergen_terms(text: str, lexicon: Lexicon) -> dict[str, list[str]]:
     """Each lexicon term in ``text`` and the allergens it implies: the evidence behind the vision tags."""
     terms: dict[str, list[str]] = {}
-    for hit in lexicon.match(text):
+    for hit in lexicon.match_affirmed(text):
         if hit.allergens:
             terms[hit.term] = sorted(a.value for a in with_implied(hit.allergens))
     return terms
@@ -172,6 +172,8 @@ def build_entries(
         old = previous.get(sha)
         if old is not None and old.get("description") == text:
             entry.update({field: old[field] for field in SCORE_FIELDS if field in old})
+            # A term the tagger no longer finds is no longer a false tag.
+            entry["not_visible"] = [term for term in entry["not_visible"] if term in entry["allergen_terms"]]
         entries.append(entry)
     return entries
 

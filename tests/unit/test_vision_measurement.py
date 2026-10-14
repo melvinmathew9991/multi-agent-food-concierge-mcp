@@ -95,6 +95,17 @@ def test_resampling_keeps_scores_unless_the_description_changed() -> None:
     assert entries[1]["allergen_terms"] == {"fish": ["fish"]}
 
 
+def test_resampling_drops_false_terms_the_tagger_no_longer_finds() -> None:
+    text = "Rice with egg and no visible nuts."
+    cache = _cache({_sha(1): text})
+    previous = {_sha(1): _entry(sha256=_sha(1), description=text, not_visible=["nuts", "egg"])}
+
+    entries = vm.build_entries(cache, {_sha(1): ("a01", "Rice")}, load_lexicon(), previous)
+
+    assert entries[0]["allergen_terms"] == {"egg": ["eggs"]}
+    assert entries[0]["not_visible"] == ["egg"]
+
+
 def test_a_report_needs_every_entry_scored_and_current() -> None:
     cache = _cache({_sha(1): "text"})
     good = _entry(allergen_terms={"egg": ["eggs"]}, not_visible=["egg"])

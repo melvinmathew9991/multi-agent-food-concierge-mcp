@@ -2,7 +2,9 @@
 
 - **label**: what the restaurant declares → ``contains``.
 - **lexicon**: ingredient terms from the versioned ``data/lexicon/allergens.yaml`` → ``contains``.
-- **vision**: allergen terms in the photo's description → ``may_contain`` (a photo shows, it doesn't prove).
+- **vision**: allergen terms in the photo's description → ``may_contain`` (a photo shows, it doesn't prove). Terms
+  the description denies ("no visible nuts") are skipped; hedged ones ("cream or yogurt") are kept, since they are
+  mostly right on the measured samples (#54).
 
 A dish listing an opaque ingredient (a masala mix, an unnamed sauce, a chutney) is ``unverified``: its recipe can't
 be checked, so the agent must ask before recommending it to someone avoiding an allergen (PRD F8).
@@ -98,10 +100,44 @@ class Lexicon:
 
     def match(self, text: str) -> list[TermHit]:
         """Every lexicon phrase in ``text``, left to right, the longest phrase winning at each position."""
+        return [self._hit(found) for found in self.pattern.finditer(text.lower())]
+
+    def match_affirmed(self, text: str) -> list[TermHit]:
+        """Like ``match``, without the phrases ``text`` denies ("no visible nuts", "without egg", "nut-free").
+
+        For descriptions only. Ingredients keep every phrase: "dairy-free cheese" stays milk, because nothing checks
+        the denial, and those tags are the ones search filters on.
+        """
+        lowered = text.lower()
+        denied = _denied_spans(lowered)
         hits = []
-        for found in self.pattern.finditer(text.lower()):
-            hits.append(self.phrases[" ".join(re.split(r"[\s-]+", found.group("term")))])
+        for found in self.pattern.finditer(lowered):
+            if not _FREE.match(lowered, found.end()) and not any(a <= found.start() < b for a, b in denied):
+                hits.append(self._hit(found))
         return hits
+
+    def _hit(self, found: re.Match[str]) -> TermHit:
+        return self.phrases[" ".join(re.split(r"[\s-]+", found.group("term")))]
+
+
+# A denial runs from its cue to the end of the clause: a sentence stop, a contrast or exception ("but", "except"), a
+# place ("no toppings on the bread": the bread is there), or a comma that starts a new clause rather than continuing
+# the denied list ("no foam, ice, or nuts" stays denied).
+_NEGATION = re.compile(r"\b(?:no|not|nor|without|free of|free from|lacks?|lacking|absent)\b")
+_CLAUSE_END = re.compile(
+    r"[.;:!?()]|\b(?:but|however|though|although|while|yet|except|besides|apart from|other than|instead)\b"
+    r"|\b(?:on|in|inside|within|atop|around|beside|near|under|over)\b"
+    r"|,\s+(?:(?:and|or)\s+)?(?:with|alongside|which|that|where|plus|the|a|an|its|it|there|\w+ed|\w+ing)\b"
+)
+_FREE = re.compile(r"[\s-]+free\b")
+
+
+def _denied_spans(text: str) -> list[tuple[int, int]]:
+    spans = []
+    for cue in _NEGATION.finditer(text):
+        stop = _CLAUSE_END.search(text, cue.end())
+        spans.append((cue.end(), stop.start() if stop else len(text)))
+    return spans
 
 
 # "es" only where English takes it (tomatoes, chillies, dishes), so "til" does not match "tiles".
@@ -177,7 +213,7 @@ def tag_item(item: MenuItem, lexicon: Lexicon, description: str | None = None) -
             ]
             if hit.opaque and ingredient not in opaque:
                 opaque.append(ingredient)
-    for hit in lexicon.match(description or ""):
+    for hit in lexicon.match_affirmed(description or ""):
         tags += [
             AllergenTag(a, Source.VISION, Level.MAY_CONTAIN, hit.term) for a in sorted(with_implied(hit.allergens))
         ]

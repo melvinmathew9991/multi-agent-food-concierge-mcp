@@ -109,6 +109,34 @@ def test_opaque_terms(lexicon: Lexicon, text: str, opaque: bool) -> None:
     assert any(hit.opaque for hit in lexicon.match(text)) is opaque
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("A creamy drink with no visible foam, ice, or solid ingredients like fruit or nuts.", set()),
+        ("Served without egg or cream.", set()),
+        ("A nut-free cake.", set()),
+        ("Not fried; dusted with flour.", {A.WHEAT}),  # the denial ends at the clause
+        ("No nuts, but topped with sesame seeds.", {A.SESAME}),
+        ("Served without rice, topped with cashews.", {A.TREE_NUTS}),  # a comma that starts a new clause
+        ("There are no garnishes other than almonds.", {A.TREE_NUTS}),  # an exception is affirmed
+        ("No other toppings are visible on the bread.", {A.WHEAT}),  # a place is affirmed
+        ("Fried spices or nuts.", {A.PEANUTS, A.TREE_NUTS}),  # hedged alternatives are kept
+        ("Peanuts, no egg.", {A.PEANUTS}),  # a denial reaches forward only
+    ],
+)
+def test_descriptions_skip_denied_terms(lexicon: Lexicon, text: str, expected: set[Allergen]) -> None:
+    assert {allergen for hit in lexicon.match_affirmed(text) for allergen in hit.allergens} == expected
+
+
+def test_ingredients_keep_denied_terms(lexicon: Lexicon) -> None:
+    dish = item(ingredients=("dairy-free cheese",))
+
+    result = tag_item(dish, lexicon, description="A slice with no visible nuts.")
+
+    assert result.contains == {A.MILK}
+    assert result.may_contain == frozenset()
+
+
 def test_three_sources_and_levels(lexicon: Lexicon) -> None:
     dish = item(ingredients=("paneer", "chaat masala", "atta"), label_allergens=frozenset({A.MILK}), diet="vegetarian")
 

@@ -1,0 +1,104 @@
+{
+ "run": {
+  "created": "2026-10-14T07:37:37+00:00",
+  "commit": "b3f31d9",
+  "provider": "groq",
+  "dataset": "eval/datasets/vision_sample_groq.yaml",
+  "dataset_sha256": "b8199a721554a7f2d2c305bfa123f9e26b4c611135aa6d05ed5194d0eadc3580",
+  "reviewed": true,
+  "models": [
+   "qwen/qwen3.8-27b"
+  ],
+  "prompt_version": 1
+ },
+ "summary": {
+  "descriptions": 30,
+  "dish_type": {
+   "counts": {
+    "correct": 22,
+    "partial": 8,
+    "wrong": 0
+   },
+   "correct": {
+    "rate": 0.733,
+    "k": 22,
+    "n": 30,
+    "ci95": [
+     0.556,
+     0.858
+    ]
+   },
+   "correct_or_partial": {
+    "rate": 1.0,
+    "k": 30,
+    "n": 30,
+    "ci95": [
+     0.886,
+     1.0
+    ]
+   }
+  },
+  "ingredients": {
+   "named": 115,
+   "precision": {
+    "rate": 0.896,
+    "k": 103,
+    "n": 115,
+    "ci95": [
+     0.826,
+     0.939
+    ]
+   },
+   "descriptions_with_an_unseen_ingredient": {
+    "rate": 0.367,
+    "k": 11,
+    "n": 30,
+    "ci95": [
+     0.219,
+     0.545
+    ]
+   }
+  },
+  "allergen_terms": {
+   "found": 23,
+   "not_visible": {
+    "rate": 0.087,
+    "k": 2,
+    "n": 23,
+    "ci95": [
+     0.024,
+     0.268
+    ]
+   },
+   "descriptions_with_a_false_term": {
+    "rate": 0.067,
+    "k": 2,
+    "n": 30,
+    "ci95": [
+     0.018,
+     0.213
+    ]
+   }
+  }
+ },
+ "latency": {
+  "name_free": {
+   "n": 30,
+   "p50_ms": 712,
+   "p95_ms": 911
+  }
+ },
+ "usage": {
+  "tokens_per_photo": {
+   "n": 30,
+   "p50": 1921,
+   "max": 1969
+  },
+  "over_production_timeout": {
+   "timeout_s": 3.0,
+   "k": 0,
+   "n": 30
+  },
+  "failed_attempts": 12
+ }
+}

@@ -78,8 +78,31 @@ The capability table needs no change. Tool calling worked for Groq and Gemini (1
 
 ## Consequences
 
-- **The router works out of the box** with only API keys set: no model names to configure, and the chain verifiably meets the deadline.
+- **The router works out of the box** with only API keys set: no model names to configure, and the chain verifiably meets the deadline when Gemini is not under load (see the 2026-10-22 update).
 - **`reasoning_effort` support is per model, not per provider.** A model that rejects it, such as Gemma, gets a 400 on every call, and a 400 does not fall back. Any model change must pass `scripts/model_profile.py --probe` first, and a full profile run before it becomes a default.
 - **Groq's tokens-a-minute limit** will bind before its request caps once agents make several calls per request. P4/P5 budget work should add a token-rate limit, not only call counts.
 - **Gemini quotas are opaque,** so 429s from the fallback must be monitored (Langfuse error and fallback rate). If they appear in normal use, re-profile and reconsider.
 - **Revisit** when a provider retires or renames a chosen model, when the free tiers change, when the P3/P5 prompts differ materially from this set, or when vision is measured.
+
+## Update 2026-10-22: Gemini latency after idle (#50)
+
+On 2026-10-06 a forced fallback failed when Gemini timed out after an idle stretch. `scripts/idle_latency.py` made one cold and two warm calls after each idle gap (nominally 0 to 60 min) through the production structured-output path, on two days:
+
+| Run | Window (UTC) | Latency per call, cold and warm |
+|---|---|---|
+| 2026-10-21 (`idle_latency_gemini_2026-10-21T1416Z.json`) | 14:16-15:05 | 11-60 s, one timeout at 60 s |
+| | 15:35 | 7-9 s |
+| | 16:21-17:40 | 1.1-2.0 s, cold calls after 45 and 79 min idle included |
+| 2026-10-22 (`idle_latency_gemini_2026-10-22T0833Z.json`) | 08:33-08:44 | 1.3-10 s, 7 of 12 over 5 s |
+| | 08:54-11:52 | 1.0-1.9 s, cold call after 127 min idle included; one warm call 17.6 s |
+| | 13:09-13:10 | 18.4-18.8 s, cold after 78 min idle and both warm calls 10 s apart |
+
+(The laptop slept during the second run, so two gaps ran long; the real idle is taken from the call timestamps.)
+
+**Finding.** Idle time does not predict latency: the longest idles answered in 1-2 s, and within each window warm calls were as slow as the cold one. Latency follows Google's load, which changes over the day. 31 of 54 calls (20/27, then 11/27) were over the 5 s attempt timeout, so in a slow window a forced fallback ends in a timeout error, not an answer. No errors other than that one timeout.
+
+**Consequences.**
+- Gemini stays the fallback, as a **best-effort** one: it is still the only second provider with the quality (option 5 rules out Ollama), and its accuracy is unchanged. A keep-warm ping would not help, since warm calls are as slow.
+- Timeouts stay. Raising Gemini's to cover the slow windows (about 20 s) would break the 8 s deadline for every request that falls back.
+- **The P4 demo does not rely on a forced fallback.** If it shows one, it runs a live check just before; otherwise it shows the degraded path (a clear error), which is the designed behaviour.
+- The Langfuse fallback and error rates (above) are the ongoing signal. A second Groq model would cover a Groq quota refusal, since Groq limits each model separately, but not a Groq outage; consider it if quota, not outages, turns out to be the common cause of fallbacks.

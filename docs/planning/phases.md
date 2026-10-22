@@ -80,8 +80,8 @@ Calls after an idle stretch appear slow. So whether the fallback works inside th
 **Closed 2026-10-06.** Every DoD item is met except vision, which is **deferred to Phase 2 item 7** by the owner's decision: no own photos were available, and Phase 2 describes ~150 openly licensed catalog photos with the same local model, which is a larger and reproducible test set. No vision default is configured until then. `scripts/smoke_live.py --photos <folder>` still measures own photos whenever they are available.
 
 Carried forward:
-- Gemini latency after idle periods, to be measured over a longer window **before the P4 demo** relies on the fallback (ADR-0006 revisit trigger).
-- Larger routing and tool-call sets with a dev/test split **before P5** (audit M5).
+- Gemini latency after idle periods, to be measured over a longer window **before the P4 demo** relies on the fallback (ADR-0006 revisit trigger). *Done 2026-10-22 (#50, #97, #100): latency follows Google's load, not idle; Gemini is a best-effort fallback (ADR-0006 update).*
+- Larger routing and tool-call sets with a dev/test split **before P5** (audit M5). *Sets built 2026-10-22 (#51, #99, #101); test-split run pending.*
 - Streamed token usage for the token cap, which needs a live probe before `stream_usage` is enabled.
 - Low-severity audit items as their code is touched.
 
@@ -445,7 +445,7 @@ Critical path: workstream 3 (the owner's grading). Workstream 4 runs alongside i
 ## Phase 4 — MCP server, access control, first deploy · `feat/p4-*` · L
 **Goal:** secure, reusable tools, live on HF Spaces.
 
-**Status (2026-10-14):** started early, with work that needs neither Phase 3's grades nor Groq quota. Merged: the usage ledger keys caps by model, caps tokens per rolling day and budgets photos separately (#84, closes #49); the vision service downscales uploads and caches descriptions (#85, part of #53; the 768 vs 1,024 px experiment is still open); the image pixel limit became a setting and unused settings are marked reserved (#86, #57, #58); images given by URL or file id are refused (#89, #60); every Langfuse stack image is pinned by digest (#90, #59); vision allergen tags skip terms the description denies (#92, #54). The MCP server, access control, transports and the deploy (items 2–4 below) have not started.
+**Status (2026-10-22):** started early, with work that needs neither Phase 3's grades nor Groq quota. Merged: the usage ledger keys caps by model, caps tokens per rolling day and budgets photos separately (#84, closes #49); the vision service downscales uploads and caches descriptions (#85, part of #53; the 768 vs 1,024 px experiment is still open); the image pixel limit became a setting and unused settings are marked reserved (#86, #57, #58); images given by URL or file id are refused (#89, #60); every Langfuse stack image is pinned by digest (#90, #59); vision allergen tags skip terms the description denies (#92, #54). On 2026-10-21/22: Gemini latency after idle was measured on two days and settled in ADR-0006 (#97, #100, closes #50: a best-effort fallback, and the demo does not rely on a forced one); the model profile sets grew to 32 routing and 32 tool-call items with a dev/test split (#99, #101, part of #51; Gemini dev rerun and the single test run pending); and Pillow, certifi and uv were bumped for new advisories that failed `pip-audit` (#98). The MCP server, access control, transports and the deploy (items 2–4 below) have not started.
 
 1. `services/` layer (catalog, retrieval, allergens, nutrition, constraints, vision).
 2. FastMCP server: 6 tools, 4 resources, 2 prompts; typed schemas; `isError`; size limits.

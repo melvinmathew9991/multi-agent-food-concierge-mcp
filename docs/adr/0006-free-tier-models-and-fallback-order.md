@@ -106,3 +106,10 @@ On 2026-10-06 a forced fallback failed when Gemini timed out after an idle stret
 - Timeouts stay. Raising Gemini's to cover the slow windows (about 20 s) would break the 8 s deadline for every request that falls back.
 - **The P4 demo does not rely on a forced fallback.** If it shows one, it runs a live check just before; otherwise it shows the degraded path (a clear error), which is the designed behaviour.
 - The Langfuse fallback and error rates (above) are the ongoing signal. A second Groq model would cover a Groq quota refusal, since Groq limits each model separately, but not a Groq outage; consider it if quota, not outages, turns out to be the common cause of fallbacks.
+
+## Update 2026-10-22: larger profile set (#51)
+
+The evidence above rests on 5 routing and 5 tool-call items (Wilson 95% for 5/5 is [0.57, 1]). Dataset v2 (`eval/datasets/model_profile.yaml`) has 32 of each, split 16 dev / 16 test, with ambiguous and adversarial messages; every route and tool is in test.
+- **Groq `openai/gpt-oss-20b`, dev** (`model_profile_2026-10-22T0841Z_dev.json`): routing 16/16 [0.81, 1], tool calls 16/16 [0.81, 1], extraction 9/10; p50 0.70 s, p95 1.04 s.
+- **Gemini, dev:** the 2026-10-22 13:12 UTC run fell in a slow window (p50 20 s, 8 of 42 calls failed on load) and was not kept; every answered item was right. It is rerun in a fast window.
+- The test split runs once for both models after the owner reviews its labels. The decision above stands until then.

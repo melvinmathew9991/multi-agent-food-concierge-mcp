@@ -12,7 +12,7 @@ A multimodal food concierge: a LangGraph agent plans meals and recommends dishes
 python -m venv .venv            # keep it outside cloud-synced folders
 .venv/Scripts/activate          # Windows; use `source .venv/bin/activate` elsewhere
 python -m pip install --upgrade pip setuptools
-pip install --require-hashes -r requirements-dev.lock   # the locked, hash-checked versions CI uses
+pip install --require-hashes --no-deps -r requirements-dev.lock   # the locked, hash-checked versions CI uses
 pip install --no-deps -e .
 cp .env.example .env
 ```

@@ -33,7 +33,7 @@ dependencies = [
     "qdrant-client>=1.12,<2",  # in-memory only: its on-disk local mode persists with pickle (rules §1)
     "rank-bm25>=0.2,<0.3",
     "numpy>=1.26,<3",
-    "Pillow>=10.4",
+    "Pillow>=13.0",  # 13.0 fixes the 2026-10 decoder CVEs; we decode user photos
 ]
 
 [project.optional-dependencies]
@@ -50,6 +50,11 @@ dev = [
     "pip-audit>=2.7",
     "uv>=0.12",
 ]
+
+[tool.uv]
+# fastembed (0.8 and 0.9) caps Pillow <13 but uses it only for image embeddings, which we never call.
+# Drop this once a fastembed release allows Pillow 13.
+override-dependencies = ["Pillow>=13.0"]
 
 [tool.setuptools.dynamic]
 version = { attr = "food_concierge.__version__" }

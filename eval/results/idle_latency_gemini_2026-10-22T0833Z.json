@@ -1,0 +1,266 @@
+{
+ "run": {
+  "started": "2026-10-22T08:33:43+00:00",
+  "finished": "2026-10-22T13:11:13+00:00",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "gaps_min": [
+   0.0,
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0,
+   30.0,
+   45.0,
+   60.0
+  ],
+  "warm_per_gap": 2,
+  "pace_s": 10.0,
+  "attempt_timeout_s": 5.0,
+  "fallback_budget_s": 5.0,
+  "measure_timeout_s": 60.0
+ },
+ "summary": {
+  "cold": {
+   "n": 9,
+   "answered": 9,
+   "errors": {},
+   "p50_ms": 1816,
+   "p95_ms": 18443,
+   "max_ms": 18443,
+   "over_attempt_timeout": 4,
+   "over_fallback_budget": 4,
+   "repaired": 0
+  },
+  "warm": {
+   "n": 18,
+   "answered": 18,
+   "errors": {},
+   "p50_ms": 1853,
+   "p95_ms": 18775,
+   "max_ms": 18775,
+   "over_attempt_timeout": 7,
+   "over_fallback_budget": 7,
+   "repaired": 0
+  }
+ },
+ "samples": [
+  {
+   "gap_min": 0.0,
+   "kind": "cold",
+   "started": "2026-10-22T08:33:43+00:00",
+   "latency_ms": 9971,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 0.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:34:03+00:00",
+   "latency_ms": 5606,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 0.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:34:19+00:00",
+   "latency_ms": 7912,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 1.0,
+   "kind": "cold",
+   "started": "2026-10-22T08:35:27+00:00",
+   "latency_ms": 8313,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 1.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:35:45+00:00",
+   "latency_ms": 1350,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 1.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:35:56+00:00",
+   "latency_ms": 6831,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 2.0,
+   "kind": "cold",
+   "started": "2026-10-22T08:38:03+00:00",
+   "latency_ms": 1816,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 2.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:38:15+00:00",
+   "latency_ms": 1364,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 2.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:38:26+00:00",
+   "latency_ms": 1262,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 5.0,
+   "kind": "cold",
+   "started": "2026-10-22T08:43:28+00:00",
+   "latency_ms": 9176,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 5.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:43:47+00:00",
+   "latency_ms": 9521,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 5.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:44:06+00:00",
+   "latency_ms": 2890,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 10.0,
+   "kind": "cold",
+   "started": "2026-10-22T08:54:09+00:00",
+   "latency_ms": 1018,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 10.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:54:20+00:00",
+   "latency_ms": 1506,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 10.0,
+   "kind": "warm",
+   "started": "2026-10-22T08:54:32+00:00",
+   "latency_ms": 1830,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 20.0,
+   "kind": "cold",
+   "started": "2026-10-22T09:14:34+00:00",
+   "latency_ms": 1384,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 20.0,
+   "kind": "warm",
+   "started": "2026-10-22T09:14:45+00:00",
+   "latency_ms": 1160,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 20.0,
+   "kind": "warm",
+   "started": "2026-10-22T09:14:56+00:00",
+   "latency_ms": 1679,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 30.0,
+   "kind": "cold",
+   "started": "2026-10-22T09:44:58+00:00",
+   "latency_ms": 1280,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 30.0,
+   "kind": "warm",
+   "started": "2026-10-22T09:45:09+00:00",
+   "latency_ms": 1876,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 30.0,
+   "kind": "warm",
+   "started": "2026-10-22T09:45:21+00:00",
+   "latency_ms": 1366,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 45.0,
+   "kind": "cold",
+   "started": "2026-10-22T11:52:01+00:00",
+   "latency_ms": 1393,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 45.0,
+   "kind": "warm",
+   "started": "2026-10-22T11:52:13+00:00",
+   "latency_ms": 1552,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 45.0,
+   "kind": "warm",
+   "started": "2026-10-22T11:52:24+00:00",
+   "latency_ms": 17558,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 60.0,
+   "kind": "cold",
+   "started": "2026-10-22T13:09:57+00:00",
+   "latency_ms": 18443,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 60.0,
+   "kind": "warm",
+   "started": "2026-10-22T13:10:26+00:00",
+   "latency_ms": 18460,
+   "model_calls": 1,
+   "error": null
+  },
+  {
+   "gap_min": 60.0,
+   "kind": "warm",
+   "started": "2026-10-22T13:10:54+00:00",
+   "latency_ms": 18775,
+   "model_calls": 1,
+   "error": null
+  }
+ ]
+}

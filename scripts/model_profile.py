@@ -10,7 +10,7 @@ call and token caps (``models/usage.py``) apply, so a call they refuse is record
     python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite
     python scripts/model_profile.py groq:openai/gpt-oss-20b --split test   # once, after dev is settled
 
-Results go to ``eval/results/model_profile_<date>_<split>.json``; model choices go to ADR-0006.
+Results go to ``eval/results/model_profile_<UTC time>_<split>.json``, one file per run; model choices go to ADR-0006.
 """
 
 from __future__ import annotations
@@ -370,16 +370,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--probe", action="store_true", help="one short call per candidate, no profile")
     parser.add_argument("--split", choices=["dev", "test"], default="dev", help="dataset split to run (default dev)")
     parser.add_argument(
-        "--out", type=Path, help="results file (default eval/results/model_profile_<date>_<split>.json)"
+        "--out", type=Path, help="results file (default eval/results/model_profile_<UTC time>_<split>.json)"
     )
     args = parser.parse_args(argv)
 
     dataset_bytes = DATASET.read_bytes()
     dataset = yaml.safe_load(dataset_bytes)
     settings = Settings()
+    started = datetime.now(UTC)
     results: dict[str, Any] = {
         "run": {
-            "started": datetime.now(UTC).isoformat(timespec="seconds"),
+            "started": started.isoformat(timespec="seconds"),
             "commit": _git_commit(),
             "dataset": str(DATASET.relative_to(REPO_ROOT)).replace("\\", "/"),
             "dataset_sha256": hashlib.sha256(dataset_bytes).hexdigest(),
@@ -409,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.probe:
         return 0
-    out = args.out or RESULTS / f"model_profile_{datetime.now(UTC):%Y-%m-%d}_{args.split}.json"
+    out = args.out or RESULTS / f"model_profile_{started:%Y-%m-%dT%H%MZ}_{args.split}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {out}")

@@ -95,13 +95,50 @@ def test_dataset_is_well_formed() -> None:
     routes = set(profile.Route.model_fields["route"].annotation.__args__)
 
     items = dataset["extraction"] + dataset["routing"] + dataset["tools"]
-    assert len(items) == 20
-    assert len({item["id"] for item in items}) == 20
+    assert len({item["id"] for item in items}) == len(items) == 74
+    assert {item["split"] for item in items} == {"dev", "test"}
     for item in dataset["extraction"]:
         assert set(item["expect"]) == set(profile.MealRequest.model_fields)
-    assert {item["expect"] for item in dataset["routing"]} <= routes
+    for item in dataset["routing"]:
+        expect = item["expect"] if isinstance(item["expect"], list) else [item["expect"]]
+        assert set(expect) <= routes
     for item in dataset["tools"]:
         assert item["expect"]["name"] in tool_names
+        assert set(item["expect"]["args"]) <= set(getattr(profile, item["expect"]["name"]).model_fields)
+
+    # #51: at least 30 each, and the test split covers every route and every tool.
+    test = profile.select(dataset, "test")
+    assert len(dataset["routing"]) >= 30
+    assert len(dataset["tools"]) >= 30
+    assert {item["expect"] for item in test["routing"] if isinstance(item["expect"], str)} == routes
+    assert {item["expect"]["name"] for item in test["tools"]} == tool_names
+
+
+@pytest.mark.parametrize(
+    ("route", "expect", "correct"),
+    [
+        ("recommend", "recommend", True),
+        ("dish_info", "recommend", False),
+        ("dish_info", ["dish_info", "recommend"], True),
+        ("smalltalk", ["dish_info", "recommend"], False),
+    ],
+)
+def test_route_scoring_accepts_a_list_for_ambiguous_messages(route: str, expect: object, correct: bool) -> None:
+    assert profile.route_correct(route, expect) is correct
+
+
+def test_select_keeps_only_the_split() -> None:
+    dataset = {
+        "extraction": [{"id": "ex01", "split": "dev"}],
+        "routing": [{"id": "rt01", "split": "dev"}, {"id": "rt02", "split": "test"}],
+        "tools": [{"id": "tl01", "split": "test"}],
+    }
+
+    assert profile.select(dataset, "test") == {
+        "extraction": [],
+        "routing": [{"id": "rt02", "split": "test"}],
+        "tools": [{"id": "tl01", "split": "test"}],
+    }
 
 
 def test_pacing_wait_is_recorded_so_latency_can_exclude_it() -> None:
@@ -116,3 +153,30 @@ def test_pacing_wait_is_recorded_so_latency_can_exclude_it() -> None:
     assert 0.02 < pacer.waited_s < 0.5
     assert pacer.statuses == {"429": 1}
     assert pacer.headers == {"retry-after": "2", "x-ratelimit-remaining-requests": "9"}
+
+
+def test_a_busy_refusal_is_retried_and_a_daily_one_is_recorded(monkeypatch: pytest.MonkeyPatch) -> None:
+    from food_concierge.errors import BudgetExceededError
+
+    monkeypatch.setattr(profile.time, "sleep", lambda _s: None)
+    candidate = object.__new__(profile.Candidate)  # timed() needs only the pacer
+    candidate.pacer = profile.Pacer(per_minute=None)
+    outcomes: list[object] = [BudgetExceededError(), BudgetExceededError(), "parsed"]
+
+    def call(_config: object) -> object:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    assert candidate.timed(call)[0::3] == ("parsed", None)
+
+    calls = 0
+
+    def refused(_config: object) -> object:
+        nonlocal calls
+        calls += 1
+        raise BudgetExceededError
+
+    assert candidate.timed(refused)[0::3] == (None, "budget_exceeded")
+    assert calls == profile.BUSY_RETRIES + 1

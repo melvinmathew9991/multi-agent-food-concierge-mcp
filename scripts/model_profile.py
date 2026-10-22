@@ -1,6 +1,6 @@
 """Phase 1 model profile: what each free model reliably does, measured with real calls (never in CI).
 
-Each candidate runs the 20 fixed prompts in ``eval/datasets/model_profile.yaml`` through the production
+Each candidate runs one split of the fixed prompts in ``eval/datasets/model_profile.yaml`` through the production
 code path (router, structured output with one repair, tool binding) and production settings, except that
 attempt timeouts are relaxed so true latency is measured; calls slower than the production timeout are
 counted instead. Requests are paced under the free-tier per-minute caps in settings, and the production
@@ -8,8 +8,9 @@ call and token caps (``models/usage.py``) apply, so a call they refuse is record
 
     python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite --probe
     python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite
+    python scripts/model_profile.py groq:openai/gpt-oss-20b --split test   # once, after dev is settled
 
-Results go to ``eval/results/model_profile_<date>.json``; model choices go to ADR-0006.
+Results go to ``eval/results/model_profile_<date>_<split>.json``; model choices go to ADR-0006.
 """
 
 from __future__ import annotations
@@ -42,6 +43,10 @@ from food_concierge.telemetry import ModelCallRecorder
 DATASET = REPO_ROOT / "eval" / "datasets" / "model_profile.yaml"
 RESULTS = REPO_ROOT / "eval" / "results"
 PROFILE_TIMEOUT_S = 30.0
+# The ledger's per-minute caps are checked before the pacer waits, so a long run can reach the token cap.
+# A refused attempt is retried until the minute window has passed; still refused then, it is a daily cap.
+BUSY_WAIT_S = 5.0
+BUSY_RETRIES = 13
 
 Allergen = Literal[
     "peanuts", "tree_nuts", "milk", "eggs", "gluten", "soy", "sesame", "fish", "shellfish", "mustard", "celery",
@@ -191,6 +196,14 @@ def extraction_correct(parsed: MealRequest, expect: dict[str, Any]) -> bool:
     return True
 
 
+def route_correct(route: str, expect: str | list[str]) -> bool:
+    return route in expect if isinstance(expect, list) else route == expect
+
+
+def select(dataset: dict[str, Any], split: str) -> dict[str, list[dict[str, Any]]]:
+    return {task: [i for i in dataset[task] if i["split"] == split] for task in ("extraction", "routing", "tools")}
+
+
 def tool_args_correct(args: dict[str, Any], expect: dict[str, dict[str, Any]]) -> bool:
     for key, rule in expect.items():
         got = args.get(key)
@@ -237,14 +250,18 @@ class Candidate:
         return build_chat_model(self.provider, role, self.settings, http_client=self.client)
 
     def timed(self, call: Any) -> tuple[Any, float, ModelCallRecorder, str | None]:
-        recorder = ModelCallRecorder()
-        waited_before = self.pacer.waited_s
-        start = time.perf_counter()
-        try:
-            result, error = call({"callbacks": [recorder]}), None
-        except AppError as exc:
-            result, error = None, exc.code
-        elapsed = time.perf_counter() - start - (self.pacer.waited_s - waited_before)
+        for attempt in range(BUSY_RETRIES + 1):
+            recorder = ModelCallRecorder()
+            waited_before = self.pacer.waited_s
+            start = time.perf_counter()
+            try:
+                result, error = call({"callbacks": [recorder]}), None
+            except AppError as exc:
+                result, error = None, exc.code
+            elapsed = time.perf_counter() - start - (self.pacer.waited_s - waited_before)
+            if error != "budget_exceeded" or attempt == BUSY_RETRIES:
+                break
+            time.sleep(BUSY_WAIT_S)
         return result, elapsed * 1000, recorder, error
 
 
@@ -275,7 +292,7 @@ def run_structured(candidate: Candidate, task: str, item: dict[str, Any]) -> dic
     elif task == "extraction":
         correct = extraction_correct(cast(MealRequest, parsed), item["expect"])
     else:
-        correct = cast(Route, parsed).route == item["expect"]
+        correct = route_correct(cast(Route, parsed).route, item["expect"])
     return {
         "id": item["id"], "task": task, "valid_first": parsed is not None and model_calls == 1,
         "valid_final": parsed is not None, "correct": correct, "model_calls": model_calls,
@@ -327,7 +344,7 @@ def summarise(candidate: Candidate, items: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def profile(candidate: Candidate, dataset: dict[str, Any]) -> dict[str, Any]:
+def profile(candidate: Candidate, dataset: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for task in ("extraction", "routing"):
         for item in dataset[task]:
@@ -351,7 +368,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("candidates", nargs="+", help="provider:model, e.g. groq:openai/gpt-oss-20b")
     parser.add_argument("--probe", action="store_true", help="one short call per candidate, no profile")
-    parser.add_argument("--out", type=Path, help="results file (default eval/results/model_profile_<date>.json)")
+    parser.add_argument("--split", choices=["dev", "test"], default="dev", help="dataset split to run (default dev)")
+    parser.add_argument(
+        "--out", type=Path, help="results file (default eval/results/model_profile_<date>_<split>.json)"
+    )
     args = parser.parse_args(argv)
 
     dataset_bytes = DATASET.read_bytes()
@@ -364,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
             "dataset": str(DATASET.relative_to(REPO_ROOT)).replace("\\", "/"),
             "dataset_sha256": hashlib.sha256(dataset_bytes).hexdigest(),
             "dataset_version": dataset["version"],
+            "split": args.split,
             "max_output_tokens": settings.max_output_tokens,
             "reasoning_effort": {"chat": settings.reasoning_effort_chat, "router": settings.reasoning_effort_router},
             "chat_temperature": settings.chat_temperature,
@@ -381,14 +402,14 @@ def main(argv: list[str] | None = None) -> int:
         entry: dict[str, Any] = {"provider": candidate.provider, "model": model, "probe": probe(candidate)}
         print(f"  probe: {entry['probe']}", flush=True)
         if not args.probe and entry["probe"]["ok"]:
-            entry.update(profile(candidate, dataset))
+            entry.update(profile(candidate, select(dataset, args.split)))
         entry["rate_limit_headers"] = candidate.pacer.headers
         entry["http_statuses"] = candidate.pacer.statuses
         results["candidates"].append(entry)
 
     if args.probe:
         return 0
-    out = args.out or RESULTS / f"model_profile_{datetime.now(UTC):%Y-%m-%d}.json"
+    out = args.out or RESULTS / f"model_profile_{datetime.now(UTC):%Y-%m-%d}_{args.split}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {out}")

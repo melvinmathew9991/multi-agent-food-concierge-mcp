@@ -112,4 +112,22 @@ On 2026-10-06 a forced fallback failed when Gemini timed out after an idle stret
 The evidence above rests on 5 routing and 5 tool-call items (Wilson 95% for 5/5 is [0.57, 1]). Dataset v2 (`eval/datasets/model_profile.yaml`) has 32 of each, split 16 dev / 16 test, with ambiguous and adversarial messages; every route and tool is in test.
 - **Groq `openai/gpt-oss-20b`, dev** (`model_profile_2026-10-22T0841Z_dev.json`): routing 16/16 [0.81, 1], tool calls 16/16 [0.81, 1], extraction 9/10; p50 0.70 s, p95 1.04 s.
 - **Gemini, dev:** the 2026-10-22 13:12 UTC run fell in a slow window (p50 20 s, 8 of 42 calls failed on load) and was not kept; every answered item was right. It is rerun in a fast window.
-- The test split runs once for both models after the owner reviews its labels. The decision above stands until then.
+
+## Update 2026-10-23: test split (#51)
+
+The owner reviewed the labels. rt13 (a home recipe) now accepts only `out_of_scope`, and tl26 (nutrition for one dish) accepts `get_dish_details` or `meal_totals`. That changed the dataset (sha256 `1fe325a2…`), so dev was rerun for both models before the single test run. Both runs were in a fast Gemini window (probes about 1 s).
+
+| Dataset v2, sha256 `1fe325a2…` | Groq `openai/gpt-oss-20b` | Gemini 3.5 Flash-Lite |
+|---|---|---|
+| Dev: routing / tool calls / extraction | 15/16 / 16/16 / 10/10 | 16/16 / 16/16 / 10/10 |
+| Dev latency p50 / p95 | 0.56 s / 0.77 s | 1.13 s / 1.46 s |
+| **Test: routing** | **15/16** [0.72, 0.99] | **15/16** [0.72, 0.99] |
+| **Test: tool calls** | **16/16** [0.81, 1] | **16/16** [0.81, 1] |
+| Test: structured output, first try | 16/16 | 16/16 |
+| Test latency p50 / p95; over 5 s | 0.59 s / 1.16 s; 0 of 32 | 1.13 s / 7.39 s; 3 of 32 |
+
+Files: `model_profile_2026-10-23T0355Z_dev.json`, `model_profile_2026-10-23T0403Z_test.json` (`model_profile_2026-10-23T0324Z_dev.json` is a Gemini dev run on the labels before review).
+- **The decision stands.** Groq `openai/gpt-oss-20b` stays primary and Gemini the best-effort fallback: their accuracy is level on held-out items, and Groq is the faster and steadier of the two. Even in a fast window, 3 of Gemini's 32 test calls passed the 5 s timeout.
+- **Dev misses:** Groq routed rt13 (a home recipe) to `dish_info`.
+- **Test misses:** both models routed rt23 ("Translate 'thank you' into Kannada") to `smalltalk`, apparently triggered by the quoted "thank you" and the profile prompt's "smalltalk: greetings or thanks". The P5 supervisor prompt should say that smalltalk is the diner's own greeting or thanks, and its routing evaluation should keep a quoted-phrase case.
+- The test split is spent for this model choice. A new model or prompt is settled on dev, and the test split runs once more.

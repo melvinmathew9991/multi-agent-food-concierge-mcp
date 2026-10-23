@@ -87,7 +87,7 @@ The levers below are listed by impact.
 |---|---|---|
 | Filter in SQL before vector search; batch embeddings; rerank only the top 10 or 20 (depth chosen in ADR-0001) | done | P3 |
 | Lazy imports of heavy libraries (ONNX Runtime, fastembed) for CLI and tests | done | — |
-| Load the embedder, reranker and indexes **once at startup**; `/ready` reports ready only after a warm-up query | planned | P4 |
+| Load the embedder, reranker and indexes **once at startup**; `/ready` reports ready only after a warm-up query | partly: loaded once at start-up (#113); the warm-up query before `/ready` is planned | P4 |
 | ONNX Runtime thread count as a setting, tuned to the Space's cores | planned | P4 |
 | Async provider calls with per-provider concurrency limits (§2.6) | planned | P4–P5 |
 | Stage timings (embed, search, fuse, rerank) on every search; LLM and tool spans in Langfuse | done | P3, P4 |

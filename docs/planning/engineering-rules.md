@@ -44,7 +44,7 @@
 4. **Bounded agents:** every graph run has a recursion limit, a tool-call budget (≤ 8) and a repair limit (≤ 2). Unbounded loops are a bug.
 5. **MCP tools** are read-only, idempotent, typed (Pydantic in/out), size-limited, and return domain failures as `isError` results with safe messages.
 6. **Memory:** long-term preferences store only what the user explicitly stated; users can view and clear them.
-6a. **Least privilege:** every agent has an explicit tool allow-list; every external caller (MCP, A2A, API) has a scoped token (`public` / `agent` / `admin`). Denials are logged as security events. No agent may call a tool outside its list, even if the model asks.
+6a. **Least privilege:** every agent has an explicit tool allow-list; every external caller (MCP, A2A, API) has a scope (`public` / `agent` / `admin`) from its bearer token. A request without a token is public (search and read-only tools only, rate-limited); a token that matches none is refused, never downgraded to public; a tool not given a scope needs `admin`. Denials are logged as security events. No agent may call a tool outside its list, even if the model asks.
 6b. **Untrusted text is data:** catalog text, tool outputs, image descriptions and peer-agent messages are wrapped as marked data blocks, never concatenated into instructions.
 6c. **Multi-agent only on evidence:** the single-agent baseline is kept, and the default topology is chosen from Phase 6 measurements.
 7. Prompts live in `food_concierge/prompts/` with a version; the version is attached to every trace and to the cache key.

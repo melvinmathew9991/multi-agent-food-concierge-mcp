@@ -1,6 +1,6 @@
 # Data handling
 
-What user data this service touches, where each piece goes, what protects it and how long it stays. Current as of Phase 1 (model layer and tracing); rows marked *planned* arrive in the phase named. Change this file whenever a new kind of data, a new destination or a new external service is added.
+What user data this service touches, where each piece goes, what protects it and how long it stays. Current as of Phase 4 (MCP server and HTTP access, 2026-10-23); rows marked *planned* arrive in the phase named. Change this file whenever a new kind of data, a new destination or a new external service is added.
 
 This is an engineering record, not legal advice.
 
@@ -14,10 +14,13 @@ Diners tell a food concierge about their allergies, intolerances and diet ("no p
 |---|---|---|---|---|
 | Chat messages | dietary needs and allergies (health), names, places, contact details | the chat model provider: Groq, Gemini on fallback | not stored; traces as below | input limit 500 chars (`MAX_QUERY_CHARS`); traces metadata-only in production |
 | Photos | faces, location and device in EXIF | the vision model provider | never stored (P7); the model's description is kept in process memory under the photo's SHA-256 for `cache_ttl_hours` (at most `VISION_CACHE_ENTRIES`), so the same photo is not sent twice | re-encoded without EXIF, XMP, ICC or text chunks and shrunk to 1,024 px before sending (`models/images.py`, `services/vision.py`); JPEG, PNG and WebP only, ≤ 5 MB and 40 MP; inline only, so an image given by URL is refused rather than fetched by the provider |
+| Search queries and constraints (MCP tools, `/v1/search`) | dietary needs and allergies (health) | nobody: queries are embedded by the local model (fastembed) and matched in this process | not stored; tool-call spans carry the tool and scope, never the arguments | query limit 500 chars (`MAX_QUERY_CHARS`); at most 20 dish ids and 10 results a request |
+| Bearer tokens | credentials | — | compared in constant time, never logged or traced | a request without one is public; a wrong one is refused (`security/access.py`) |
+| Client address (HTTP) | the caller's IP | — | in memory only, as the rate-limit bucket of an anonymous caller; the least recently used are forgotten past 10,000 | never logged |
 | Model replies | echoes of the message | user; traces | not stored; traces as below | numbers and allergen facts come from tools, not the model (rules §2.3) |
 | Stated preferences (*planned, P5*) | diet, allergies | stored locally | until the user deletes them | only what the user explicitly stated; view and delete in the UI (rules §2.6) |
 | Trace metadata | request ID, role, provider, model, attempts, tokens, prompt version, error code | Langfuse | Langfuse retention, below | by rule never user text |
-| Logs | event names, provider, error codes, trace ID | stdout of the host | host log retention | never prompts at INFO, secrets or image bytes (rules §3.4); values escaped |
+| Logs | event names, provider, error codes, trace ID; security events (a refused request: its code and path, or the tool denied) | stderr of the host | host log retention | never prompts at INFO, secrets or image bytes (rules §3.4); values escaped |
 | Evaluation data (P3) | synthetic queries and catalog Commons photos, no user data | Groq (C0's Yes/No verdicts; descriptions of altered catalog photos); local Langfuse when keys are set | committed under `eval/` | live jobs run by hand, never in CI; altered images are regenerated from seeds, not committed |
 | API tokens and keys | credentials | — | env and platform secrets only | git-ignored, gitleaks, push protection (rules §7.1) |
 

@@ -42,6 +42,10 @@ def _default_cors_origins() -> list[str]:
     return ["http://localhost:8501"]
 
 
+def _default_allowed_hosts() -> list[str]:
+    return ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+
+
 def _cache_base() -> Path:
     # Outside the repository: model files and photos are large and the checkout may sit in a synced folder.
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
@@ -158,13 +162,18 @@ class Settings(BaseSettings):
     daily_photo_limit: int = Field(default=90, ge=0)
     cache_ttl_hours: int = Field(default=168, ge=0)  # photo descriptions (services/vision.py); P5 response cache
 
-    # Reserved: nothing reads these yet. Scoped tokens and rate limits are enforced from P4 (MCP over HTTP),
-    # CORS from P7 (API and UI). Until then, setting them protects nothing.
-    # API access: one token per scope (public / agent / admin)
+    # HTTP access (security/access.py): one bearer token per scope (public / agent / admin). No token is the
+    # public scope; a token that matches none is refused. Rate limits are per caller and for the whole server.
     api_token_public: SecretStr | None = None
     api_token_agent: SecretStr | None = None
     api_token_admin: SecretStr | None = None
     rate_limit_per_min: int = Field(default=20, gt=0)
+    rate_limit_global_per_min: int = Field(default=120, gt=0)
+    # Host headers the HTTP server answers (DNS-rebinding protection); add the deployed host, e.g. "x.hf.space".
+    allowed_hosts: Annotated[list[str], NoDecode] = Field(default_factory=_default_allowed_hosts)
+    api_host: str = "127.0.0.1"
+    api_port: int = Field(default=8000, gt=0, le=65535)
+    # Reserved: nothing reads it yet; CORS is enforced from P7 (API and UI).
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=_default_cors_origins)
 
     # Paths
@@ -173,7 +182,7 @@ class Settings(BaseSettings):
     photo_cache_dir: Path = Field(default_factory=_default_photo_cache_dir)  # catalog photos and thumbnails
     log_level: str = "INFO"
 
-    @field_validator("fallback_providers", "cors_origins", mode="before")
+    @field_validator("fallback_providers", "cors_origins", "allowed_hosts", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:
         # Env vars arrive as "a,b"; pydantic-settings otherwise expects JSON.

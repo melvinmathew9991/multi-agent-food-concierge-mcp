@@ -176,17 +176,17 @@ stateDiagram-v2
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health`, `/ready` | Liveness; catalog + index + manifest consistent |
+| GET | `/health`, `/ready` | Liveness; catalog + index + manifest consistent (built at start-up, so a running server is ready) |
 | POST | `/v1/agent/runs` | Start/continue a conversation (`thread_id`, message, optional image); **SSE stream** of tokens, tool events, interrupt requests, final answer; returns `trace_id` |
 | POST | `/v1/agent/runs/{thread_id}/resume` | Resume after an interrupt (approve/decline) |
-| POST | `/v1/search` | Retrieval-only (no LLM), same constraints |
+| POST | `/v1/search` | Retrieval-only (no LLM): the `search_dishes` arguments as JSON, the same `SearchService` and safety re-check |
 | GET | `/v1/dishes/{id}`, `/static/thumbs/{file}` | Detail, thumbnails |
 | POST | `/v1/feedback` | `{trace_id, score, comment?}` → Langfuse score |
-| * | `/mcp` | MCP Streamable HTTP transport (scoped token) |
+| * | `/mcp` | MCP Streamable HTTP transport (scoped token; stateless, JSON responses; `ALLOWED_HOSTS` checked) |
 | GET | `/.well-known/agent-card.json` | A2A Agent Card |
 | * | `/a2a` | A2A task endpoints (send, stream, get, cancel; scoped token) |
 
-Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from `food_concierge.errors` (422 / 429 / 502 / 503 / 504). Middleware: request ID, CORS (UI origin), per-session and global token-bucket rate limits, body-size limit.
+Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from `food_concierge.errors` (401 / 403 / 422 / 429 / 502 / 503 / 504); `trace_id` arrives with the agent runs (P5). Middleware: `AccessGate` in front of `/mcp` and `/v1/` (a bad token → 401 with `WWW-Authenticate`; over a limit → 429 with `Retry-After`), per-caller and global token-bucket rate limits (`RATE_LIMIT_PER_MIN`, `RATE_LIMIT_GLOBAL_PER_MIN`), a body-size limit that fits one photo, CORS (UI origin, P7). Built in P4 (#112): `/health`, `/ready`, `/v1/search`, `/mcp`; `python -m food_concierge.api`.
 
 ## 9. Configuration and secrets
 
@@ -283,7 +283,7 @@ Tasks retry only on transient failures. Unchanged inputs are skipped by explicit
 |---|---|
 | Input | size/type limits; **injection classifier** (local ONNX model; candidate chosen for licence and size at implementation); **content-safety** screen (Llama Guard-class); off-topic routing |
 | Untrusted text | "Spotlighting": catalog text, tool outputs and image descriptions are wrapped in marked data blocks, and system prompts state that data blocks carry no instructions |
-| Tools | per-agent allow-lists; MCP/A2A **scoped tokens** (`public`: search and read resources; `agent`: + `describe_image` and agent runs; `admin`: ingestion flows); rate limits per token and global |
+| Tools | per-agent allow-lists; MCP/A2A **scoped tokens** (`public`, also what a request without a token gets: search and read resources; `agent`: + `describe_image` and agent runs; `admin`: ingestion flows); rate limits per token and global |
 | Output | deterministic verifier; numeric-claim check; allergen disclaimer; AI-interaction disclosure |
 | Audit | every tool call is a Langfuse span with caller scope and agent; denied calls are logged as security events |
 | Governance | trace **masking** (image bytes, emails, card and phone numbers) via the Langfuse mask hook, and **metadata-only traces in production** (`TRACE_CONTENT`); data inventory and retention in `docs/data-handling.md`; uploads never stored; preferences viewable and deletable; data lineage via manifests (data hash → index → eval run); `docs/data-card.md` |

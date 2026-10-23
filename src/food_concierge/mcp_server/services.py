@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Protocol
 
 from food_concierge.config import Settings
 from food_concierge.errors import ConfigError
@@ -13,16 +12,13 @@ from food_concierge.services.allergens import AllergenService
 from food_concierge.services.catalog import CatalogService
 from food_concierge.services.constraints import ConstraintService
 from food_concierge.services.nutrition import NutritionService
-from food_concierge.services.retrieval import RetrievalConfig, Retriever, SearchResult
+from food_concierge.services.retrieval import RetrievalConfig, Retriever
+from food_concierge.services.search import Searcher, SearchService
 from food_concierge.services.vision import VisionService, build_vision_service
-from food_concierge.storage.catalog_db import CATALOG_DB, CatalogStore, Filters
+from food_concierge.storage.catalog_db import CATALOG_DB, CatalogStore
 from food_concierge.storage.indexes import INDEX_DIR, load_indexes
 
 logger = logging.getLogger(__name__)
-
-
-class Searcher(Protocol):
-    def search(self, query: str, filters: Filters, config: RetrievalConfig) -> SearchResult: ...
 
 
 @dataclass(frozen=True)
@@ -32,8 +28,7 @@ class Services:
     allergens: AllergenService
     nutrition: NutritionService
     constraints: ConstraintService
-    searcher: Searcher
-    retrieval: RetrievalConfig  # the production stack; its k is replaced per request
+    search: SearchService
     vision: VisionService | None  # None when no provider has a vision model: photos are then refused
     settings: Settings
 
@@ -47,14 +42,15 @@ class Services:
         retrieval: RetrievalConfig | None = None,
         vision: VisionService | None = None,
     ) -> Services:
+        catalog = CatalogService(store)
         return cls(
             store=store,
-            catalog=CatalogService(store),
+            catalog=catalog,
             allergens=AllergenService(store),
             nutrition=NutritionService(store),
             constraints=ConstraintService(store),
-            searcher=searcher,
-            retrieval=retrieval or RetrievalConfig(),
+            # The stack's k is replaced per request.
+            search=SearchService(catalog, searcher, retrieval or RetrievalConfig(), settings),
             vision=vision,
             settings=settings,
         )

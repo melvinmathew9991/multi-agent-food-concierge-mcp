@@ -27,16 +27,17 @@ from food_concierge import __version__
 from food_concierge.errors import AppError, InputValidationError, NotFoundError
 from food_concierge.ingestion.photos import thumbnail_path
 from food_concierge.ingestion.taxonomy import EU_14, US_BIG_9, USER_TERMS, Allergen, Cuisine, Diet
+from food_concierge.mcp_server.access import ToolAccess
 from food_concierge.mcp_server.services import Services
 from food_concierge.services.allergens import DISCLAIMER, AllergenCheck
-from food_concierge.services.catalog import MAX_DISHES, DishDetail, DishSummary, dish_ids, summary_of
-from food_concierge.services.constraints import Constraints, dish_violations, parse_constraints
+from food_concierge.services.catalog import MAX_DISHES, DishDetail, dish_ids
+from food_concierge.services.constraints import Constraints, parse_constraints
 from food_concierge.services.nutrition import MealTotals
+from food_concierge.services.search import MAX_RESULTS, Dishes
 from food_concierge.services.vision import DESCRIBE_IN_WORDS, PhotoDescription
 
 logger = logging.getLogger(__name__)
 
-MAX_RESULTS = 10
 READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
 # Describing a photo calls a hosted model: not idempotent in cost, and it reaches outside the server.
 DESCRIBES = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=True)
@@ -72,11 +73,6 @@ DishIds = Annotated[list[str], Field(min_length=1, max_length=MAX_DISHES, descri
 
 class _Out(BaseModel):
     model_config = ConfigDict(frozen=True)
-
-
-class Dishes(_Out):
-    dishes: list[DishSummary]
-    note: str | None = None  # why the list is empty or short, when that can be said
 
 
 class AllergenChecks(_Out):
@@ -125,25 +121,15 @@ def _constraints(
 
 def create_server(services: Services) -> MCPServer:
     """A server over ``services``; run it with ``.run("stdio")``, or connect ``mcp.Client(server)`` in tests."""
-    server: MCPServer = MCPServer(
-        name="food-concierge", title="Food Concierge", version=__version__, instructions=INSTRUCTIONS
-    )
     settings = services.settings
-
-    def search(query: str, constraints: Constraints, k: int, skip: set[str]) -> Dishes:
-        if len(query) > settings.max_query_chars:
-            raise InputValidationError(f"The query is longer than {settings.max_query_chars} characters.")
-        config = services.retrieval.model_copy(update={"k": k + len(skip)})
-        hits = [hit.item_id for hit in services.searcher.search(query, constraints.filters, config).hits]
-        ids = [item_id for item_id in hits if item_id not in skip][:k]
-        if not ids:
-            return Dishes(dishes=[], note="No dish meets all of these constraints; relaxing one may help.")
-        details = services.catalog.get_dishes(ids)
-        allowed = [dish for dish in details if not dish_violations(dish, constraints)]
-        if len(allowed) != len(details):  # search filters in SQL first, so this means the two rules disagree
-            dropped = sorted({dish.item_id for dish in details} - {dish.item_id for dish in allowed})
-            logger.error("search returned dishes that break the constraints", extra={"item_ids": dropped})
-        return Dishes(dishes=[summary_of(dish) for dish in allowed])
+    server: MCPServer = MCPServer(
+        name="food-concierge",
+        title="Food Concierge",
+        version=__version__,
+        instructions=INSTRUCTIONS,
+        middleware=[ToolAccess(settings)],
+    )
+    search = services.search.search
 
     @server.tool(annotations=READ_ONLY)
     def search_dishes(

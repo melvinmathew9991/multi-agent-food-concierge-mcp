@@ -2,7 +2,7 @@
 
 A multimodal food concierge: a LangGraph agent plans meals and recommends dishes from text and photos using tools served over the Model Context Protocol (MCP). Dietary and allergen constraints are enforced in code by the tools and a deterministic verifier, every run is traced and evaluated with Langfuse, and the whole stack runs at zero cost on free tiers and local models.
 
-> **Status:** under active development. Phases 0–2 are complete: the model layer, and the catalog with allergen safety, storage, search indexes, build flows and a measured vision model ([ADR-0007](docs/adr/0007-vision-model-and-vision-allergen-tags.md)). Phase 3 (retrieval evaluation) is in progress: the retrieval stages, the evaluation package, the query sets, the original approach re-implemented as a baseline, the CI retrieval gate and the `evaluate`/`report` flows are built; the owner's relevance grades and ADR-0001 (the chosen retrieval stack) are next, and 113 of the 127 image queries have their Groq descriptions. Phase 4 has started with groundwork that doesn't wait on the grades: per-model usage caps and a daily photo budget, the vision service, refusing linked images, digest-pinned images and vision tags that skip negated terms. See [`docs/planning/phases.md`](docs/planning/phases.md) for the plan, [`CHANGELOG.md`](CHANGELOG.md) for progress and [`docs/baseline-defects.md`](docs/baseline-defects.md) for what is being fixed from the original implementation.
+> **Status:** under active development. Phases 0–2 are complete: the model layer, and the catalog with allergen safety, storage, search indexes, build flows and a measured vision model ([ADR-0007](docs/adr/0007-vision-model-and-vision-allergen-tags.md)). Phase 3 (retrieval evaluation) is built, and waits on the owner's relevance grades for ADR-0001, the choice of retrieval stack. Phase 4 is well along: the domain services, an MCP server with 6 tools, 4 resources and 2 prompts, and an HTTP server with scoped tokens and rate limits are built; the Claude Desktop guide and the first deploy are next. See [`docs/planning/phases.md`](docs/planning/phases.md) for the plan, [`CHANGELOG.md`](CHANGELOG.md) for progress and [`docs/baseline-defects.md`](docs/baseline-defects.md) for what is being fixed from the original implementation.
 
 > **Acknowledgement:** this is an independent rebuild of a course exercise on multimodal RAG. No course code, data or images are redistributed; the catalog in this repository is authored for this project.
 
@@ -49,7 +49,9 @@ Catalog photos are maintained by hand, never by CI:
 ```bash
 python scripts/fetch_photos.py sync    # fetch the approved Commons photos into the local cache and verify their hashes
 python scripts/describe_photos.py      # describe new photos with the local Ollama vision model (qwen2.5vl:7b)
-``` The catalog is synthetic by design; see [`docs/data-card.md`](docs/data-card.md) and [`data/raw/README.md`](data/raw/README.md).
+```
+
+The catalog is synthetic by design; see [`docs/data-card.md`](docs/data-card.md) and [`data/raw/README.md`](data/raw/README.md).
 
 ## Evaluate retrieval
 
@@ -63,6 +65,28 @@ python -m food_concierge.flows report             # render docs/evaluation.md fr
 ```
 
 The latest numbers are in [`docs/evaluation.md`](docs/evaluation.md), and what each dataset, cache and result file holds is in [`eval/README.md`](eval/README.md). Rebuilding the caches (`scripts/build_eval_cache.py build`) downloads the models and is done locally, never in CI.
+
+## Run the MCP server
+
+Build the catalog and indexes first. On stdio, for Claude Desktop or MCP Inspector, the server runs as your own process and every tool is available:
+
+```bash
+python -m food_concierge.mcp_server
+```
+
+Over HTTP, with health checks, a retrieval-only search endpoint and MCP at `/mcp` (Streamable HTTP, stateless, JSON responses):
+
+```bash
+python -m food_concierge.api           # http://127.0.0.1:8000 (API_HOST, API_PORT)
+curl -s localhost:8000/v1/search -H 'content-type: application/json' \
+  -d '{"query": "dosa", "diet": "vegan", "exclude_allergens": ["peanuts"], "k": 3}'
+```
+
+| Tools | Resources | Prompts |
+|---|---|---|
+| `search_dishes`, `find_similar`, `get_dish`, `check_allergens`, `meal_totals`, `describe_image` | `menu://catalog`, `menu://dishes/{dish_id}`, `menu://dishes/{dish_id}/image`, `menu://policy/allergens` | `plan_meal`, `find_similar_dish` |
+
+Search never returns a dish that breaks the constraints given: it filters in SQL before ranking and re-checks every result. Over HTTP a request without a token gets the public scope (search and the read-only tools); `describe_image`, which spends the hosted vision quota, needs the `agent` token (`API_TOKEN_AGENT`), sent as `Authorization: Bearer <token>`. A token that matches none is refused. Callers are rate-limited (`RATE_LIMIT_PER_MIN` each, `RATE_LIMIT_GLOBAL_PER_MIN` in all), and MCP answers only the hosts in `ALLOWED_HOSTS`, so add the deployed host there. Allergen information is derived and comes with a disclaimer; it is not medical advice.
 
 ## Tracing (optional)
 

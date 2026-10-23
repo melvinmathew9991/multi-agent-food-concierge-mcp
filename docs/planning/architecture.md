@@ -190,7 +190,7 @@ Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from 
 
 ## 9. Configuration and secrets
 
-`pydantic-settings`; `.env` locally; HF Space secrets and Streamlit secrets in production. Keys: `GROQ_API_KEY`, `GEMINI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`, `API_TOKEN_PUBLIC` / `API_TOKEN_AGENT` / `API_TOKEN_ADMIN`; optional `AWS_*` (Bedrock, off), `OPENAI_API_KEY` (off). `.env.example` lists every key and a test checks it against `Settings`; unknown keys in `.env` are rejected at startup. Model names, fallback order, budgets and limits are all settings. Free-tier model names are verified at implementation time and recorded in an ADR.
+`pydantic-settings`; `.env` locally; HF Space secrets and Streamlit secrets in production. Keys: `GROQ_API_KEY`, `GEMINI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`, `API_TOKEN_PUBLIC` / `API_TOKEN_AGENT` / `API_TOKEN_ADMIN` (no token is the public scope), `ALLOWED_HOSTS` (the deployed host), `RATE_LIMIT_PER_MIN` / `RATE_LIMIT_GLOBAL_PER_MIN`; optional `AWS_*` (Bedrock, off), `OPENAI_API_KEY` (off). `.env.example` lists every key and a test checks it against `Settings`; unknown keys in `.env` are rejected at startup. Model names, fallback order, budgets and limits are all settings. Free-tier model names are verified at implementation time and recorded in an ADR.
 
 ## 10. Zero-cost guardrails
 
@@ -205,9 +205,9 @@ Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from 
 
 | Component | Where | Notes |
 |---|---|---|
-| API + MCP (HTTP) | Hugging Face Space (Docker SDK, free CPU) | Sleeps when idle, cold start on wake; ephemeral disk (catalog/index baked in at build; checkpoints are demo-only) |
+| API + MCP (HTTP) | Hugging Face Space (Docker SDK, free CPU); `python -m food_concierge.api` locally | Sleeps when idle, cold start on wake; ephemeral disk (catalog/index baked in at build; checkpoints are demo-only) |
 | UI | Streamlit Community Cloud | Calls the Space URL; secrets in Streamlit settings |
-| MCP (stdio) | Local: `uvx`/`python -m food_concierge.mcp_server` | Claude Desktop config in `docs/mcp.md` |
+| MCP (stdio) | Local: `python -m food_concierge.mcp_server` | Every scope (the local user's own process); Claude Desktop config in `docs/mcp.md` (P4 item 5) |
 | Tracing | Langfuse Cloud Hobby (demo), Docker Compose self-host (dev) | Durable traces/scores/datasets |
 | CI/CD | GitHub Actions → push to HF Space on tag | Lint, tests, gitleaks, pip-audit, eval gates, docker build |
 
@@ -221,16 +221,16 @@ multi-agent-food-concierge-mcp/
 │   ├── models/          # router: Groq/Gemini/Ollama (OpenAI-compatible), Bedrock (stubbed), fake; fastembed wrapper
 │   ├── ingestion/       # loader, schemas, taxonomy, normalize, allergens, photos, build, describe
 │   ├── storage/         # catalog_db (SQLite schema, builder, filters), indexes (build, manifest, load)
-│   ├── services/        # catalog, retrieval, allergens, nutrition, constraints, vision  (no LLM imports)
-│   ├── mcp_server/      # FastMCP server: tools, resources, prompts; __main__ (stdio)
+│   ├── services/        # catalog, retrieval, search, allergens, nutrition, constraints, vision  (no LLM imports)
+│   ├── mcp_server/      # MCP server (SDK 2.x MCPServer): tools, resources, prompts; per-call scope checks; __main__ (stdio)
 │   ├── agent/           # LangGraph: supervisor, specialists, verifier, memory, single-agent baseline
 │   ├── guardrails/      # injection classifier, content safety, spotlighting, output checks
-│   ├── security/        # token scopes, tool allow-lists, audit events, trace masking
+│   ├── security/        # token scopes, per-tool scopes, rate limits; agent allow-lists (P5)
 │   ├── a2a_server/      # Agent Card, task executor wrapping the graph
 │   ├── evaluation/      # datasets, metrics, bootstrap, caches, runner, original approach (C0), gate, results, report, Langfuse mirror
 │   ├── flows/           # Prefect flows: ingest, build_index, evaluate, report
 │   ├── prompts/         # versioned YAML prompts + loader
-│   └── api/             # FastAPI app, routes, SSE, middleware
+│   └── api/             # FastAPI app: health, ready, /v1/search, /mcp, access gate; agent routes and SSE (P5–P7)
 ├── frontend/            # Streamlit client (api_client, components, .streamlit/config.toml)
 ├── eval/                # data only: datasets/, caches/, gates/, results/ (runner code in src/food_concierge/evaluation/)
 ├── scripts/             # build and photo tools; eval: label_queries, image_queries, original_baseline, build_eval_cache, retrieval_gate
@@ -248,7 +248,7 @@ multi-agent-food-concierge-mcp/
 |---|---|
 | Language | Python 3.11 |
 | Agent | `langgraph`, `langgraph-checkpoint-sqlite`, `langchain-core`, `langchain-openai` (OpenAI-compatible: Groq, Gemini, Ollama), `langchain-aws` (Bedrock, stubbed), `langchain-mcp-adapters` |
-| Protocol | `mcp` (official SDK, FastMCP) |
+| Protocol | `mcp` 2.x (official SDK; `MCPServer`, the 1.x `FastMCP`) |
 | Retrieval | `faiss-cpu`, `qdrant-client` (in memory), `fastembed` (embeddings + cross-encoder rerank), `rank-bm25`, `numpy`, SQLite |
 | Interop | `a2a-sdk` |
 | Workflows | `prefect` (OSS) |

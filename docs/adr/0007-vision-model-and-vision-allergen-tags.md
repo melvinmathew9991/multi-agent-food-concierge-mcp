@@ -71,3 +71,19 @@ Why:
 - **Descriptions can misname proteins** ("meatballs" for muthia). Image queries search with the description, so a vegetarian dish can rank below meat dishes for its own photo, but diet and allergen filters come from catalog data, never from a description. P3 measures image-query retrieval with these descriptions.
 - **Lexicon follow-ups:** negations ("no nuts") and hedged alternatives ("spices or nuts") produce false terms in both models. These now cost a chip rather than a hidden dish, and are worth fixing when the lexicon next changes. (Negations done in #54: descriptions skip terms they deny, so the Groq sample's false terms fell from 3 of 24 to 2 of 23; the local sample has no negated terms. Hedged alternatives stay: 12 of the 16 hedged terms on the two samples are right, "cream or yogurt" among them, so skipping them would drop more true warnings than false ones.)
 - **Revisit** when the catalog includes real menus whose ingredient lists have gaps (vision may then catch allergens, and Option A becomes worth measuring again), when Groq lists, renames or retires vision models, when Gemini's free-tier terms change, or when a paid tier is allowed. Any new vision model must pass `scripts/vision_measurement.py describe` and an owner-reviewed sample first.
+
+## Update 2026-10-23: image size (#53)
+
+The 30-photo sample was described again at 768 px (`eval/datasets/vision_descriptions_groq_768.jsonl`, `scripts/vision_measurement.py describe --provider groq --px 768`) to test the expected saving of about 45% (optimization.md §2.4).
+
+| Shape sent | Tokens at 1,024 px | Tokens at 768 px | Photos |
+|---|---|---|---|
+| Wide (about 16:9 to 2:1) | about 900 | about 900 | 4 |
+| Square or near square | about 1,420 | about 1,420 | 6 |
+| 4:3 or 3:2 | about 1,930 | about 1,930 | 20 |
+
+Every photo's count stayed within 2% (median 1,922 at 1,024 px, 1,924 at 768 px). The endpoint evidently rescales each image to a fixed size for its aspect ratio, so the count follows the shape and not the pixels sent.
+- **The size stays at 1,024 px** (`DESCRIBE_PX`, `VISION_IMAGE_PX`). A smaller image saves no tokens and can only lose detail, so the 768 px descriptions were not scored; the size decision does not depend on them.
+- **Photo throughput** stays about 100 a day on the daily token cap, and is set by the photos' shapes, not by downscaling.
+- Wide images cost about half as much as 4:3 ones, but cropping a photo to save tokens cuts out part of the dish; it would need its own accuracy test.
+- Re-measure if the vision model or the endpoint changes, since the rescaling is the provider's and is not documented.

@@ -142,11 +142,11 @@ def describe_missing(
     return new
 
 
-def describe(model: BaseChatModel, image: bytes, prompt: str) -> tuple[str, int]:
-    """One description of ``image`` (any original), sent at ``DESCRIBE_PX`` without metadata; text and latency."""
-    resized = make_thumbnail(image, DESCRIBE_PX)
+def describe(model: BaseChatModel, image: bytes, prompt: str, px: int = DESCRIBE_PX) -> tuple[str, int]:
+    """One description of ``image`` (any original), sent at ``px`` (default ``DESCRIBE_PX``) without metadata."""
+    resized = make_thumbnail(image, px)
     return describe_data_uri(
-        model, clean_image(resized, max_bytes=len(resized) + 1, max_pixels=DESCRIBE_PX * DESCRIBE_PX).data_uri, prompt
+        model, clean_image(resized, max_bytes=len(resized) + 1, max_pixels=px * px).data_uri, prompt
     )
 
 

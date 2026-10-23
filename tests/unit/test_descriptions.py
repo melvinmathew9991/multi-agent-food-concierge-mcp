@@ -20,6 +20,7 @@ from food_concierge.ingestion.descriptions import (
     DESCRIPTIONS_FILE,
     ImageDescription,
     Variant,
+    describe,
     describe_missing,
     read_descriptions,
     write_descriptions,
@@ -92,6 +93,17 @@ def test_describe_missing_describes_each_photo_once_and_resumes(tmp_path: Path) 
         assert max(image.size) == DESCRIBE_PX
         assert "exif" not in image.info
     assert len(read_descriptions(path)) == 4
+
+
+def test_describe_sends_the_photo_at_the_size_asked_for() -> None:
+    model = ScriptedChatModel(script=[reply("A curry.")])
+
+    text, _ = describe(model, jpeg(), "Describe it.", px=768)
+
+    sent = model.calls[0][0].content[1]["image_url"]["url"]  # type: ignore[index]
+    with Image.open(io.BytesIO(base64.b64decode(sent.split(",", 1)[1]))) as image:
+        assert max(image.size) == 768
+    assert text == "A curry."
 
 
 def test_a_new_prompt_version_regenerates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

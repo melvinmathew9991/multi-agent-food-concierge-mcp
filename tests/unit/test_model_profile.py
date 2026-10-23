@@ -89,6 +89,36 @@ def test_tool_argument_scoring(args: dict[str, object], correct: bool) -> None:
     assert profile.tool_args_correct(args, rules) is correct
 
 
+@pytest.mark.parametrize(
+    ("call", "scores"),
+    [
+        ({"name": "get_dish_details", "args": {"dish_id": "D-0600"}}, (True, True)),
+        ({"name": "meal_totals", "args": {"dish_ids": ["d-0600"]}}, (True, True)),
+        ({"name": "meal_totals", "args": {"dish_ids": ["d-0601"]}}, (True, False)),
+        ({"name": "check_allergens", "args": {"dish_id": "d-0600", "allergens": []}}, (False, False)),
+        (None, (False, False)),
+    ],
+    ids=["first-option", "second-option", "right-tool-wrong-args", "wrong-tool", "no-call"],
+)
+def test_tool_call_scoring_accepts_a_list_of_options(call: dict[str, object] | None, scores: tuple[bool, bool]) -> None:
+    expect = [
+        {"name": "get_dish_details", "args": {"dish_id": {"equals": "d-0600"}}},
+        {"name": "meal_totals", "args": {"dish_ids": {"set": ["d-0600"]}}},
+    ]
+
+    assert profile.tool_call_correct(call, expect) == scores
+
+
+def test_tool_call_scoring_with_one_expectation_accepts_only_that_tool() -> None:
+    expect = {"name": "get_dish_details", "args": {"dish_id": {"equals": "d-0600"}}}
+
+    details = {"name": "get_dish_details", "args": {"dish_id": "d-0600"}}
+    totals = {"name": "meal_totals", "args": {"dish_ids": ["d-0600"]}}
+
+    assert profile.tool_call_correct(details, expect) == (True, True)
+    assert profile.tool_call_correct(totals, expect) == (False, False)
+
+
 def test_dataset_is_well_formed() -> None:
     dataset = yaml.safe_load(profile.DATASET.read_text(encoding="utf-8"))
     tool_names = {tool.__name__ for tool in profile.TOOLS}
@@ -103,15 +133,16 @@ def test_dataset_is_well_formed() -> None:
         expect = item["expect"] if isinstance(item["expect"], list) else [item["expect"]]
         assert set(expect) <= routes
     for item in dataset["tools"]:
-        assert item["expect"]["name"] in tool_names
-        assert set(item["expect"]["args"]) <= set(getattr(profile, item["expect"]["name"]).model_fields)
+        for option in item["expect"] if isinstance(item["expect"], list) else [item["expect"]]:
+            assert option["name"] in tool_names
+            assert set(option["args"]) <= set(getattr(profile, option["name"]).model_fields)
 
     # #51: at least 30 each, and the test split covers every route and every tool.
     test = profile.select(dataset, "test")
     assert len(dataset["routing"]) >= 30
     assert len(dataset["tools"]) >= 30
     assert {item["expect"] for item in test["routing"] if isinstance(item["expect"], str)} == routes
-    assert {item["expect"]["name"] for item in test["tools"]} == tool_names
+    assert {item["expect"]["name"] for item in test["tools"] if isinstance(item["expect"], dict)} == tool_names
 
 
 @pytest.mark.parametrize(

@@ -216,6 +216,13 @@ def tool_args_correct(args: dict[str, Any], expect: dict[str, dict[str, Any]]) -
     return True
 
 
+def tool_call_correct(call: dict[str, Any] | None, expect: dict[str, Any] | list[dict[str, Any]]) -> tuple[bool, bool]:
+    """(right tool, right tool and arguments). A list of expectations accepts any of them."""
+    options = expect if isinstance(expect, list) else [expect]
+    matching = [option for option in options if call is not None and call["name"] == option["name"]]
+    return bool(matching), any(tool_args_correct(call["args"], option["args"]) for option in matching if call)
+
+
 # ---------------------------------------------------------------------------
 # Running a candidate
 # ---------------------------------------------------------------------------
@@ -308,10 +315,10 @@ def run_tool(candidate: Candidate, item: dict[str, Any]) -> dict[str, Any]:
     reply, latency, recorder, error = candidate.timed(lambda config: model.invoke(messages, config=config))
     calls = reply.tool_calls if isinstance(reply, AIMessage) else []
     first = calls[0] if calls else None
-    right_tool = first is not None and first["name"] == item["expect"]["name"]
+    right_tool, correct = tool_call_correct(cast(dict[str, Any] | None, first), item["expect"])
     return {
         "id": item["id"], "task": "tools", "called": first is not None, "right_tool": right_tool,
-        "correct": right_tool and first is not None and tool_args_correct(first["args"], item["expect"]["args"]),
+        "correct": correct,
         "latency_ms": round(latency), "input_tokens": recorder.input_tokens,
         "output_tokens": recorder.output_tokens, "error": error,
         "answer": {"name": first["name"], "args": first["args"]} if first else None,

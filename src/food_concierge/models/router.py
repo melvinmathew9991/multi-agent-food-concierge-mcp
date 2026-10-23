@@ -14,6 +14,7 @@ providers are allowed. Each provider model is wrapped so that it
 - counts every attempt against its model's call and token caps, and a vision call also
   against the daily photo budget (``usage.py``); it is refused with
   ``BudgetExceededError``, which falls back, once a cap is reached.
+  A stream's usage is counted once, however often the provider repeats it.
 
 Roles other than ``chat`` run at temperature 0, with a seed where the provider
 accepts one. Typed output goes through ``models/structured.py``.
@@ -41,7 +42,7 @@ from botocore.config import Config as BotoConfig
 from langchain_aws import ChatBedrockConverse
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel, LangSmithParams, LanguageModelInput
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, UsageMetadata
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
@@ -112,6 +113,32 @@ def _require_output(result: ChatResult, provider: str, budgets: Sequence[Budget]
     raise _empty_reply(provider)
 
 
+class _StreamedUsage:
+    """The usage one stream reports, recorded once when it ends.
+
+    Providers repeat it: Gemini sends a running total on every chunk, Groq the final totals twice
+    when asked (probed 2026-10-23). Each chunk's usage is taken off, the last one kept, and it is
+    yielded once as a usage-only chunk, so the ledger and LangChain's chunk sum both count it once.
+    """
+
+    def __init__(self, budgets: Sequence[Budget]) -> None:
+        self.budgets = budgets
+        self.last: UsageMetadata | None = None
+
+    def take(self, chunk: ChatGenerationChunk) -> None:
+        message = chunk.message
+        if isinstance(message, AIMessageChunk) and message.usage_metadata:
+            self.last = message.usage_metadata
+            message.usage_metadata = None
+
+    def chunk(self) -> list[ChatGenerationChunk]:
+        return [ChatGenerationChunk(message=AIMessageChunk(content="", usage_metadata=self.last))] if self.last else []
+
+    def record(self) -> None:
+        if self.last:
+            _record_usage(AIMessage(content="", usage_metadata=self.last), self.budgets)
+
+
 def _require_streamed_output(
     chunks: Iterator[ChatGenerationChunk], provider: str, budgets: Sequence[Budget]
 ) -> Iterator[ChatGenerationChunk]:
@@ -119,17 +146,23 @@ def _require_streamed_output(
     # moves on only if a stream fails before its first chunk.
     held: list[ChatGenerationChunk] = []
     started = False
-    for chunk in chunks:
-        _record_usage(chunk.message, budgets)
-        if not started and not _has_output(chunk.message):
-            held.append(chunk)
-            continue
+    usage = _StreamedUsage(budgets)
+    try:
+        for chunk in chunks:
+            usage.take(chunk)
+            if not started and not _has_output(chunk.message):
+                held.append(chunk)
+                continue
+            if not started:
+                started = True
+                yield from held
+            yield chunk
         if not started:
-            started = True
-            yield from held
-        yield chunk
-    if not started:
-        raise _empty_reply(provider)
+            raise _empty_reply(provider)
+        yield from usage.chunk()
+    finally:
+        # Also when the stream fails or the caller stops reading: the provider counted the tokens.
+        usage.record()
 
 
 async def _arequire_streamed_output(
@@ -137,18 +170,24 @@ async def _arequire_streamed_output(
 ) -> AsyncIterator[ChatGenerationChunk]:
     held: list[ChatGenerationChunk] = []
     started = False
-    async for chunk in chunks:
-        _record_usage(chunk.message, budgets)
-        if not started and not _has_output(chunk.message):
-            held.append(chunk)
-            continue
+    usage = _StreamedUsage(budgets)
+    try:
+        async for chunk in chunks:
+            usage.take(chunk)
+            if not started and not _has_output(chunk.message):
+                held.append(chunk)
+                continue
+            if not started:
+                started = True
+                for early in held:
+                    yield early
+            yield chunk
         if not started:
-            started = True
-            for early in held:
-                yield early
-        yield chunk
-    if not started:
-        raise _empty_reply(provider)
+            raise _empty_reply(provider)
+        for last in usage.chunk():
+            yield last
+    finally:
+        usage.record()
 
 
 class GuardedChatOpenAI(ChatOpenAI):
@@ -335,6 +374,8 @@ def build_chat_model(
         max_image_bytes=settings.max_image_bytes,
         max_image_pixels=settings.max_image_pixels,
         budgets=budgets_for(settings, provider, role),
+        # Ask for usage on streams too (stream_options.include_usage); Groq, Gemini and Ollama report it.
+        stream_usage=True,
         # These endpoints implement Chat Completions only; never switch to the Responses API.
         use_responses_api=False,
         http_client=http_client,

@@ -82,7 +82,7 @@ Calls after an idle stretch appear slow. So whether the fallback works inside th
 Carried forward:
 - Gemini latency after idle periods, to be measured over a longer window **before the P4 demo** relies on the fallback (ADR-0006 revisit trigger). *Done 2026-10-22 (#50, #97, #100): latency follows Google's load, not idle; Gemini is a best-effort fallback (ADR-0006 update).*
 - Larger routing and tool-call sets with a dev/test split **before P5** (audit M5). *Done 2026-10-23 (#51, #99, #101, #103): test split run once, both models 15/16 routing and 16/16 tool calls; ADR-0006 unchanged.*
-- Streamed token usage for the token cap, which needs a live probe before `stream_usage` is enabled.
+- Streamed token usage for the token cap, which needs a live probe before `stream_usage` is enabled. *Done 2026-10-23 (#52): probed, enabled, counted once per stream.*
 - Low-severity audit items as their code is touched.
 
 ## Phase 2 — Data, safety and ingestion flows · `feat/p2-*` · L

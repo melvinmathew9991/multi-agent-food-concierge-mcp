@@ -21,9 +21,8 @@ Within a budget:
   24 hours (Groq's daily cap, found 2026-10-11, ADR-0007) are counted from the
   usage each reply reports. A call's size is unknown until it returns, so new
   calls stop once a window's tokens reach the cap; the call that crosses it may
-  still get a 429, which falls back like any other. Streams report usage only
-  when the endpoint is asked for it (``stream_usage``), which the router does
-  not do yet, so streamed calls count toward call caps only.
+  still get a 429, which falls back like any other. The router asks streams
+  for their usage too (``stream_usage``) and records it once per stream.
 
 Counts live in this process: they restart with it, and separate worker
 processes count separately, so caps are per process. A persistent, shared

@@ -1,0 +1,851 @@
+{
+ "run": {
+  "started": "2026-10-23T03:24:06+00:00",
+  "commit": "c6e1c17",
+  "dataset": "eval/datasets/model_profile.yaml",
+  "dataset_sha256": "9f6cb74fe5d611c9fdfbc0d0d8220a27b8b1278ee04797790fe1fa153ad1e500",
+  "dataset_version": 2,
+  "split": "dev",
+  "max_output_tokens": 400,
+  "reasoning_effort": {
+   "chat": "low",
+   "router": "low"
+  },
+  "chat_temperature": 0.2,
+  "model_seed": 7,
+  "attempt_timeout_s": 30.0
+ },
+ "candidates": [
+  {
+   "provider": "gemini",
+   "model": "gemini-3.5-flash-lite",
+   "probe": {
+    "ok": true,
+    "error": null,
+    "latency_ms": 1149,
+    "reply": "ok",
+    "output_tokens": 1
+   },
+   "metrics": {
+    "structured_valid_first_try": {
+     "rate": 0.962,
+     "k": 25,
+     "n": 26,
+     "ci95": [
+      0.811,
+      0.993
+     ]
+    },
+    "structured_valid_after_repair": {
+     "rate": 0.962,
+     "k": 25,
+     "n": 26,
+     "ci95": [
+      0.811,
+      0.993
+     ]
+    },
+    "extraction_correct": {
+     "rate": 0.9,
+     "k": 9,
+     "n": 10,
+     "ci95": [
+      0.596,
+      0.982
+     ]
+    },
+    "routing_correct": {
+     "rate": 1.0,
+     "k": 16,
+     "n": 16,
+     "ci95": [
+      0.806,
+      1.0
+     ]
+    },
+    "tool_called": {
+     "rate": 1.0,
+     "k": 16,
+     "n": 16,
+     "ci95": [
+      0.806,
+      1.0
+     ]
+    },
+    "tool_correct": {
+     "rate": 1.0,
+     "k": 16,
+     "n": 16,
+     "ci95": [
+      0.806,
+      1.0
+     ]
+    },
+    "latency_ms": {
+     "p50": 1198,
+     "p95": 25162,
+     "n": 41
+    },
+    "over_production_timeout": 12,
+    "production_timeout_s": 5.0,
+    "mean_tokens": {
+     "input": 297,
+     "output": 27
+    },
+    "errors": {
+     "provider_timeout": 1
+    }
+   },
+   "items": [
+    {
+     "id": "ex01",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1113,
+     "input_tokens": 396,
+     "output_tokens": 44,
+     "error": null,
+     "answer": {
+      "diet": "vegan",
+      "max_calories": 600,
+      "budget_inr": null,
+      "exclude_allergens": [
+       "peanuts"
+      ],
+      "courses": null
+     }
+    },
+    {
+     "id": "ex02",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1001,
+     "input_tokens": 401,
+     "output_tokens": 40,
+     "error": null,
+     "answer": {
+      "diet": "vegetarian",
+      "max_calories": null,
+      "budget_inr": 400,
+      "exclude_allergens": [],
+      "courses": 3
+     }
+    },
+    {
+     "id": "ex03",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1301,
+     "input_tokens": 399,
+     "output_tokens": 48,
+     "error": null,
+     "answer": {
+      "diet": "eggless",
+      "max_calories": null,
+      "budget_inr": null,
+      "exclude_allergens": [
+       "sesame",
+       "mustard"
+      ],
+      "courses": null
+     }
+    },
+    {
+     "id": "ex04",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1499,
+     "input_tokens": 408,
+     "output_tokens": 45,
+     "error": null,
+     "answer": {
+      "diet": "any",
+      "max_calories": 800,
+      "budget_inr": 350,
+      "exclude_allergens": [
+       "gluten"
+      ],
+      "courses": 2
+     }
+    },
+    {
+     "id": "ex05",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 891,
+     "input_tokens": 388,
+     "output_tokens": 38,
+     "error": null,
+     "answer": {
+      "diet": "any",
+      "max_calories": null,
+      "budget_inr": null,
+      "exclude_allergens": [],
+      "courses": null
+     }
+    },
+    {
+     "id": "ex06",
+     "task": "extraction",
+     "valid_first": false,
+     "valid_final": false,
+     "correct": false,
+     "model_calls": 1,
+     "latency_ms": 32102,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "error": "provider_timeout",
+     "answer": null
+    },
+    {
+     "id": "ex07",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1126,
+     "input_tokens": 404,
+     "output_tokens": 45,
+     "error": null,
+     "answer": {
+      "diet": "any",
+      "max_calories": null,
+      "budget_inr": 1200,
+      "exclude_allergens": [
+       "shellfish"
+      ],
+      "courses": 4
+     }
+    },
+    {
+     "id": "ex08",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 10406,
+     "input_tokens": 405,
+     "output_tokens": 49,
+     "error": null,
+     "answer": {
+      "diet": "vegetarian",
+      "max_calories": 300,
+      "budget_inr": null,
+      "exclude_allergens": [
+       "tree_nuts",
+       "soy"
+      ],
+      "courses": null
+     }
+    },
+    {
+     "id": "ex09",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 9639,
+     "input_tokens": 404,
+     "output_tokens": 47,
+     "error": null,
+     "answer": {
+      "diet": "any",
+      "max_calories": null,
+      "budget_inr": 250,
+      "exclude_allergens": [
+       "eggs",
+       "fish"
+      ],
+      "courses": null
+     }
+    },
+    {
+     "id": "ex10",
+     "task": "extraction",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 960,
+     "input_tokens": 410,
+     "output_tokens": 45,
+     "error": null,
+     "answer": {
+      "diet": "vegetarian",
+      "max_calories": 700,
+      "budget_inr": 500,
+      "exclude_allergens": [
+       "gluten"
+      ],
+      "courses": 3
+     }
+    },
+    {
+     "id": "rt01",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1283,
+     "input_tokens": 173,
+     "output_tokens": 14,
+     "error": null,
+     "answer": {
+      "route": "recommend"
+     }
+    },
+    {
+     "id": "rt02",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 892,
+     "input_tokens": 173,
+     "output_tokens": 16,
+     "error": null,
+     "answer": {
+      "route": "meal_plan"
+     }
+    },
+    {
+     "id": "rt03",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1253,
+     "input_tokens": 168,
+     "output_tokens": 16,
+     "error": null,
+     "answer": {
+      "route": "dish_info"
+     }
+    },
+    {
+     "id": "rt04",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 3799,
+     "input_tokens": 165,
+     "output_tokens": 15,
+     "error": null,
+     "answer": {
+      "route": "smalltalk"
+     }
+    },
+    {
+     "id": "rt05",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 819,
+     "input_tokens": 169,
+     "output_tokens": 18,
+     "error": null,
+     "answer": {
+      "route": "out_of_scope"
+     }
+    },
+    {
+     "id": "rt06",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1198,
+     "input_tokens": 159,
+     "output_tokens": 15,
+     "error": null,
+     "answer": {
+      "route": "smalltalk"
+     }
+    },
+    {
+     "id": "rt07",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1198,
+     "input_tokens": 171,
+     "output_tokens": 14,
+     "error": null,
+     "answer": {
+      "route": "recommend"
+     }
+    },
+    {
+     "id": "rt08",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 26417,
+     "input_tokens": 172,
+     "output_tokens": 16,
+     "error": null,
+     "answer": {
+      "route": "dish_info"
+     }
+    },
+    {
+     "id": "rt09",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 20787,
+     "input_tokens": 174,
+     "output_tokens": 16,
+     "error": null,
+     "answer": {
+      "route": "meal_plan"
+     }
+    },
+    {
+     "id": "rt10",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 706,
+     "input_tokens": 168,
+     "output_tokens": 18,
+     "error": null,
+     "answer": {
+      "route": "out_of_scope"
+     }
+    },
+    {
+     "id": "rt11",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 945,
+     "input_tokens": 166,
+     "output_tokens": 14,
+     "error": null,
+     "answer": {
+      "route": "recommend"
+     }
+    },
+    {
+     "id": "rt12",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1716,
+     "input_tokens": 177,
+     "output_tokens": 14,
+     "error": null,
+     "answer": {
+      "route": "recommend"
+     }
+    },
+    {
+     "id": "rt13",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 1209,
+     "input_tokens": 169,
+     "output_tokens": 18,
+     "error": null,
+     "answer": {
+      "route": "out_of_scope"
+     }
+    },
+    {
+     "id": "rt14",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 21801,
+     "input_tokens": 166,
+     "output_tokens": 14,
+     "error": null,
+     "answer": {
+      "route": "recommend"
+     }
+    },
+    {
+     "id": "rt15",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 637,
+     "input_tokens": 171,
+     "output_tokens": 16,
+     "error": null,
+     "answer": {
+      "route": "dish_info"
+     }
+    },
+    {
+     "id": "rt16",
+     "task": "routing",
+     "valid_first": true,
+     "valid_final": true,
+     "correct": true,
+     "model_calls": 1,
+     "latency_ms": 23021,
+     "input_tokens": 173,
+     "output_tokens": 16,
+     "error": null,
+     "answer": {
+      "route": "meal_plan"
+     }
+    },
+    {
+     "id": "tl01",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 25162,
+     "input_tokens": 380,
+     "output_tokens": 35,
+     "error": null,
+     "answer": {
+      "name": "search_dishes",
+      "args": {
+       "query": "biryani",
+       "diet": "vegan",
+       "max_price_inr": 300
+      }
+     }
+    },
+    {
+     "id": "tl02",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 639,
+     "input_tokens": 382,
+     "output_tokens": 25,
+     "error": null,
+     "answer": {
+      "name": "get_dish_details",
+      "args": {
+       "dish_id": "d-0042"
+      }
+     }
+    },
+    {
+     "id": "tl03",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 882,
+     "input_tokens": 387,
+     "output_tokens": 37,
+     "error": null,
+     "answer": {
+      "name": "check_allergens",
+      "args": {
+       "dish_id": "d-0107",
+       "allergens": [
+        "peanuts",
+        "sesame"
+       ]
+      }
+     }
+    },
+    {
+     "id": "tl04",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 1041,
+     "input_tokens": 401,
+     "output_tokens": 41,
+     "error": null,
+     "answer": {
+      "name": "meal_totals",
+      "args": {
+       "dish_ids": [
+        "d-0042",
+        "d-0107",
+        "d-0213"
+       ]
+      }
+     }
+    },
+    {
+     "id": "tl05",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 18919,
+     "input_tokens": 377,
+     "output_tokens": 25,
+     "error": null,
+     "answer": {
+      "name": "search_dishes",
+      "args": {
+       "diet": "eggless",
+       "query": "dessert"
+      }
+     }
+    },
+    {
+     "id": "tl06",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 26576,
+     "input_tokens": 382,
+     "output_tokens": 35,
+     "error": null,
+     "answer": {
+      "name": "search_dishes",
+      "args": {
+       "query": "thali",
+       "diet": "vegetarian",
+       "max_price_inr": 250
+      }
+     }
+    },
+    {
+     "id": "tl07",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 654,
+     "input_tokens": 383,
+     "output_tokens": 25,
+     "error": null,
+     "answer": {
+      "name": "get_dish_details",
+      "args": {
+       "dish_id": "d-0311"
+      }
+     }
+    },
+    {
+     "id": "tl08",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 14652,
+     "input_tokens": 381,
+     "output_tokens": 31,
+     "error": null,
+     "answer": {
+      "name": "check_allergens",
+      "args": {
+       "allergens": [
+        "gluten"
+       ],
+       "dish_id": "d-0099"
+      }
+     }
+    },
+    {
+     "id": "tl09",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 790,
+     "input_tokens": 388,
+     "output_tokens": 32,
+     "error": null,
+     "answer": {
+      "name": "meal_totals",
+      "args": {
+       "dish_ids": [
+        "d-0005",
+        "d-0010"
+       ]
+      }
+     }
+    },
+    {
+     "id": "tl10",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 796,
+     "input_tokens": 380,
+     "output_tokens": 20,
+     "error": null,
+     "answer": {
+      "name": "search_dishes",
+      "args": {
+       "query": "paneer tikka"
+      }
+     }
+    },
+    {
+     "id": "tl11",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 881,
+     "input_tokens": 379,
+     "output_tokens": 25,
+     "error": null,
+     "answer": {
+      "name": "get_dish_details",
+      "args": {
+       "dish_id": "d-0042"
+      }
+     }
+    },
+    {
+     "id": "tl12",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 1133,
+     "input_tokens": 386,
+     "output_tokens": 31,
+     "error": null,
+     "answer": {
+      "name": "check_allergens",
+      "args": {
+       "allergens": [
+        "milk"
+       ],
+       "dish_id": "d-0150"
+      }
+     }
+    },
+    {
+     "id": "tl13",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 762,
+     "input_tokens": 383,
+     "output_tokens": 29,
+     "error": null,
+     "answer": {
+      "name": "search_dishes",
+      "args": {
+       "query": "dosa",
+       "max_price_inr": 120
+      }
+     }
+    },
+    {
+     "id": "tl14",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 15409,
+     "input_tokens": 391,
+     "output_tokens": 32,
+     "error": null,
+     "answer": {
+      "name": "meal_totals",
+      "args": {
+       "dish_ids": [
+        "d-0201",
+        "d-0202"
+       ]
+      }
+     }
+    },
+    {
+     "id": "tl15",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 621,
+     "input_tokens": 375,
+     "output_tokens": 24,
+     "error": null,
+     "answer": {
+      "name": "search_dishes",
+      "args": {
+       "diet": "vegan",
+       "query": "ice cream"
+      }
+     }
+    },
+    {
+     "id": "tl16",
+     "task": "tools",
+     "called": true,
+     "right_tool": true,
+     "correct": true,
+     "latency_ms": 12613,
+     "input_tokens": 387,
+     "output_tokens": 35,
+     "error": null,
+     "answer": {
+      "name": "check_allergens",
+      "args": {
+       "allergens": [
+        "soy",
+        "fish"
+       ],
+       "dish_id": "d-0077"
+      }
+     }
+    }
+   ],
+   "rate_limit_headers": {},
+   "http_statuses": {
+    "200": 42
+   }
+  }
+ ]
+}

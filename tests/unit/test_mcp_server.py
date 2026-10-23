@@ -7,7 +7,7 @@ import logging
 import random
 import runpy
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,14 +17,12 @@ from mcp import Client, MCPError
 from mcp.server.mcpserver import MCPServer
 from PIL import Image
 
-from food_concierge.config import REPO_ROOT, Settings
-from food_concierge.errors import NotReadyError
-from food_concierge.ingestion.allergens import load_lexicon, tag_item
-from food_concierge.ingestion.loader import load_catalog
+from food_concierge.config import Settings
+from food_concierge.errors import InputValidationError, NotReadyError
 from food_concierge.ingestion.taxonomy import Allergen, Cuisine, Diet
 from food_concierge.mcp_server import server as server_module
 from food_concierge.mcp_server import services as services_module
-from food_concierge.mcp_server.server import MAX_RESULTS, create_server
+from food_concierge.mcp_server.server import create_server
 from food_concierge.mcp_server.services import Services, build_services
 from food_concierge.models.embeddings import HashingEmbedder
 from food_concierge.models.fake import ScriptedChatModel
@@ -32,35 +30,17 @@ from food_concierge.services.allergens import DISCLAIMER
 from food_concierge.services.catalog import CatalogService
 from food_concierge.services.constraints import Constraints, dish_violations
 from food_concierge.services.retrieval import Hit, RetrievalConfig, Retriever, SearchResult
+from food_concierge.services.search import MAX_RESULTS
 from food_concierge.services.vision import DESCRIBE_IN_WORDS, VisionService
-from food_concierge.storage.catalog_db import CATALOG_DB, CatalogStore, Filters, build_catalog_db
-from food_concierge.storage.indexes import INDEX_DIR, build_indexes, load_indexes
+from food_concierge.storage.catalog_db import CATALOG_DB, CatalogStore, Filters
+from food_concierge.storage.indexes import INDEX_DIR, load_indexes
 
 A = Allergen
 
 
-def build_data(data_dir: Path, query_prefix: str = "") -> None:
-    """The catalog and indexes under ``data_dir``, as ``flows build`` makes them, with the hashing embedder."""
-    loaded = load_catalog(REPO_ROOT / "data" / "raw")
-    lexicon = load_lexicon(REPO_ROOT / "data" / "lexicon" / "allergens.yaml")
-    tags = {item.item_id: tag_item(item, lexicon) for item in loaded.catalog.items}
-    processed = data_dir / "processed"
-    build_catalog_db(loaded.catalog, tags, processed / CATALOG_DB, lexicon_version=1, source_sha256="x")
-    store = CatalogStore(processed / CATALOG_DB)
-    build_indexes(store, HashingEmbedder(query_prefix=query_prefix), processed / INDEX_DIR)
-    store.close()
-
-
 @pytest.fixture(scope="module")
-def data_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    path = tmp_path_factory.mktemp("data")
-    build_data(path)
-    return path
-
-
-@pytest.fixture(scope="module")
-def store(data_dir: Path) -> Iterator[CatalogStore]:
-    opened = CatalogStore(data_dir / "processed" / CATALOG_DB)
+def store(built_data_dir: Path) -> Iterator[CatalogStore]:
+    opened = CatalogStore(built_data_dir / "processed" / CATALOG_DB)
     yield opened
     opened.close()
 
@@ -204,7 +184,7 @@ async def test_a_result_that_breaks_the_constraints_is_dropped_and_logged(
 ) -> None:
     server = create_server(make_services(store, settings, searcher=Leaky()))
 
-    with caplog.at_level(logging.ERROR, logger="food_concierge.mcp_server.server"):
+    with caplog.at_level(logging.ERROR, logger="food_concierge.services.search"):
         failed, result = await call(server, "search_dishes", {"query": "anything", "exclude_allergens": ["dairy"]})
 
     assert not failed
@@ -351,13 +331,14 @@ async def test_the_prompts_carry_the_request_and_the_rules(server: MCPServer) ->
     assert "a crispy rice pancake" in similar.messages[0].content.text  # type: ignore[union-attr]
 
 
-def test_services_are_built_from_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_services_are_built_from_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, build_data: Callable[..., None]
+) -> None:
     settings = Settings(_env_file=None, data_dir=tmp_path, embed_provider="fake")
     build_data(tmp_path, settings.embed_query_prefix)
 
     built = build_services(settings)
     assert built.vision is None  # no vision model configured in tests
-    assert built.retrieval == RetrievalConfig()
     built.store.close()
 
     sentinel = object()
@@ -384,3 +365,10 @@ def test_the_entry_point_runs_the_server_on_stdio(monkeypatch: pytest.MonkeyPatc
     runpy.run_module("food_concierge.mcp_server", run_name="__main__")
 
     assert ran == ["stdio"]
+
+
+@pytest.mark.parametrize("k", [0, MAX_RESULTS + 1])
+def test_the_search_service_bounds_k_itself(store: CatalogStore, settings: Settings, k: int) -> None:
+    # The tool and the API validate k already; the service checks again, for any other caller.
+    with pytest.raises(InputValidationError, match=r"Ask for 1 to 10 dishes\."):
+        make_services(store, settings).search.search("curry", Constraints(), k)

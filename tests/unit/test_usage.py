@@ -3,8 +3,9 @@
 import json
 import logging
 import threading
+from collections.abc import Callable, Generator
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import boto3
 import httpx2
@@ -18,6 +19,7 @@ from food_concierge.models import deadline
 from food_concierge.models.deadline import model_deadline
 from food_concierge.models.router import build_chat_model, get_chat_model
 from food_concierge.models.usage import PHOTO_LIMIT, PHOTOS, Budget, Caps, UsageLedger, budgets_for, get_usage_ledger
+from food_concierge.telemetry import ModelCallRecorder
 
 GROQ = "api.groq.com"
 GEMINI = "generativelanguage.googleapis.com"
@@ -377,6 +379,74 @@ async def test_async_streamed_usage_is_counted_when_reported(settings: Settings)
     [chunk async for chunk in model.astream("hi")]
 
     assert get_usage_ledger().usage(GROQ_CHAT).tokens_last_minute == 42
+
+
+def _stream_with_usage(
+    *usages: dict[str, int] | None,
+    usage_only: dict[str, int] | None = None,
+    requests: list[httpx2.Request] | None = None,
+) -> httpx2.Client:
+    """One content chunk per entry, each carrying that usage, then an optional usage-only chunk."""
+    body = {"id": "c1", "object": "chat.completion.chunk", "created": 0, "model": "m"}
+    events: list[dict[str, Any]] = []
+    for i, usage in enumerate(usages):
+        finish = "stop" if i == len(usages) - 1 else None
+        delta = {"role": "assistant", "content": f"w{i} "}
+        events.append({**body, "choices": [{"index": 0, "delta": delta, "finish_reason": finish}], "usage": usage})
+    if usage_only:
+        events.append({**body, "choices": [], "usage": usage_only})
+    stream = "".join(f"data: {json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
+
+    def reply(request: httpx2.Request) -> httpx2.Response:
+        if requests is not None:
+            requests.append(request)
+        return httpx2.Response(200, text=stream)
+
+    return httpx2.Client(transport=httpx2.MockTransport(reply))
+
+
+def _usage(prompt: int, completion: int) -> dict[str, int]:
+    return {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion}
+
+
+def test_streams_ask_for_usage(settings: Settings) -> None:
+    requests: list[httpx2.Request] = []
+    model = build_chat_model("groq", "chat", settings, http_client=_stream_with_usage(None, requests=requests))
+
+    list(model.stream("hi"))
+
+    assert json.loads(requests[0].content)["stream_options"] == {"include_usage": True}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        # Gemini: a running total on every chunk (probed 2026-10-23).
+        lambda: _stream_with_usage(_usage(16, 13), _usage(16, 37), _usage(16, 63)),
+        # Groq: the final totals on the last content chunk and again on a usage-only chunk.
+        lambda: _stream_with_usage(None, _usage(16, 63), usage_only=_usage(16, 63)),
+    ],
+    ids=["running-totals", "repeated-totals"],
+)
+def test_a_streams_usage_is_counted_once(settings: Settings, client: Callable[[], httpx2.Client]) -> None:
+    model = build_chat_model("groq", "chat", settings, http_client=client())
+    recorder = ModelCallRecorder()
+
+    chunks = list(model.stream("hi", config={"callbacks": [recorder]}))
+
+    assert get_usage_ledger().usage(GROQ_CHAT).tokens_last_minute == 79
+    assert [c.usage_metadata["total_tokens"] for c in chunks if c.usage_metadata] == [79]
+    assert (recorder.input_tokens, recorder.output_tokens) == (16, 63)
+
+
+def test_a_stream_the_caller_abandons_still_counts_what_it_reported(settings: Settings) -> None:
+    model = build_chat_model("groq", "chat", settings, http_client=_stream_with_usage(_usage(16, 13), _usage(16, 37)))
+
+    stream = cast(Generator[Any], model.stream("hi"))
+    next(stream)
+    stream.close()
+
+    assert get_usage_ledger().usage(GROQ_CHAT).tokens_last_minute == 29
 
 
 def test_an_attempt_refused_by_the_deadline_uses_no_quota(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:

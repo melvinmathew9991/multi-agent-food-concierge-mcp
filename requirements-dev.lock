@@ -31,8 +31,10 @@ anyio==4.15.1 \
     #   httpx
     #   httpx2
     #   langsmith
+    #   mcp
     #   openai
     #   prefect
+    #   sse-starlette
     #   starlette
     #   streamlit
     #   watchfiles
@@ -742,7 +744,9 @@ cryptography==50.0.2 \
     --hash=sha256:f9f6143a8c75945eb960d9eb98905a441394abfa24afaae239d514ffb2586480 \
     --hash=sha256:fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb \
     --hash=sha256:fdd28f912fccfec1846a94e2e1e8f9b0012f557f0c46fe4f3eb0d7a87afcf90b
-    # via prefect
+    # via
+    #   prefect
+    #   pyjwt
 cyclonedx-python-lib==11.12.0 \
     --hash=sha256:0e807521a921a5c3cb8ce1153f8a61d29eedfe76a46aac2796b7c6b573391a54 \
     --hash=sha256:16767c4039de90c04e9f03348f8f0ed4b8ff842eaa7eefcad3a95685f970dacf
@@ -1099,6 +1103,7 @@ httpx2==2.13.1 \
     # via
     #   multi-agent-food-concierge-mcp (pyproject.toml)
     #   langsmith
+    #   mcp
     #   openai
 httpx2-jsfetch==1.0 ; python_full_version >= '3.12' and sys_platform == 'emscripten' \
     --hash=sha256:70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60 \
@@ -1290,6 +1295,7 @@ jsonschema==4.26.0 \
     --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
     # via
     #   altair
+    #   mcp
     #   prefect
 jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
@@ -1603,6 +1609,14 @@ markupsafe==3.0.3 \
     # via
     #   jinja2
     #   mako
+mcp==2.3.0 \
+    --hash=sha256:8b147a50441cf059dc88c684e0aeed3687f0aa0f39c6cde7b90330effd2b34d8 \
+    --hash=sha256:dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377
+    # via multi-agent-food-concierge-mcp (pyproject.toml)
+mcp-types==2.3.0 \
+    --hash=sha256:968efdbdaedfab06adae40d378a34395f1090c5921d4be3c9cde283aaf76d91d \
+    --hash=sha256:d1e46549edb35ee19a94940fcee6d1addd7e589ab7ea92dda83f5d84781fc362
+    # via mcp
 mdurl==0.1.2 \
     --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8 \
     --hash=sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba
@@ -2115,6 +2129,7 @@ opentelemetry-api==1.45.1 \
     #   multi-agent-food-concierge-mcp (pyproject.toml)
     #   fastapi
     #   langfuse
+    #   mcp
     #   opentelemetry-exporter-http-transport
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
@@ -2703,6 +2718,8 @@ pydantic==2.13.5 \
     #   langfuse
     #   langgraph
     #   langsmith
+    #   mcp
+    #   mcp-types
     #   openai
     #   prefect
     #   pydantic-extra-types
@@ -2857,6 +2874,10 @@ pygments==2.21.0 \
     #   pytest
     #   rich
     #   rich-rst
+pyjwt==2.15.1 \
+    --hash=sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193 \
+    --hash=sha256:4f259e80cdfb6b3fc18a7de51fd1ef9ec79652f25019bae68975ca2468a34df8
+    # via mcp
 pyparsing==3.3.3 \
     --hash=sha256:928ae7e20211f3b6f3915a72f06a0cfd29ab9d24279dd6346b6b1a7146397d36 \
     --hash=sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4
@@ -2900,6 +2921,7 @@ python-multipart==0.0.32 \
     --hash=sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23
     # via
     #   multi-agent-food-concierge-mcp (pyproject.toml)
+    #   mcp
     #   streamlit
 python-slugify==9.0.0 \
     --hash=sha256:1cd20fe7ebf941b11964a92aba9e5319edfe18606276c6e2481b92e737cde44a \
@@ -2935,6 +2957,7 @@ pywin32==312 ; sys_platform == 'win32' \
     --hash=sha256:dc90147579a905b8635e1b0ec6514967dcb07e6e0d9c42f1477feef14cac23bb
     # via
     #   docker
+    #   mcp
     #   portalocker
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
@@ -3658,12 +3681,18 @@ sqlalchemy==2.1.3 \
     # via
     #   alembic
     #   prefect
+sse-starlette==3.5.0 \
+    --hash=sha256:3e6e1070df3f0f5d9cea81496de92dbb72f6721871d99748ece67441dd8b7997 \
+    --hash=sha256:75de713aa8a9441513cc283220826da079d982770965b951e9437720e8bafdb2
+    # via mcp
 starlette==1.7.0 \
     --hash=sha256:67f8e99895493dd2911a03f11314af6ceebeae4e704bb9f43dfc6a9db151c93e \
     --hash=sha256:c79f74ea63cff761804fbbfb182f1e0b440c2d07b164d24700c5a1bab5d6ff5d
     # via
     #   fastapi
+    #   mcp
     #   prefect
+    #   sse-starlette
     #   streamlit
 streamlit==1.64.0 \
     --hash=sha256:4daf63aa9eaa5452d0edc64a5bdb0c4ad25580fe3c62c270455f3c43e9db5098 \
@@ -3856,6 +3885,8 @@ typing-extensions==4.16.0 \
     #   langchain-protocol
     #   langfuse
     #   langsmith
+    #   mcp
+    #   mcp-types
     #   mypy
     #   openai
     #   opentelemetry-api
@@ -3879,6 +3910,7 @@ typing-inspection==0.4.4 \
     --hash=sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147
     # via
     #   fastapi
+    #   mcp
     #   pydantic
     #   pydantic-settings
 tzdata==2026.4 ; python_full_version < '3.13' or sys_platform == 'emscripten' or sys_platform == 'win32' \
@@ -4034,6 +4066,7 @@ uvicorn==0.54.0 \
     --hash=sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620
     # via
     #   multi-agent-food-concierge-mcp (pyproject.toml)
+    #   mcp
     #   prefect
     #   streamlit
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32' \

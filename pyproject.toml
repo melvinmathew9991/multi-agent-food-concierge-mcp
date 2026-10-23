@@ -33,6 +33,7 @@ dependencies = [
     "qdrant-client>=1.12,<2",  # in-memory only: its on-disk local mode persists with pickle (rules §1)
     "rank-bm25>=0.2,<0.3",
     "numpy>=1.26,<3",
+    "mcp>=2.3,<3",  # the official MCP SDK: the tools server (Phase 4)
     "Pillow>=13.0",  # 13.0 fixes the 2026-10 decoder CVEs; we decode user photos
 ]
 

@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     reasoning_effort_router: ReasoningEffort = "low"
     reasoning_effort_judge: ReasoningEffort = "medium"
     max_output_tokens: int = Field(default=400, gt=0, le=4096)
-    max_query_chars: int = Field(default=500, gt=0)  # reserved: no reader yet; enforced from P4 (MCP tool inputs)
+    max_query_chars: int = Field(default=500, gt=0)  # search queries through the MCP tools (P4)
     max_image_mb: float = Field(default=5.0, gt=0)
     # Large enough for any phone camera; refuses decompression bombs before pixels are decoded.
     max_image_megapixels: float = Field(default=40.0, gt=0)

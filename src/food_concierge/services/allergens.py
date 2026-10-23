@@ -19,6 +19,11 @@ from food_concierge.ingestion.taxonomy import Allergen
 from food_concierge.services.catalog import Tag, known_items
 from food_concierge.storage.catalog_db import CatalogStore
 
+DISCLAIMER = (
+    "Allergen information is derived from restaurant labels, ingredient lists and photos of the dish. It can be "
+    "incomplete and is not medical advice: anyone with a serious allergy should confirm with the restaurant."
+)
+
 
 class AllergenCheck(BaseModel):
     """One dish against the allergens asked about; ``clear`` only when none is found and the recipe is checked."""

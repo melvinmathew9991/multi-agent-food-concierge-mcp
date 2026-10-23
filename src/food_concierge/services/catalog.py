@@ -32,6 +32,7 @@ class PhotoCredit(_Out):
     author: str
     licence: str
     licence_url: str
+    sha256: str  # pins the file; names its cached thumbnail
 
 
 class Tag(_Out):
@@ -126,12 +127,24 @@ class CatalogService:
     def get_dishes(self, values: Iterable[str]) -> list[DishDetail]:
         """These dishes in full, in the order asked; raises ``NotFoundError`` naming any unknown id."""
         ids, rows = known_items(self._store, values)
-        tags = self._store.allergen_tags(ids)
-        return [_detail(rows[item_id], tags.get(item_id, [])) for item_id in ids]
+        return self._details(ids, rows)
 
     def summaries(self, values: Iterable[str]) -> list[DishSummary]:
         """These dishes as a result list shows them, in the order asked."""
-        return [DishSummary.model_validate(detail.model_dump()) for detail in self.get_dishes(values)]
+        return [summary_of(detail) for detail in self.get_dishes(values)]
+
+    def all_summaries(self) -> list[DishSummary]:
+        """Every dish as a result list shows it, in id order: the whole menu, past the per-request limit."""
+        ids = sorted(self._store.doc_texts())
+        return [summary_of(detail) for detail in self._details(ids, self._store.items(ids))]
+
+    def _details(self, ids: list[str], rows: dict[str, dict[str, Any]]) -> list[DishDetail]:
+        tags = self._store.allergen_tags(ids)
+        return [_detail(rows[item_id], tags.get(item_id, [])) for item_id in ids]
+
+
+def summary_of(detail: DishDetail) -> DishSummary:
+    return DishSummary.model_validate(detail.model_dump(include=set(DishSummary.model_fields)))
 
 
 def _detail(row: dict[str, Any], tags: list[AllergenTag]) -> DishDetail:
@@ -146,6 +159,7 @@ def _detail(row: dict[str, Any], tags: list[AllergenTag]) -> DishDetail:
             author=row["author"],
             licence=row["licence"],
             licence_url=row["licence_url"],
+            sha256=row["photo_sha256"],
         )
     return DishDetail(
         item_id=row["item_id"],

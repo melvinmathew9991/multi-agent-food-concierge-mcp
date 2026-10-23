@@ -19,7 +19,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 from PIL import Image
@@ -193,7 +193,12 @@ def original_path(cache_dir: Path, photo: Photo) -> Path:
     return cache_dir / "originals" / f"{photo.sha256}{Path(photo.file_url).suffix.lower()}"
 
 
-def thumbnail_path(cache_dir: Path, photo: Photo) -> Path:
+class Pinned(Protocol):
+    @property
+    def sha256(self) -> str: ...
+
+
+def thumbnail_path(cache_dir: Path, photo: Pinned) -> Path:
     return cache_dir / "thumbs" / f"{photo.sha256}.webp"
 
 

@@ -245,7 +245,7 @@ def test_constraints_are_parsed_from_loose_input() -> None:
 @pytest.mark.parametrize(
     ("data", "named"),
     [
-        ({"exclude_allergens": "milk, kiwi"}, "exclude_allergens: Value error, unknown allergen term(s): kiwi"),
+        ({"exclude_allergens": "milk, kiwi"}, "exclude_allergens: unknown allergen term(s): kiwi"),
         ({"exclude_allergens": 5}, "exclude_allergens"),
         ({"cuisines": "martian"}, "cuisines"),
         ({"cuisines": 5}, "cuisines"),

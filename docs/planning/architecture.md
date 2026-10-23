@@ -91,22 +91,22 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 
 ## 5. MCP server (`food_concierge/mcp_server/`)
 
-Built with the official `mcp` Python SDK (FastMCP). Transports: **stdio** (Claude Desktop, MCP Inspector) and **Streamable HTTP** mounted at `/mcp` in the FastAPI app.
+Built with the official `mcp` Python SDK (2.x `MCPServer`, the 1.x `FastMCP`); `python -m food_concierge.mcp_server` runs it on stdio. Transports: **stdio** (Claude Desktop, MCP Inspector) and **Streamable HTTP** mounted at `/mcp` in the FastAPI app.
 
 **Tools** (typed input/output schemas; read-only; idempotent; constraints enforced inside):
 
 | Tool | Input → Output |
 |---|---|
-| `search_dishes` | query, diet?, exclude_allergens[], eggless?, max_calories?, max_price?, cuisine[]?, exclude_ids[], k≤10 → ranked `DishSummary[]` (never returns a violating dish) |
-| `find_similar` | dish_id, same constraints, k → `DishSummary[]` |
+| `search_dishes` | query (≤ `max_query_chars`), diet?, eggless?, exclude_allergens[] (plain words: "dairy", "nuts"), max_kcal?, max_price_inr?, cuisines[]?, include_unverified?, exclude_ids[], k≤10 → ranked `DishSummary[]`; filtered in SQL, then every result re-checked against the constraints (a violating dish is dropped and logged, never returned) |
+| `find_similar` | dish_id, same constraints, k → `DishSummary[]`, never the same dish at another restaurant |
 | `get_dish` | dish_id → `DishDetail` (nutrition, ingredients, allergen tags with source/level/evidence, restaurant, photo credit) |
 | `check_allergens` | dish_ids[], allergens[] → per dish {contains[], may_contain[], unverified, clear, evidence[]} |
-| `meal_totals` | dish_ids[] → {kcal, protein_g, carbs_g, fat_g, price_inr} |
+| `meal_totals` | dish_ids[] → {kcal, protein_g, carbs_g, fat_g, price_inr, serves} |
 | `describe_image` | image (base64, ≤ 5 MB) → dish description (uses the vision model; rate-limited) |
 
-**Resources:** `menu://catalog` (compact list), `menu://dishes/{id}` (JSON), `menu://dishes/{id}/image` (WebP), `menu://policy/allergens` (taxonomy + disclaimer).
+**Resources:** `menu://catalog` (compact list), `menu://dishes/{id}` (JSON), `menu://dishes/{id}/image` (WebP, from the local thumbnail cache), `menu://policy/allergens` (taxonomy, the words each allergen answers to, levels, disclaimer).
 **Prompts:** `plan_meal(constraints)`, `find_similar_dish(description)`.
-**Errors:** domain errors are returned as tool results with `isError=true` and a safe message, so the agent can recover. Protocol errors are for malformed calls only.
+**Errors:** domain errors are returned as tool results with `isError=true` and a safe message, so the agent can recover; anything unexpected reaches the client only as "Error executing tool <name>", with the traceback logged. Resource errors are protocol errors (unknown dish: invalid params).
 **Security:** read-only tools; input size limits; HTTP transport rate-limited; no filesystem or network side effects. OAuth 2.1 (per the MCP auth spec) is backlog.
 **Testing:** in-memory client–server sessions (no network); schema snapshot tests; MCP Inspector for manual checks; a Claude Desktop config example in `docs/mcp.md`.
 

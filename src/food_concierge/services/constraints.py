@@ -105,7 +105,10 @@ def parse_constraints(data: Mapping[str, Any]) -> Constraints:
     try:
         return Constraints.model_validate(data)
     except ValidationError as error:
-        problems = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'constraints'}: {e['msg']}" for e in error.errors())
+        problems = "; ".join(
+            f"{'.'.join(map(str, e['loc'])) or 'constraints'}: {e['msg'].removeprefix('Value error, ')}"
+            for e in error.errors()
+        )
         raise InputValidationError(f"The constraints could not be read: {problems}") from error
 
 

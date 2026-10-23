@@ -85,8 +85,8 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 | `catalog` | SQLite reads: one dish in full or several as summaries (prices in rupees); `candidate_ids(constraints)` | Indexed SQL, O(log N + \|C\|) |
 | `retrieval` | `VectorStore` protocol with FAISS and Qdrant backends; BM25; hybrid RRF; optional cross-encoder rerank of top-20; de-duplication. Hard filters are decided once in SQL (`candidate_ids`); each backend only restricts its search to those ids (FAISS id selector, Qdrant id filter, BM25 mask) | O(\|C\|·d) exact; HNSW behind the same interface beyond ~10⁵ items |
 | `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified, `clear` only when none applies; reads the tags search filters on | O(k) |
-| `nutrition` | `meal_totals(dish_ids)`: calories, macros, price, serves | O(k) exact arithmetic |
-| `constraints` | Parse, merge (allergens: union; caps: min; diet: strictest) and **verify** a proposal | O(k) |
+| `nutrition` | `meal_totals(dish_ids)`: kcal, macros, rupees, serves; a repeated dish counts twice | O(k) exact arithmetic |
+| `constraints` | Parse loose input (unknown terms refused), merge (allergens: union; caps: min; diet: strictest; cuisine: latest) and **check** a proposal: every per-dish rule broken (the same verdict as `candidate_ids`, tested), meal caps (`meal_max_kcal`, `meal_budget_inr`), photo-only allergens as warnings. Grounding and numeric-claim checks are the P5 verifier's | O(k) |
 | `vision` | Validate image (Pillow), downscale to `vision_image_px` (the catalog's 1,024), re-encode, describe via the vision model with the name-free prompt (Groq `qwen/qwen3.8-27b`; on failure ask the user to describe the dish in words), cache the description by sha256 for `cache_ttl_hours` | 1 LLM call (~1,900 tokens), cached |
 
 ## 5. MCP server (`food_concierge/mcp_server/`)

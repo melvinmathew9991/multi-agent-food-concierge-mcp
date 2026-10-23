@@ -11,6 +11,7 @@ What is here so far:
 | `results/model_profile_<UTC time>_<split>.json` | Model profile on dataset v2, one file per run and split (#51) | `scripts/model_profile.py --split dev\|test` |
 | `results/idle_latency_gemini_*.json` | Fallback latency after idle gaps of 0 to 60 min, cold and paced warm calls, against the 5 s attempt timeout and the 8 s deadline (#50, ADR-0006) | `scripts/idle_latency.py` |
 | `datasets/vision_sample.yaml`, `datasets/vision_sample_groq.yaml` | 30 seeded catalog photos with owner-reviewed scores per description (dish type, ingredients seen, allergen terms not visible) | `scripts/vision_measurement.py sample` |
+| `datasets/vision_descriptions_groq_768.jsonl` | The same 30 photos sent at 768 px (#53): tokens match 1,024 px, so the size stays and these are not scored (ADR-0007) | `scripts/vision_measurement.py describe --provider groq --px 768` |
 | `datasets/vision_descriptions_groq.jsonl` | Groq `qwen/qwen3.8-27b` descriptions of the same 30 photos, with latency and tokens (per-photo tokens written before 2026-10-12 can be undercounted, #74) | `scripts/vision_measurement.py describe --provider groq` |
 | `results/vision_measurement*_2026-10-09.json` | Phase 2 vision measurement, with Wilson 95% intervals (ADR-0007) | `scripts/vision_measurement.py report` |
 | `datasets/retrieval.yaml` | Phase 3 text queries (six types), gold filters for constrained queries, target dishes, and the owner's grades once imported; dev/test split locked by SHA-256 | drafted, then `scripts/label_queries.py import` and `split` |

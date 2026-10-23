@@ -84,10 +84,12 @@ class DishDetail(DishSummary):
     photo: PhotoCredit | None
 
 
-def dish_ids(values: Iterable[str]) -> list[str]:
-    """The ids a caller gave, trimmed, lower-cased and de-duplicated in order, blanks dropped; refuses none or too
-    many."""
-    ids = list(dict.fromkeys(value.strip().lower() for value in values if value.strip()))
+def dish_ids(values: Iterable[str], *, distinct: bool = True) -> list[str]:
+    """The ids a caller gave, trimmed, lower-cased and in order, blanks dropped, and de-duplicated unless a repeat
+    means something (a meal with two of a dish); refuses none or too many."""
+    ids = [value.strip().lower() for value in values if value.strip()]
+    if distinct:
+        ids = list(dict.fromkeys(ids))
     if not ids:
         raise InputValidationError("Give at least one dish id.")
     if len(ids) > MAX_DISHES:
@@ -95,11 +97,13 @@ def dish_ids(values: Iterable[str]) -> list[str]:
     return ids
 
 
-def known_items(store: CatalogStore, values: Iterable[str]) -> tuple[list[str], dict[str, dict[str, Any]]]:
+def known_items(
+    store: CatalogStore, values: Iterable[str], *, distinct: bool = True
+) -> tuple[list[str], dict[str, dict[str, Any]]]:
     """The ids asked for (see ``dish_ids``) and their rows; raises ``NotFoundError`` naming any unknown id."""
-    ids = dish_ids(values)
+    ids = dish_ids(values, distinct=distinct)
     rows = store.items(ids)
-    unknown = [item_id for item_id in ids if item_id not in rows]
+    unknown = list(dict.fromkeys(item_id for item_id in ids if item_id not in rows))
     if unknown:
         raise NotFoundError(f"No dish has the id {', '.join(unknown)}.")
     return ids, rows

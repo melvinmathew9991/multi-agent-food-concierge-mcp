@@ -1,9 +1,9 @@
 """Access control: tokens to scopes, the scope each tool needs, and token-bucket rate limits."""
 
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
-from food_concierge.config import Settings
+from food_concierge.config import MIN_API_TOKEN_CHARS, REPO_ROOT, Settings
 from food_concierge.security import rate_limit
 from food_concierge.security.access import (
     TOOL_SCOPES,
@@ -60,8 +60,36 @@ def test_unset_or_blank_tokens_match_nothing() -> None:
         scope_for("Bearer anything", Settings(_env_file=None))
 
 
-def test_a_token_set_for_two_scopes_grants_the_higher() -> None:
-    assert scope_for("Bearer same", settings(public="same", admin="same")) is Scope.ADMIN
+STRONG = "s" * MIN_API_TOKEN_CHARS
+
+
+@pytest.mark.parametrize(
+    ("tokens", "message"),
+    [
+        ({"api_token_agent": "x" * (MIN_API_TOKEN_CHARS - 1)}, "API_TOKEN_AGENT must be at least 32 characters"),
+        ({"api_token_public": "short", "api_token_admin": "tiny"}, "API_TOKEN_PUBLIC, API_TOKEN_ADMIN must be"),
+        ({"api_token_agent": STRONG, "api_token_admin": STRONG}, "Each API token must be different"),
+    ],
+    ids=["short", "two-short", "reused"],
+)
+def test_settings_refuse_weak_or_reused_tokens(tokens: dict[str, str], message: str) -> None:
+    with pytest.raises(ValidationError, match=message) as refused:
+        Settings(_env_file=None, **{name: SecretStr(value) for name, value in tokens.items()})  # type: ignore[arg-type]
+    assert "secrets.token_urlsafe(32)" in str(refused.value) or "different" in message
+    for value in tokens.values():
+        assert value not in str(refused.value)  # the error never echoes a token
+
+
+def test_strong_distinct_tokens_and_blank_ones_are_accepted() -> None:
+    accepted = Settings(_env_file=None, api_token_agent=SecretStr(STRONG), api_token_admin=SecretStr("a" + STRONG))
+
+    assert scope_for(f"Bearer {STRONG}", accepted) is Scope.AGENT
+    Settings(_env_file=None, api_token_public=SecretStr(""))  # blank is "not set": no error, and it matches nothing
+
+
+def test_the_repos_env_file_is_read_wherever_the_process_starts() -> None:
+    # Claude Desktop starts the MCP server from its own directory; the keys must still come from the repo's .env.
+    assert Settings.model_config["env_file"] == (REPO_ROOT / ".env", ".env")
 
 
 def test_each_tool_needs_its_scope_and_an_unlisted_tool_needs_admin() -> None:

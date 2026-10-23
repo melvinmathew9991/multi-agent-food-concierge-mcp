@@ -85,11 +85,16 @@ class AccessGate:
             await self._app(scope, receive, send)
             return
         authorization = Headers(scope=scope).get("authorization")
+        client = scope.get("client")
+        address = f"ip:{client[0] if client else 'unknown'}"
         try:
-            granted = scope_for(authorization, self._settings)
-            client = scope.get("client")
-            caller = f"token:{granted.label}" if authorization else f"ip:{client[0] if client else 'unknown'}"
-            self._limiter.acquire(caller)
+            try:
+                granted = scope_for(authorization, self._settings)
+            except UnauthorizedError:
+                # A wrong token spends the address's allowance, so tokens can't be guessed at speed.
+                self._limiter.acquire(address)
+                raise
+            self._limiter.acquire(f"token:{granted.label}" if authorization else address)
         except AppError as error:
             logger.warning("request refused", extra={"security_event": error.code, "path": scope["path"]})
             await error_response(error)(scope, receive, send)

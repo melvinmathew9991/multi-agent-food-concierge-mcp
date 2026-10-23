@@ -6,12 +6,16 @@
 - ``admin``: everything, including the ingestion flows when they are exposed.
 
 Scopes are ordered: a higher one includes the lower ones. A token that matches no configured scope is refused,
-not treated as public, so a mistyped secret fails loudly. Tokens are compared in constant time. Over stdio the
-server runs as the local user's own process, so every scope applies.
+not treated as public, so a mistyped secret fails loudly. Tokens are compared as SHA-256 digests in constant
+time, so neither timing nor length tells a guess how close it came, and settings refuse tokens under 32 characters
+and one token for two scopes. Wrong tokens count against the caller's rate limit (`api.app.AccessGate`), so
+they can't be guessed at speed. Over stdio the server runs as the local user's own process, so every scope
+applies.
 """
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 from enum import IntEnum
 
@@ -64,6 +68,7 @@ def scope_for(authorization: str | None, settings: Settings) -> Scope:
     token = token.strip()
     if scheme.lower() != "bearer" or not token:
         raise UnauthorizedError("Send the token as 'Authorization: Bearer <token>'.")
+    offered = hashlib.sha256(token.encode()).digest()
     granted: Scope | None = None
     for scope, secret in (
         (Scope.ADMIN, settings.api_token_admin),
@@ -72,7 +77,7 @@ def scope_for(authorization: str | None, settings: Settings) -> Scope:
     ):
         # Every configured token is compared, so the time taken doesn't tell which one nearly matched.
         if secret is not None and secret.get_secret_value():
-            matched = hmac.compare_digest(token.encode(), secret.get_secret_value().encode())
+            matched = hmac.compare_digest(offered, hashlib.sha256(secret.get_secret_value().encode()).digest())
             if matched and granted is None:
                 granted = scope
     if granted is None:

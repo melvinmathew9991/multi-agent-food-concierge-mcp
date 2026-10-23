@@ -34,6 +34,8 @@ from food_concierge.storage.catalog_db import CATALOG_DB, CatalogStore
 from food_concierge.storage.indexes import INDEX_DIR, load_indexes
 
 HOST = "testserver"
+AGENT_TOKEN = "agent-" + "a" * 40
+ADMIN_TOKEN = "admin-" + "b" * 40
 
 
 @pytest.fixture(scope="module")
@@ -46,8 +48,8 @@ def store(built_data_dir: Path) -> Iterator[CatalogStore]:
 def make_app(store: CatalogStore, tmp_path: Path, **overrides: Any) -> FastAPI:
     settings = Settings(
         _env_file=None,
-        api_token_agent=SecretStr("agent-token"),
-        api_token_admin=SecretStr("admin-token"),
+        api_token_agent=SecretStr(AGENT_TOKEN),
+        api_token_admin=SecretStr(ADMIN_TOKEN),
         allowed_hosts=[HOST],
         photo_cache_dir=tmp_path,
         **overrides,
@@ -147,7 +149,7 @@ async def test_callers_over_their_rate_limit_are_told_when_to_retry(store: Catal
         statuses = [(await http.post("/v1/search", json={"query": "dosa"})).status_code for _ in range(3)]
         limited = await http.post("/v1/search", json={"query": "dosa"})
         with_token = await http.post(
-            "/v1/search", json={"query": "dosa"}, headers={"Authorization": "Bearer agent-token"}
+            "/v1/search", json={"query": "dosa"}, headers={"Authorization": f"Bearer {AGENT_TOKEN}"}
         )
 
     assert statuses == [200, 200, 429]
@@ -172,7 +174,7 @@ async def test_anonymous_mcp_callers_get_the_public_tools_only(
     assert [(r.security_event, r.tool) for r in caplog.records] == [("forbidden", "describe_image")]  # type: ignore[attr-defined]
 
 
-@pytest.mark.parametrize("token", ["agent-token", "admin-token"])
+@pytest.mark.parametrize("token", [AGENT_TOKEN, ADMIN_TOKEN], ids=["agent", "admin"])
 async def test_an_agent_or_admin_token_may_describe_photos(store: CatalogStore, tmp_path: Path, token: str) -> None:
     async with mcp_client(make_app(store, tmp_path), token) as client:
         described = await client.call_tool("describe_image", {"image_base64": photo()})
@@ -212,3 +214,19 @@ def test_the_entry_point_serves_the_app_with_uvicorn(monkeypatch: pytest.MonkeyP
     runpy.run_module("food_concierge.api", run_name="__main__")
 
     assert served == [(sentinel, "127.0.0.1", 8000)]
+
+
+async def test_wrong_tokens_spend_the_address_allowance_so_guessing_is_slow(
+    store: CatalogStore, tmp_path: Path
+) -> None:
+    guess = {"Authorization": "Bearer " + "g" * 43}
+    async with running(make_app(store, tmp_path, rate_limit_per_min=2)) as http:
+        guesses = [(await http.post("/mcp", json={}, headers=guess)).status_code for _ in range(3)]
+        anonymous = await http.post("/v1/search", json={"query": "dosa"})
+        with_token = await http.post(
+            "/v1/search", json={"query": "dosa"}, headers={"Authorization": f"Bearer {AGENT_TOKEN}"}
+        )
+
+    assert guesses == [401, 401, 429]
+    assert anonymous.status_code == 429  # the same address, its allowance spent on guesses
+    assert with_token.status_code == 200  # a real token has its own bucket

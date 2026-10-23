@@ -100,7 +100,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 3. MCP HTTP transport: read-only tools, rate limits, body limits; no tool touches the filesystem or network beyond the catalog and the configured vision model.
 4. Uploads never persisted; the UI shows a free-tier data-use notice and an AI-interaction disclosure.
 5. Traces are masked (image bytes, emails, card and phone numbers) before export, and in production carry metadata only, no message content (`TRACE_CONTENT`). Data inventory, destinations and retention: `docs/data-handling.md`.
-6. Tokens for MCP/A2A/API are scoped, stored only in platform secrets, rotatable, and never logged.
+6. Tokens for MCP/A2A/API are scoped, stored only in platform secrets or the git-ignored `.env` (never in a client's config file), rotatable by changing the secret and restarting, and never logged, traced or echoed in an error. Each is at least 32 random characters and different from the others (settings refuse anything weaker; `python -c "import secrets; print(secrets.token_urlsafe(32))"`). They are accepted only in the `Authorization` header, never in a URL, and sent only over HTTPS beyond localhost. They are compared as digests in constant time, and wrong guesses spend the caller's rate limit.
 
 ## 8. Git
 

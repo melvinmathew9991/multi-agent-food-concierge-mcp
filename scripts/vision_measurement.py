@@ -22,6 +22,9 @@ run in CI; the photos are the catalog's Commons files, never user data:
        python scripts/vision_measurement.py sample --provider groq
        python scripts/vision_measurement.py report --provider groq
 
+``--px`` sends the photos at another size (#53: 768 against the default 1,024). The run gets its own files, named
+``<provider>_<px>`` (``vision_descriptions_groq_768.jsonl``, ``vision_sample_groq_768.yaml``), scored afresh.
+
 ``describe`` sends each sampled photo through the production code path (``describe`` in ingestion/descriptions.py:
 the same prompt, 1024 px, no metadata) and writes eval/datasets/vision_descriptions_<provider>.jsonl, saving after
 each photo. Attempt timeouts are relaxed to 30 s, and calls slower than the production timeout are counted. Calls
@@ -63,6 +66,7 @@ from food_concierge.config import REPO_ROOT, ProviderName, Settings, get_setting
 from food_concierge.errors import ProviderRateLimitedError, ProviderTimeoutError
 from food_concierge.ingestion.allergens import Lexicon, load_lexicon
 from food_concierge.ingestion.descriptions import (
+    DESCRIBE_PX,
     DESCRIPTIONS_FILE,
     PROMPT_VERSION,
     DescriptionKey,
@@ -102,14 +106,20 @@ class HostedDescription(ImageDescription):
 
     tokens: int = Field(default=0, ge=0)
     failed_attempts: int = Field(default=0, ge=0)  # timeouts and 429s before the reply that was kept
+    px: int = Field(default=DESCRIBE_PX, gt=0)  # the longest side the photo was sent at
 
 
-def dataset_path(provider: str) -> Path:
-    return DATASET if provider == LOCAL else DATASET.with_name(f"vision_sample_{provider}.yaml")
+def run_name(provider: str, px: int = DESCRIBE_PX) -> str:
+    """``provider``, plus the size when it is not the default, so a size experiment never mixes with the baseline."""
+    return provider if px == DESCRIBE_PX else f"{provider}_{px}"
 
 
-def hosted_cache_path(provider: str) -> Path:
-    return DATASET.with_name(f"vision_descriptions_{provider}.jsonl")
+def dataset_path(run: str) -> Path:
+    return DATASET if run == LOCAL else DATASET.with_name(f"vision_sample_{run}.yaml")
+
+
+def hosted_cache_path(run: str) -> Path:
+    return DATASET.with_name(f"vision_descriptions_{run}.jsonl")
 
 
 def read_hosted(path: Path) -> dict[DescriptionKey, HostedDescription]:
@@ -348,13 +358,13 @@ def wait_for_token_budget(settings: Settings, provider: ProviderName, expected: 
         time.sleep(2)
 
 
-def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDescription]:
+def describe_sample(settings: Settings, provider: ProviderName, px: int = DESCRIBE_PX) -> list[HostedDescription]:
     """Describe the local sample's photos with ``provider``'s model (name-free), skipping those already described."""
     sample = read_dataset(DATASET)["entries"]
     if not sample:
         raise SystemExit("no local sample yet; run `sample` first")
     photos = {photo.sha256: photo for photo in load_catalog(settings.raw_dir).catalog.photos}
-    path = hosted_cache_path(provider)
+    path = hosted_cache_path(run_name(provider, px))
     cache = read_hosted(path)
     measured = hosted_settings(settings, provider)
     model = build_chat_model(provider, "vision", measured)
@@ -373,12 +383,12 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
         before = ledger.usage(key).tokens_total  # not the rolling minute, which drops calls mid-call
         failed = 0
         try:
-            text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
+            text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""), px)
         except (ProviderRateLimitedError, ProviderTimeoutError) as error:  # recorded, then one retry after a wait
             print(f"{entry['item_id']}: {error.code}; retrying in {RATE_LIMIT_WAIT_S:g} s")
             failed = 1
             time.sleep(RATE_LIMIT_WAIT_S)
-            text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""))
+            text, latency_ms = describe(model, image, prompt_for(Variant.NAME_FREE, ""), px)
         tokens = ledger.usage(key).tokens_total - before
         expected = max(expected, tokens)
         cache[(sha, Variant.NAME_FREE)] = description = HostedDescription(
@@ -390,6 +400,7 @@ def describe_sample(settings: Settings, provider: ProviderName) -> list[HostedDe
             latency_ms=latency_ms,
             tokens=tokens,
             failed_attempts=failed,
+            px=px,
         )
         new.append(description)
         write_hosted(path, cache)
@@ -415,24 +426,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("describe", "sample", "report"))
     parser.add_argument("--provider", choices=(LOCAL, *HOSTED_MODELS), default=LOCAL)
+    parser.add_argument("--px", type=int, default=DESCRIBE_PX, help=f"longest side sent (default {DESCRIBE_PX})")
     parser.add_argument("--out", type=Path, help="results file (default eval/results/vision_measurement_<date>.json)")
     args = parser.parse_args(argv)
 
     settings = get_settings()
     provider = args.provider
+    if provider == LOCAL and args.px != DESCRIBE_PX:
+        raise SystemExit("--px applies to hosted models; local descriptions come from scripts/describe_photos.py")
+    run = run_name(provider, args.px)
     if args.command == "describe":
         if provider == LOCAL:
             raise SystemExit("local descriptions come from scripts/describe_photos.py")
-        new = describe_sample(settings, provider)
-        print(f"{len(new)} descriptions written to {hosted_cache_path(provider).relative_to(REPO_ROOT)}")
+        new = describe_sample(settings, provider, args.px)
+        print(f"{len(new)} descriptions written to {hosted_cache_path(run).relative_to(REPO_ROOT)}")
         return 0
 
     cache: Mapping[DescriptionKey, ImageDescription] = (
         read_descriptions(settings.processed_dir / DESCRIPTIONS_FILE)
         if provider == LOCAL
-        else read_hosted(hosted_cache_path(provider))
+        else read_hosted(hosted_cache_path(run))
     )
-    path = dataset_path(provider)
+    path = dataset_path(run)
     dataset = read_dataset(path)
 
     if args.command == "sample":
@@ -447,7 +462,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         dataset["entries"] = build_entries(cache, dishes, load_lexicon(), previous)
         dataset.update(seed=SEED, prompt_version=PROMPT_VERSION)
         write_dataset(path, {key: dataset[key] for key in ("version", "seed", "prompt_version", "reviewed", "entries")})
-        suffix = "" if provider == LOCAL else f"_{provider}"
+        suffix = "" if provider == LOCAL else f"_{run}"
         page = settings.photo_cache_dir / f"vision_review{suffix}.html"
         page.write_text(review_page(dataset["entries"]), encoding="utf-8")
         print(f"wrote {path.relative_to(REPO_ROOT)} ({len(dataset['entries'])} entries) and {page}")
@@ -466,6 +481,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "created": datetime.now(UTC).isoformat(timespec="seconds"),
             "commit": _git_commit(),
             "provider": provider,
+            "px": args.px,
             "dataset": str(path.relative_to(REPO_ROOT)).replace("\\", "/"),
             "dataset_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "reviewed": bool(dataset["reviewed"]),
@@ -476,7 +492,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "latency": timing,
     }
     if provider != LOCAL:
-        usage = hosted_usage(read_hosted(hosted_cache_path(provider)), settings.timeout_for(provider))
+        usage = hosted_usage(read_hosted(hosted_cache_path(run)), settings.timeout_for(provider))
         results["usage"] = usage
         tokens, slow = usage["tokens_per_photo"], usage["over_production_timeout"]
         print(
@@ -484,7 +500,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"over the {slow['timeout_s']:g} s production timeout: {slow['k']}/{slow['n']}; "
             f"failed attempts (timeouts, 429s): {usage['failed_attempts']}."
         )
-    name = "vision_measurement" if provider == LOCAL else f"vision_measurement_{provider}"
+    name = "vision_measurement" if provider == LOCAL else f"vision_measurement_{run}"
     out = args.out or RESULTS / f"{name}_{datetime.now(UTC):%Y-%m-%d}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")

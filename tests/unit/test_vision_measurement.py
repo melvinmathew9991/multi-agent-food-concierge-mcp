@@ -6,6 +6,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pytest
+
 from food_concierge.config import REPO_ROOT, get_settings
 from food_concierge.ingestion.allergens import load_lexicon
 from food_concierge.ingestion.descriptions import (
@@ -192,6 +194,18 @@ def test_hosted_runs_have_their_own_files() -> None:
     assert vm.dataset_path(vm.LOCAL) == vm.DATASET
     assert vm.dataset_path("groq").name == "vision_sample_groq.yaml"
     assert vm.hosted_cache_path("groq").name == "vision_descriptions_groq.jsonl"
+
+
+def test_a_size_experiment_has_its_own_files_and_the_default_size_keeps_the_baselines() -> None:
+    assert vm.run_name("groq") == vm.run_name("groq", 1024) == "groq"
+    assert vm.run_name("groq", 768) == "groq_768"
+    assert vm.dataset_path(vm.run_name("groq", 768)).name == "vision_sample_groq_768.yaml"
+    assert vm.hosted_cache_path(vm.run_name("groq", 768)).name == "vision_descriptions_groq_768.jsonl"
+
+
+def test_px_is_refused_for_the_local_model() -> None:
+    with pytest.raises(SystemExit, match="hosted models"):
+        vm.main(["report", "--px", "768"])
 
 
 def test_hosted_descriptions_round_trip_sorted_with_lf(tmp_path: Path) -> None:

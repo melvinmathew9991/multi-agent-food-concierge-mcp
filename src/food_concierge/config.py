@@ -32,6 +32,7 @@ TraceContent = Literal["full", "metadata"]
 PAID_PROVIDERS: frozenset[str] = frozenset({"openai", "bedrock"})
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+MIN_API_TOKEN_CHARS = 32  # secrets.token_urlsafe(32) gives 43
 
 
 def _default_fallbacks() -> list[ProviderName]:
@@ -63,7 +64,12 @@ def _default_photo_cache_dir() -> Path:
 class Settings(BaseSettings):
     # extra="forbid" rejects unknown keys in .env; unrelated OS environment variables are never read.
     # env_ignore_empty lets a copied .env.example leave values blank without overriding defaults.
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid", env_ignore_empty=True)
+    # The repo's .env is read wherever the process starts (Claude Desktop launches the MCP server from its own
+    # directory), so keys stay in that git-ignored file rather than in a client's plaintext config; a .env in the
+    # working directory overrides it.
+    model_config = SettingsConfigDict(
+        env_file=(REPO_ROOT / ".env", ".env"), env_file_encoding="utf-8", extra="forbid", env_ignore_empty=True
+    )
 
     # Providers (zero cost by default: free tiers and local models only)
     chat_provider: ProviderName = "groq"
@@ -202,6 +208,28 @@ class Settings(BaseSettings):
                 f"Provider timeouts add up to {worst_case:g} s across the fallback chain, more than "
                 "REQUEST_DEADLINE_S; shorten the timeouts, the chain or the retries."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _api_tokens_are_strong_and_distinct(self) -> Settings:
+        # A short token can be guessed; one token for two scopes makes the lower scope's holder the higher's.
+        tokens = {
+            name: secret.get_secret_value()
+            for name, secret in (
+                ("API_TOKEN_PUBLIC", self.api_token_public),
+                ("API_TOKEN_AGENT", self.api_token_agent),
+                ("API_TOKEN_ADMIN", self.api_token_admin),
+            )
+            if secret is not None and secret.get_secret_value()
+        }
+        short = [name for name, token in tokens.items() if len(token) < MIN_API_TOKEN_CHARS]
+        if short:
+            raise ValueError(
+                f"{', '.join(short)} must be at least {MIN_API_TOKEN_CHARS} characters; generate one with "
+                'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+        if len(set(tokens.values())) < len(tokens):
+            raise ValueError("Each API token must be different: one token for two scopes grants the higher one.")
         return self
 
     @model_validator(mode="after")

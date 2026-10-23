@@ -50,6 +50,12 @@ class InputValidationError(AppError):
     default_message = "The request is invalid."
 
 
+class NotFoundError(AppError):
+    code = "not_found"
+    http_status = 404
+    default_message = "No dish has that id."
+
+
 class NotReadyError(AppError):
     code = "not_ready"
     http_status = 503

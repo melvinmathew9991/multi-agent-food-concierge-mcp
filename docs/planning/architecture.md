@@ -82,9 +82,9 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 
 | Service | Responsibility | Complexity |
 |---|---|---|
-| `catalog` | SQLite reads; `candidate_ids(constraints)` | Indexed SQL, O(log N + \|C\|) |
+| `catalog` | SQLite reads: one dish in full or several as summaries (prices in rupees); `candidate_ids(constraints)` | Indexed SQL, O(log N + \|C\|) |
 | `retrieval` | `VectorStore` protocol with FAISS and Qdrant backends; BM25; hybrid RRF; optional cross-encoder rerank of top-20; de-duplication. Hard filters are decided once in SQL (`candidate_ids`); each backend only restricts its search to those ids (FAISS id selector, Qdrant id filter, BM25 mask) | O(\|C\|·d) exact; HNSW behind the same interface beyond ~10⁵ items |
-| `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified | O(k) |
+| `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified, `clear` only when none applies; reads the tags search filters on | O(k) |
 | `nutrition` | `meal_totals(dish_ids)`: calories, macros, price, serves | O(k) exact arithmetic |
 | `constraints` | Parse, merge (allergens: union; caps: min; diet: strictest) and **verify** a proposal | O(k) |
 | `vision` | Validate image (Pillow), downscale to `vision_image_px` (the catalog's 1,024), re-encode, describe via the vision model with the name-free prompt (Groq `qwen/qwen3.8-27b`; on failure ask the user to describe the dish in words), cache the description by sha256 for `cache_ttl_hours` | 1 LLM call (~1,900 tokens), cached |
@@ -99,9 +99,9 @@ Built with the official `mcp` Python SDK (FastMCP). Transports: **stdio** (Claud
 |---|---|
 | `search_dishes` | query, diet?, exclude_allergens[], eggless?, max_calories?, max_price?, cuisine[]?, exclude_ids[], k≤10 → ranked `DishSummary[]` (never returns a violating dish) |
 | `find_similar` | dish_id, same constraints, k → `DishSummary[]` |
-| `get_dish` | dish_id → `DishDetail` (nutrition, ingredients, allergen tags with source/level, restaurants) |
-| `check_allergens` | dish_ids[], allergens[] → per dish {contains[], may_contain[], unverified} |
-| `meal_totals` | dish_ids[] → {calories, protein_g, carbs_g, fats_g, price_usd} |
+| `get_dish` | dish_id → `DishDetail` (nutrition, ingredients, allergen tags with source/level/evidence, restaurant, photo credit) |
+| `check_allergens` | dish_ids[], allergens[] → per dish {contains[], may_contain[], unverified, clear, evidence[]} |
+| `meal_totals` | dish_ids[] → {kcal, protein_g, carbs_g, fat_g, price_inr} |
 | `describe_image` | image (base64, ≤ 5 MB) → dish description (uses the vision model; rate-limited) |
 
 **Resources:** `menu://catalog` (compact list), `menu://dishes/{id}` (JSON), `menu://dishes/{id}/image` (WebP), `menu://policy/allergens` (taxonomy + disclaimer).

@@ -16,13 +16,14 @@ import os
 import re
 import sqlite3
 import unicodedata
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from food_concierge.errors import NotReadyError
-from food_concierge.ingestion.allergens import DishAllergens, Level
+from food_concierge.ingestion.allergens import AllergenTag, DishAllergens, Level, Source
 from food_concierge.ingestion.descriptions import ImageDescription
 from food_concierge.ingestion.loader import Catalog
 from food_concierge.ingestion.schemas import MenuItem
@@ -221,6 +222,29 @@ class CatalogStore:
 
     def dish_keys(self) -> dict[str, str]:
         return dict(self._connection.execute("SELECT item_id, dish_key FROM items").fetchall())
+
+    def items(self, item_ids: Collection[str]) -> dict[str, dict[str, Any]]:
+        """The rows of these items, with their restaurant and photo credit joined in; unknown ids are left out."""
+        sql = (
+            "SELECT items.*, r.name AS restaurant_name, r.area AS restaurant_area, r.rating AS restaurant_rating, "  # noqa: S608
+            "im.file_url, im.file_page_url, im.author, im.licence, im.licence_url "
+            "FROM items JOIN restaurants r USING (restaurant_id) LEFT JOIN images im USING (item_id) "
+            f"WHERE item_id IN ({', '.join('?' * len(item_ids))})"  # placeholders only
+        )
+        cursor = self._connection.cursor()
+        cursor.row_factory = sqlite3.Row
+        return {row["item_id"]: dict(row) for row in cursor.execute(sql, list(item_ids))}
+
+    def allergen_tags(self, item_ids: Collection[str]) -> dict[str, list[AllergenTag]]:
+        """Every stored tag of these items, by allergen, source and evidence; items without tags are left out."""
+        sql = (
+            "SELECT item_id, allergen, source, level, evidence FROM allergen_tags "  # noqa: S608
+            f"WHERE item_id IN ({', '.join('?' * len(item_ids))}) ORDER BY item_id, allergen, source, evidence"
+        )
+        tags: dict[str, list[AllergenTag]] = {}
+        for item_id, allergen, source, level, evidence in self._connection.execute(sql, list(item_ids)):
+            tags.setdefault(item_id, []).append(AllergenTag(Allergen(allergen), Source(source), Level(level), evidence))
+        return tags
 
     def candidate_ids(self, filters: Filters) -> list[str]:
         """Item ids that satisfy every filter, in item-id order."""

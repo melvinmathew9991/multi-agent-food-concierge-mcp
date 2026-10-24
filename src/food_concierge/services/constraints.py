@@ -53,12 +53,12 @@ class Constraints(BaseModel):
     diet: Diet | None = None
     eggless: bool = False
     exclude_allergens: frozenset[Allergen] = frozenset()
-    max_kcal: int | None = Field(default=None, gt=0)  # per dish
+    max_kcal: int | None = Field(default=None, gt=0)  # per serving of a dish
     max_price_inr: int | None = Field(default=None, gt=0)  # per dish
     cuisines: frozenset[Cuisine] = frozenset()
     include_unverified: bool = False  # the diner has confirmed dishes whose recipe can't be checked
-    meal_max_kcal: int | None = Field(default=None, gt=0)
-    meal_budget_inr: int | None = Field(default=None, gt=0)
+    meal_max_kcal: int | None = Field(default=None, gt=0)  # per diner, for the most the order may hold
+    meal_budget_inr: int | None = Field(default=None, gt=0)  # the whole order
 
     @model_validator(mode="before")
     @classmethod
@@ -250,13 +250,15 @@ class ConstraintService:
         self._catalog = CatalogService(store)
         self._nutrition = NutritionService(store)
 
-    def check(self, values: Iterable[str], constraints: Constraints) -> ConstraintCheck:
-        """Each dish (a repeat counts in the totals) and the meal; raises ``NotFoundError`` naming any unknown id."""
-        totals = self._nutrition.meal_totals(values)
+    def check(self, values: Iterable[str], constraints: Constraints, diners: int = 1) -> ConstraintCheck:
+        """Each dish (a repeat counts in the totals) and the meal shared by ``diners``; raises ``NotFoundError``
+        naming any unknown id."""
+        totals = self._nutrition.meal_totals(values, diners)
         dishes = self._catalog.get_dishes(totals.dish_ids)
         violations = [violation for dish in dishes for violation in dish_violations(dish, constraints)]
-        if constraints.meal_max_kcal is not None and totals.kcal > constraints.meal_max_kcal:
-            message = f"The meal has {totals.kcal} kcal, over {constraints.meal_max_kcal}."
+        kcal = totals.per_person_max.kcal  # a dish serving a range of people may hold this much
+        if constraints.meal_max_kcal is not None and kcal > constraints.meal_max_kcal:
+            message = f"The meal has up to {kcal} kcal a person, over {constraints.meal_max_kcal}."
             violations.append(Violation(rule=Rule.MEAL_KCAL, item_id=None, message=message))
         if constraints.meal_budget_inr is not None and totals.price_inr > constraints.meal_budget_inr:
             message = f"The meal costs ₹{totals.price_inr}, over the budget of ₹{constraints.meal_budget_inr}."

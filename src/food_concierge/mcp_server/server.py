@@ -33,7 +33,7 @@ from food_concierge.mcp_server.services import Services
 from food_concierge.services.allergens import DISCLAIMER, AllergenCheck
 from food_concierge.services.catalog import MAX_DISHES, DishDetail, dish_ids
 from food_concierge.services.constraints import Constraints, parse_constraints
-from food_concierge.services.nutrition import MealTotals
+from food_concierge.services.nutrition import MAX_DINERS, MealTotals
 from food_concierge.services.search import MAX_RESULTS, Dishes
 from food_concierge.services.vision import DESCRIBE_IN_WORDS, PhotoDescription
 
@@ -64,7 +64,7 @@ AllergenTerms = Annotated[
     list[str] | None,
     Field(max_length=20, description="Allergens to avoid, in plain words: 'dairy', 'nuts', 'shellfish', 'gluten'."),
 ]
-MaxKcal = Annotated[int | None, Field(gt=0, description="Most calories one dish may have.")]
+MaxKcal = Annotated[int | None, Field(gt=0, description="Most calories one serving of a dish may have.")]
 MaxPrice = Annotated[int | None, Field(gt=0, description="Most one dish may cost, in rupees.")]
 Cuisines = Annotated[list[Cuisine] | None, Field(max_length=10, description="Only these cuisines.")]
 IncludeUnverified = Annotated[
@@ -73,6 +73,7 @@ IncludeUnverified = Annotated[
 ExcludeIds = Annotated[list[str] | None, Field(max_length=MAX_DISHES, description="Dish ids not to return again.")]
 K = Annotated[int, Field(ge=1, le=MAX_RESULTS, description="How many dishes to return.")]
 DishIds = Annotated[list[str], Field(min_length=1, max_length=MAX_DISHES, description="Dish ids, such as 's05'.")]
+Diners = Annotated[int, Field(ge=1, le=MAX_DINERS, description="How many people share the meal.")]
 
 
 class _Out(BaseModel):
@@ -198,7 +199,8 @@ def create_server(services: Services) -> MCPServer:
 
     @tool(READ_ONLY)
     def get_dish(dish_id: DishId) -> DishDetail:
-        """One dish in full: ingredients, nutrition, price, restaurant, allergen tags with their evidence, photo."""
+        """One dish in full: ingredients, nutrition (estimates per serving), price for the dish, restaurant, allergen
+        tags with their evidence, photo."""
         return _tool_errors(lambda: services.catalog.get_dish(dish_id))
 
     @tool(READ_ONLY)
@@ -219,10 +221,11 @@ def create_server(services: Services) -> MCPServer:
         return _tool_errors(run)
 
     @tool(READ_ONLY)
-    def meal_totals(dish_ids: DishIds) -> MealTotals:
-        """Calories, protein, carbs, fat, price in rupees and servings for a meal; list a dish twice to count it
-        twice."""
-        return _tool_errors(lambda: services.nutrition.meal_totals(dish_ids))
+    def meal_totals(dish_ids: DishIds, diners: Diners = 1) -> MealTotals:
+        """Calories, protein, carbs, fat, price in rupees and servings for a meal shared by `diners`: the whole order
+        and each diner's equal share. A dish serving a range of people (1-2) makes a min-max range; list a dish twice
+        to count it twice. Nutrition values are the menu's estimates per serving, not measurements."""
+        return _tool_errors(lambda: services.nutrition.meal_totals(dish_ids, diners))
 
     @tool(DESCRIBES)
     def describe_image(
@@ -293,9 +296,10 @@ def create_server(services: Services) -> MCPServer:
         return (
             f"Plan a meal for a diner with these constraints: {constraints}\n"
             "Use search_dishes with the constraints as arguments, not only in the query. Check the meal with "
-            "meal_totals against any calorie or budget limit for the whole meal, and with check_allergens for "
-            "every allergen named. Don't recommend an unverified dish to someone avoiding an allergen without asking "
-            "them first. Give prices in rupees, and end with this note: " + DISCLAIMER
+            "meal_totals for the number of diners, against any calorie limit per person and budget for the whole "
+            "order, and with check_allergens for every allergen named. Don't recommend an unverified dish to someone "
+            "avoiding an allergen without asking them first. Give prices in rupees, and end with this note: "
+            + DISCLAIMER
         )
 
     @server.prompt(description="Find catalog dishes like one the diner describes or photographed.")

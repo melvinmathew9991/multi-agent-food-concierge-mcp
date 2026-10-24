@@ -193,7 +193,7 @@
               }
             ],
             "default": null,
-            "description": "Most calories one dish may have.",
+            "description": "Most calories one serving of a dish may have.",
             "title": "Max Kcal"
           },
           "max_price_inr": {
@@ -551,7 +551,7 @@
               }
             ],
             "default": null,
-            "description": "Most calories one dish may have.",
+            "description": "Most calories one serving of a dish may have.",
             "title": "Max Kcal"
           },
           "max_price_inr": {
@@ -778,7 +778,7 @@
         "open_world_hint": false,
         "read_only_hint": true
       },
-      "description": "One dish in full: ingredients, nutrition, price, restaurant, allergen tags with their evidence, photo.",
+      "description": "One dish in full: ingredients, nutrition (estimates per serving), price for the dish, restaurant, allergen\ntags with their evidence, photo.",
       "input_schema": {
         "properties": {
           "dish_id": {
@@ -1333,9 +1333,17 @@
         "open_world_hint": false,
         "read_only_hint": true
       },
-      "description": "Calories, protein, carbs, fat, price in rupees and servings for a meal; list a dish twice to count it\ntwice.",
+      "description": "Calories, protein, carbs, fat, price in rupees and servings for a meal shared by `diners`: the whole order\nand each diner's equal share. A dish serving a range of people (1-2) makes a min-max range; list a dish twice\nto count it twice. Nutrition values are the menu's estimates per serving, not measurements.",
       "input_schema": {
         "properties": {
+          "diners": {
+            "default": 1,
+            "description": "How many people share the meal.",
+            "maximum": 20,
+            "minimum": 1,
+            "title": "Diners",
+            "type": "integer"
+          },
           "dish_ids": {
             "description": "Dish ids, such as 's05'.",
             "items": {
@@ -1355,10 +1363,41 @@
       },
       "name": "meal_totals",
       "output_schema": {
+        "$defs": {
+          "Nutrients": {
+            "properties": {
+              "carbs_g": {
+                "title": "Carbs G",
+                "type": "number"
+              },
+              "fat_g": {
+                "title": "Fat G",
+                "type": "number"
+              },
+              "kcal": {
+                "title": "Kcal",
+                "type": "integer"
+              },
+              "protein_g": {
+                "title": "Protein G",
+                "type": "number"
+              }
+            },
+            "required": [
+              "kcal",
+              "protein_g",
+              "carbs_g",
+              "fat_g"
+            ],
+            "title": "Nutrients",
+            "type": "object"
+          }
+        },
+        "description": "An order shared by its diners: the whole order and each diner's equal share, as min-max ranges.",
         "properties": {
-          "carbs_g": {
-            "title": "Carbs G",
-            "type": "number"
+          "diners": {
+            "title": "Diners",
+            "type": "integer"
           },
           "dish_ids": {
             "items": {
@@ -1367,21 +1406,32 @@
             "title": "Dish Ids",
             "type": "array"
           },
-          "fat_g": {
-            "title": "Fat G",
-            "type": "number"
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
           },
-          "kcal": {
-            "title": "Kcal",
-            "type": "integer"
+          "order_max": {
+            "$ref": "#/$defs/Nutrients"
+          },
+          "order_min": {
+            "$ref": "#/$defs/Nutrients"
+          },
+          "per_person_max": {
+            "$ref": "#/$defs/Nutrients"
+          },
+          "per_person_min": {
+            "$ref": "#/$defs/Nutrients"
           },
           "price_inr": {
             "title": "Price Inr",
             "type": "integer"
           },
-          "protein_g": {
-            "title": "Protein G",
-            "type": "number"
+          "price_inr_per_person": {
+            "title": "Price Inr Per Person",
+            "type": "integer"
           },
           "serves_max": {
             "title": "Serves Max",
@@ -1394,13 +1444,16 @@
         },
         "required": [
           "dish_ids",
-          "kcal",
-          "protein_g",
-          "carbs_g",
-          "fat_g",
-          "price_inr",
+          "diners",
           "serves_min",
-          "serves_max"
+          "serves_max",
+          "order_min",
+          "order_max",
+          "per_person_min",
+          "per_person_max",
+          "price_inr",
+          "price_inr_per_person",
+          "notes"
         ],
         "title": "MealTotals",
         "type": "object"

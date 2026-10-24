@@ -210,15 +210,51 @@ def test_meal_totals_sum_the_dishes_as_served_and_count_repeats(catalog: Catalog
     totals = nutrition.meal_totals(["S05", "a01", "s05"])
 
     assert totals.dish_ids == ["s05", "a01", "s05"]
-    assert totals.kcal == 2 * s05.kcal + a01.kcal
+    assert totals.order_max.kcal == 2 * s05.kcal * s05.serves_max + a01.kcal * a01.serves_max
+    assert totals.order_min.protein_g == round(2 * s05.protein_g * s05.serves_min + a01.protein_g * a01.serves_min, 1)
     assert totals.price_inr == 2 * s05.price_inr + a01.price_inr
-    assert totals.protein_g == round(2 * s05.protein_g + a01.protein_g, 1)
     assert (totals.serves_min, totals.serves_max) == (
         2 * s05.serves_min + a01.serves_min,
         2 * s05.serves_max + a01.serves_max,
     )
     with pytest.raises(NotFoundError, match="zz99"):
         nutrition.meal_totals(["zz99", "zz99"])
+
+
+def test_a_dish_for_two_counts_both_servings_and_diners_share_the_order(store: CatalogStore) -> None:
+    # Butter Chicken serves 2: 510 kcal a serving, ₹440 the dish (audit H2: two of it once read as 1,020 kcal)
+    totals = NutritionService(store).meal_totals(["s05", "s05"], diners=4)
+
+    assert totals.order_min == totals.order_max
+    assert totals.order_max.kcal == 2040
+    assert totals.per_person_min.kcal == totals.per_person_max.kcal == 510
+    assert (totals.price_inr, totals.price_inr_per_person) == (880, 220)
+    assert totals.notes == []
+
+
+def test_a_dish_serving_a_range_of_people_gives_a_range(store: CatalogStore) -> None:
+    totals = NutritionService(store).meal_totals(["k07"])  # Veg Dum Biryani serves 1-2, 460 kcal a serving
+
+    assert (totals.order_min.kcal, totals.order_max.kcal) == (460, 920)
+    assert totals.per_person_max == totals.order_max  # one diner eats the lot
+    assert totals.notes == []
+
+
+@pytest.mark.parametrize(
+    ("diners", "note"),
+    [
+        (3, "The order makes at most 2 servings for 3 diners."),
+        (1, "The order makes at least 2 servings for 1 diner; each share is more than one."),
+    ],
+)
+def test_too_little_or_too_much_food_is_noted(store: CatalogStore, diners: int, note: str) -> None:
+    assert NutritionService(store).meal_totals(["s05"], diners).notes == [note]
+
+
+@pytest.mark.parametrize("diners", [0, 21])
+def test_diners_are_bounded(store: CatalogStore, diners: int) -> None:
+    with pytest.raises(InputValidationError, match="between 1 and 20 diners"):
+        NutritionService(store).meal_totals(["s05"], diners)
 
 
 # Constraints
@@ -339,11 +375,13 @@ def test_check_holds_the_meal_to_its_caps_and_warns_on_photo_only_allergens(
     constraints_service: ConstraintService,
 ) -> None:
     check = constraints_service.check(
-        ["s05", "s05"], Constraints(exclude_allergens=frozenset({A.GLUTEN}), meal_max_kcal=900, meal_budget_inr=800)
+        ["s05", "s05"],
+        Constraints(exclude_allergens=frozenset({A.GLUTEN}), meal_max_kcal=900, meal_budget_inr=800),
+        diners=2,
     )
 
     assert [(v.rule, v.item_id, v.message) for v in check.violations] == [
-        (Rule.MEAL_KCAL, None, "The meal has 1020 kcal, over 900."),
+        (Rule.MEAL_KCAL, None, "The meal has up to 1020 kcal a person, over 900."),
         (Rule.MEAL_BUDGET, None, "The meal costs ₹880, over the budget of ₹800."),
     ]
     assert check.warnings == ["Butter Chicken may contain gluten (seen in its photo only)."]
@@ -352,6 +390,8 @@ def test_check_holds_the_meal_to_its_caps_and_warns_on_photo_only_allergens(
     )
     assert within.ok
     assert within.warnings == check.warnings  # a warning doesn't block
+    shared = constraints_service.check(["s05", "s05"], Constraints(meal_max_kcal=900), diners=4)
+    assert shared.ok  # 510 kcal each: the calorie limit is per person, the budget for the whole order
 
 
 def _random_constraints(rng: random.Random) -> Constraints:

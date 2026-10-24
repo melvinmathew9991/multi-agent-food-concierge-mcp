@@ -312,6 +312,7 @@ def _traced(monkeypatch: pytest.MonkeyPatch, exporter: InMemorySpanExporter, env
         langfuse_public_key=SecretStr(f"pk-lf-{uuid.uuid4()}"),
         langfuse_secret_key=SecretStr("sk-lf-test"),
         environment=environment,
+        allowed_hosts=["concierge.example.hf.space"],  # production refuses the localhost default
     )
     traced = init_telemetry(settings, tracer_provider=TracerProvider(), span_exporter=exporter)
     yield traced

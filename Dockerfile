@@ -2,7 +2,8 @@
 # The HTTP server (API + MCP) for a Hugging Face Space (Docker SDK, free CPU) or any container host.
 #
 #   docker build -t food-concierge .
-#   docker run --rm -p 7860:7860 --env-file .env food-concierge     # keys from .env, never baked in
+#   docker run --rm -p 7860:7860 -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 -e GROQ_API_KEY food-concierge
+#   (keys from the shell, never baked in; production needs ALLOWED_HOSTS)
 #   python scripts/smoke_deploy.py http://127.0.0.1:7860
 #
 # The catalog, indexes, embedding model and photo thumbnails are built into the image, so a cold start reads only

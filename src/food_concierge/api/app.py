@@ -7,7 +7,9 @@
   request and free hosts need no sticky sessions. Host headers are checked against ``allowed_hosts`` (DNS
   rebinding protection), and the body limit fits a photo at ``max_image_mb`` in base64.
 
-Before ``/mcp`` and ``/v1/``, ``AccessGate`` refuses a bad token (401) and a caller over its rate limit (429).
+Before ``/mcp`` and ``/v1/``, ``AccessGate`` refuses a bad token (401) and a caller over its rate limit (429). An
+anonymous caller is known by its address: the connecting one, or behind ``trusted_proxy_hops`` proxies the one the
+outermost trusted proxy recorded in ``X-Forwarded-For``, never an entry the client could have written itself.
 Which tools a scope may call is checked per call inside MCP (``mcp_server.access``). Errors share one shape:
 ``{"error": {"code", "message", "request_id"}}``.
 """
@@ -61,6 +63,20 @@ class SearchRequest(BaseModel):
     k: Annotated[int, Field(ge=1, le=MAX_RESULTS)] = 5
 
 
+def caller_address(scope: Scope, trusted_hops: int) -> str:
+    """The client's address: each trusted proxy appends the address it saw, so the ``trusted_hops``-th entry from
+    the right was written by a proxy we trust; entries left of it may be forged. With too few entries the request
+    didn't come through the proxies, so the connecting address is used."""
+    client = scope.get("client")
+    address = client[0] if client else "unknown"
+    if trusted_hops:
+        forwarded = ",".join(Headers(scope=scope).getlist("x-forwarded-for"))
+        hops = [hop.strip() for hop in forwarded.split(",") if hop.strip()]
+        if len(hops) >= trusted_hops:
+            address = hops[-trusted_hops]
+    return f"ip:{address}"
+
+
 def error_response(error: AppError) -> JSONResponse:
     request_id = uuid.uuid4().hex
     headers = {"X-Request-ID": request_id}
@@ -85,16 +101,18 @@ class AccessGate:
             await self._app(scope, receive, send)
             return
         authorization = Headers(scope=scope).get("authorization")
-        client = scope.get("client")
-        address = f"ip:{client[0] if client else 'unknown'}"
+        address = caller_address(scope, self._settings.trusted_proxy_hops)
         try:
             try:
                 granted = scope_for(authorization, self._settings)
             except UnauthorizedError:
                 # A wrong token spends the address's allowance, so tokens can't be guessed at speed.
-                self._limiter.acquire(address)
+                self._limiter.acquire(address, anonymous=True)
                 raise
-            self._limiter.acquire(f"token:{granted.label}" if authorization else address)
+            if authorization:
+                self._limiter.acquire(f"token:{granted.label}")
+            else:
+                self._limiter.acquire(address, anonymous=True)
         except AppError as error:
             logger.warning("request refused", extra={"security_event": error.code, "path": scope["path"]})
             await error_response(error)(scope, receive, send)
@@ -121,7 +139,11 @@ def create_app(services: Services) -> FastAPI:
             yield
 
     app = FastAPI(title="Food Concierge", version=__version__, lifespan=lifespan)
-    limiter = RateLimiter(settings.rate_limit_per_min, settings.rate_limit_global_per_min)
+    limiter = RateLimiter(
+        settings.rate_limit_per_min, settings.rate_limit_global_per_min, settings.rate_limit_anonymous_per_min
+    )
+    if settings.environment == "production" and settings.api_token_agent is None:
+        logger.warning("no API_TOKEN_AGENT set: describe_image can't be called over HTTP")
     app.add_middleware(AccessGate, settings=settings, limiter=limiter)
 
     @app.exception_handler(AppError)

@@ -129,7 +129,7 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 | Seeds scattered | `model_seed` stays; add `eval_seed` for splits, bootstrap and image transforms; no unseeded randomness in `src/` | done in P3 |
 | Live-model replies are non-deterministic | Cache raw replies with model and prompt version; a regeneration is a new run, never an edit to the old one | P3 onwards |
 | No end-to-end reproduction check | README section "Reproduce from a clean checkout" (`build` → `evaluate` → `report`), run as written by the nightly | P3: the nightly runs `build` then `evaluate --check`, and the README's "Evaluate retrieval" lists the commands. The full section comes with the close-out |
-| Container builds drift | Base image pinned by digest; models downloaded at build and checked against the committed fingerprint; dependencies installed from the lock | P4 |
+| Container builds drift | Base image pinned by digest; models downloaded at build and checked against the committed fingerprint; dependencies installed from the lock | P4: done (#122). Base pinned by digest, hash-checked locked installs; the indexes are built in the image with the model they record, so a load checks the fingerprint |
 | Prompts could diverge between git and Langfuse | Git is the source of truth; `sync_prompts.py` pushes one way; the version is in every trace and cache key | P5 |
 
 ## 6. Environments and staging
@@ -147,7 +147,7 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 - **Build once, promote the same image** (rules §9.6). Staging deploys the image built from `main`. A tag promotes that same image digest to production, so what was tested is what ships.
 - **Smoke test after every deploy:** `/health`, `/ready`, one `/v1/search`, MCP `list_tools` with a scoped token, plus one model call in staging only. A failed smoke test blocks promotion.
 - **Configuration as the release lever:** the retrieval configuration (ADR-0001), model names (ADR-0006/0007) and agent topology (ADR-0004) are settings. Rollback means redeploying the previous tag or flipping a setting.
-- **Approval needed:** a second Hugging Face Space for staging is free but a new resource, so it needs the owner's go-ahead in P4 (rules §5.5).
+- **Approval needed:** a second Hugging Face Space for staging is free but a new resource, so it needs the owner's go-ahead in P4 (rules §5.5). Decided 2026-10-24: no staging Space for now. The `docker` workflow smoke-tests every image built from `main`, and the production image will be pushed once to GitHub's container registry, the Space running that exact digest.
 
 ## 7. Plan execution
 

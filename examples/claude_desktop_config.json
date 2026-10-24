@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "food-concierge": {
+      "command": "C:\\path\\to\\multi-agent-food-concierge-mcp\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "food_concierge.mcp_server"]
+    }
+  }
+}

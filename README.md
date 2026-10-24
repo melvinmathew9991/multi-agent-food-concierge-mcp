@@ -88,6 +88,8 @@ curl -s localhost:8000/v1/search -H 'content-type: application/json' \
 
 Search never returns a dish that breaks the constraints given: it filters in SQL before ranking and re-checks every result. Over HTTP a request without a token gets the public scope (search and the read-only tools); `describe_image`, which spends the hosted vision quota, needs the `agent` token (`API_TOKEN_AGENT`), sent as `Authorization: Bearer <token>` over HTTPS. Keep tokens in the git-ignored `.env` or platform secrets; each must be at least 32 characters and different from the others, or the server won't start (`python -c "import secrets; print(secrets.token_urlsafe(32))"`). A token that matches none is refused, and wrong guesses spend the caller's rate limit. Callers are rate-limited (`RATE_LIMIT_PER_MIN` each, `RATE_LIMIT_GLOBAL_PER_MIN` in all), and MCP answers only the hosts in `ALLOWED_HOSTS`, so add the deployed host there. Allergen information is derived and comes with a disclaimer; it is not medical advice.
 
+To connect Claude Desktop or MCP Inspector, see [`docs/mcp.md`](docs/mcp.md) and [`examples/claude_desktop_config.json`](examples/claude_desktop_config.json).
+
 ## Tracing (optional)
 
 Without Langfuse keys tracing is off and everything still runs. To see traces locally (needs Docker):
@@ -112,4 +114,4 @@ Planning documents live in [`docs/planning/`](docs/planning/):
 | [`phases.md`](docs/planning/phases.md) | Delivery phases, definitions of done and the audit reference index |
 | [`optimization.md`](docs/planning/optimization.md) | Budgets, token and model usage, performance, scalability, reproducibility, environments and staging |
 
-Architecture decisions are recorded in [`docs/adr/`](docs/adr/). Retrieval results are in [`docs/evaluation.md`](docs/evaluation.md), generated from `eval/results/`. The catalog is described in [`docs/data-card.md`](docs/data-card.md), and the handling of user data in [`docs/data-handling.md`](docs/data-handling.md).
+Architecture decisions are recorded in [`docs/adr/`](docs/adr/). Retrieval results are in [`docs/evaluation.md`](docs/evaluation.md), generated from `eval/results/`. The catalog is described in [`docs/data-card.md`](docs/data-card.md), and the handling of user data in [`docs/data-handling.md`](docs/data-handling.md). Connecting MCP clients is covered in [`docs/mcp.md`](docs/mcp.md).

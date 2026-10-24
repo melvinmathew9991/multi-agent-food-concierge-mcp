@@ -64,11 +64,11 @@ def _default_photo_cache_dir() -> Path:
 class Settings(BaseSettings):
     # extra="forbid" rejects unknown keys in .env; unrelated OS environment variables are never read.
     # env_ignore_empty lets a copied .env.example leave values blank without overriding defaults.
-    # The repo's .env is read wherever the process starts (Claude Desktop launches the MCP server from its own
-    # directory), so keys stay in that git-ignored file rather than in a client's plaintext config; a .env in the
-    # working directory overrides it.
+    # Only the repo's .env is read, wherever the process starts (Claude Desktop launches the MCP server from its own
+    # directory), so keys stay in that git-ignored file rather than in a client's plaintext config, and a .env in
+    # some other working directory can't break the server or change its settings.
     model_config = SettingsConfigDict(
-        env_file=(REPO_ROOT / ".env", ".env"), env_file_encoding="utf-8", extra="forbid", env_ignore_empty=True
+        env_file=REPO_ROOT / ".env", env_file_encoding="utf-8", extra="forbid", env_ignore_empty=True
     )
 
     # Providers (zero cost by default: free tiers and local models only)
@@ -175,11 +175,16 @@ class Settings(BaseSettings):
     api_token_admin: SecretStr | None = None
     rate_limit_per_min: int = Field(default=20, gt=0)
     rate_limit_global_per_min: int = Field(default=120, gt=0)
+    # Anonymous callers in all may use this much of the global limit, so token holders always have some left.
+    rate_limit_anonymous_per_min: int = Field(default=90, gt=0)
+    # Proxies in front of the HTTP server that append the address they saw to X-Forwarded-For (1 on a Hugging Face
+    # Space). 0 uses the connecting address and ignores the header, which a client can write anything into.
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
     # Host headers the HTTP server answers (DNS-rebinding protection); add the deployed host, e.g. "x.hf.space".
     allowed_hosts: Annotated[list[str], NoDecode] = Field(default_factory=_default_allowed_hosts)
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, gt=0, le=65535)
-    # Reserved: nothing reads it yet; CORS is enforced from P7 (API and UI).
+    # Origins MCP accepts from browsers (api/app.py); full CORS for the API and UI comes in P7.
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=_default_cors_origins)
 
     # Paths
@@ -230,6 +235,24 @@ class Settings(BaseSettings):
             )
         if len(set(tokens.values())) < len(tokens):
             raise ValueError("Each API token must be different: one token for two scopes grants the higher one.")
+        return self
+
+    @model_validator(mode="after")
+    def _anonymous_limit_fits_the_global_one(self) -> Settings:
+        if self.rate_limit_anonymous_per_min > self.rate_limit_global_per_min:
+            raise ValueError("RATE_LIMIT_ANONYMOUS_PER_MIN can't be more than RATE_LIMIT_GLOBAL_PER_MIN.")
+        return self
+
+    @model_validator(mode="after")
+    def _production_is_configured(self) -> Settings:
+        # A deployed server must name the host it answers (the default is localhost, so MCP would refuse every
+        # request) and must not export message content in traces.
+        if self.environment != "production":
+            return self
+        if self.allowed_hosts == _default_allowed_hosts():
+            raise ValueError("In production, set ALLOWED_HOSTS to the host the server is reached on.")
+        if self.trace_content == "full":
+            raise ValueError("In production, TRACE_CONTENT can't be full: traces would carry what users type.")
         return self
 
     @model_validator(mode="after")

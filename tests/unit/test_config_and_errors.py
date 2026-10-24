@@ -212,13 +212,34 @@ Environment = Literal["development", "ci", "production"]
         ("development", None, "full"),
         ("ci", None, "full"),
         ("production", None, "metadata"),
-        ("production", "full", "full"),
+        ("production", "metadata", "metadata"),
         ("development", "metadata", "metadata"),
     ],
 )
 def test_production_traces_carry_metadata_only_by_default(
     environment: Environment, explicit: TraceContent | None, exported: TraceContent
 ) -> None:
-    s = Settings(_env_file=None, environment=environment, trace_content=explicit)
+    s = Settings(_env_file=None, environment=environment, trace_content=explicit, allowed_hosts=DEPLOYED)
 
     assert s.exported_trace_content() == exported
+
+
+DEPLOYED = ["concierge.example.hf.space"]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({}, "In production, set ALLOWED_HOSTS"),
+        ({"allowed_hosts": ["127.0.0.1:*", "localhost:*", "[::1]:*"]}, "In production, set ALLOWED_HOSTS"),
+        ({"allowed_hosts": DEPLOYED, "trace_content": "full"}, "TRACE_CONTENT can't be full"),
+    ],
+)
+def test_production_refuses_settings_that_break_or_overshare(overrides: dict[str, object], message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        Settings(_env_file=None, environment="production", **overrides)  # type: ignore[arg-type]
+
+
+def test_production_with_its_host_named_starts_and_development_keeps_the_defaults() -> None:
+    assert Settings(_env_file=None, environment="production", allowed_hosts=DEPLOYED).allowed_hosts == DEPLOYED
+    Settings(_env_file=None, environment="development", trace_content="full")

@@ -1,4 +1,5 @@
-"""Token-bucket rate limits: one bucket per caller and one for the whole server (architecture §16).
+"""Token-bucket rate limits: one bucket per caller, one for the whole server, and one that anonymous callers share,
+so they can never take the whole server's allowance from token holders (architecture §16).
 
 A caller is its token's scope when it sends one, otherwise its client address, so anonymous callers don't share
 one bucket. The buckets live in this process only, and the least recently used are forgotten past
@@ -35,33 +36,42 @@ class _Bucket:
 
 
 class RateLimiter:
-    """Allows ``per_caller`` requests a minute to each caller and ``overall`` a minute in all; thread-safe."""
+    """Allows ``per_caller`` requests a minute to each caller, ``overall`` a minute in all, and ``anonymous`` a
+    minute to anonymous callers together (``overall`` when not given); thread-safe."""
 
-    def __init__(self, per_caller: int, overall: int, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        per_caller: int,
+        overall: int,
+        anonymous: int | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._per_caller = per_caller
         self._overall = overall
+        self._anonymous = overall if anonymous is None else anonymous
         self._clock = clock
         self._lock = threading.Lock()
         self._callers: OrderedDict[str, _Bucket] = OrderedDict()
         self._all = _Bucket(float(overall), clock())
+        self._all_anonymous = _Bucket(float(self._anonymous), clock())
 
-    def acquire(self, caller: str) -> None:
-        """Take one request from ``caller``'s bucket and the overall one; raises ``RateLimitedError`` when either is
-        empty, taking from neither."""
+    def acquire(self, caller: str, *, anonymous: bool = False) -> None:
+        """Take one request from ``caller``'s bucket, the overall one and, for an anonymous caller, the anonymous
+        one; raises ``RateLimitedError`` when any is empty, taking from none."""
         with self._lock:
             now = self._clock()
             bucket = self._callers.pop(caller, None) or _Bucket(float(self._per_caller), now)
             self._callers[caller] = bucket
             while len(self._callers) > MAX_CALLERS:
                 self._callers.popitem(last=False)
-            waits = [
-                _wait(bucket, self._per_caller, now),
-                _wait(self._all, self._overall, now),
-            ]
-            if max(waits) > 0:
-                raise RateLimitedError(max(waits))
-            bucket.tokens -= 1
-            self._all.tokens -= 1
+            buckets = [(bucket, self._per_caller), (self._all, self._overall)]
+            if anonymous:
+                buckets.append((self._all_anonymous, self._anonymous))
+            wait = max(_wait(each, per_minute, now) for each, per_minute in buckets)
+            if wait > 0:
+                raise RateLimitedError(wait)
+            for each, _ in buckets:
+                each.tokens -= 1
 
 
 def _wait(bucket: _Bucket, per_minute: int, now: float) -> float:

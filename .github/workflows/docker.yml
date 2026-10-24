@@ -37,7 +37,7 @@ jobs:
           token=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
           echo "::add-mask::$token"
           echo "SMOKE_TOKEN=$token" >> "$GITHUB_ENV"
-          docker run -d --name app -p 7860:7860 -e API_TOKEN_AGENT="$token" food-concierge:ci
+          docker run -d --name app -p 7860:7860 -e API_TOKEN_AGENT="$token"             -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 food-concierge:ci
           for i in $(seq 1 60); do
             if curl -fs http://127.0.0.1:7860/ready > /dev/null; then echo "ready after ${i}s"; exit 0; fi
             sleep 1

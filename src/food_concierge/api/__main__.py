@@ -17,7 +17,14 @@ from food_concierge.mcp_server.services import build_services
 def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
-    uvicorn.run(create_app(build_services(settings)), host=settings.api_host, port=settings.api_port, log_config=None)
+    # proxy_headers off: uvicorn would trust X-Forwarded-For from loopback; AccessGate reads it per TRUSTED_PROXY_HOPS.
+    uvicorn.run(
+        create_app(build_services(settings)),
+        host=settings.api_host,
+        port=settings.api_port,
+        log_config=None,
+        proxy_headers=False,
+    )
 
 
 if __name__ == "__main__":

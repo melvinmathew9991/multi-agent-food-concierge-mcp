@@ -52,7 +52,7 @@ flowchart LR
 ```
 `*` Ollama is local only; Bedrock is off by default and stub-tested.
 
-**Layering rule:** domain services (pure Python, no LLM framework imports) ← MCP server (protocol adapter) ← agent (MCP client). The agent never imports domain services directly. Everything it does goes through MCP, which keeps the protocol real and the tools reusable.
+**Layering rule:** domain services (pure Python, no LLM framework imports) ← MCP server (protocol adapter) ← agent (MCP client). The agent never imports domain services directly. Everything it does goes through MCP, which keeps the protocol real and the tools reusable. [ADR-0002](../adr/0002-mcp-first-layering.md) records the decision; `tests/unit/test_layering.py` enforces it from the imports.
 
 ## 3. Offline ingestion pipeline
 
@@ -205,7 +205,7 @@ Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from 
 
 | Component | Where | Notes |
 |---|---|---|
-| API + MCP (HTTP) | Hugging Face Space (Docker SDK, free CPU); `python -m food_concierge.api` locally | Sleeps when idle, cold start on wake; ephemeral disk (catalog/index baked in at build; checkpoints are demo-only) |
+| API + MCP (HTTP) | Hugging Face Space (Docker SDK, free CPU); `python -m food_concierge.api` locally | Sleeps when idle, cold start on wake; ephemeral disk (catalog/index baked in at build; checkpoints are demo-only). The image (`Dockerfile`, #122) builds the catalog, indexes, embedding model and photo thumbnails in a build stage with the dev lock and ships only the runtime lock, as uid 1000 on port 7860 with `HF_HUB_OFFLINE=1`: 695 MB, ready about 5 s after start in CI. The production image is pushed once to GitHub's container registry and the Space runs that digest (owner's decision, 2026-10-24); creating the Space is pending the owner. `scripts/smoke_deploy.py` checks a deploy without model calls |
 | UI | Streamlit Community Cloud | Calls the Space URL; secrets in Streamlit settings |
 | MCP (stdio) | Local: `python -m food_concierge.mcp_server` | Every scope (the local user's own process); Claude Desktop config in `docs/mcp.md` (P4 item 5) |
 | Tracing | Langfuse Cloud Hobby (demo), Docker Compose self-host (dev) | Durable traces/scores/datasets |
@@ -235,7 +235,8 @@ multi-agent-food-concierge-mcp/
 ├── eval/                # data only: datasets/, caches/, gates/, results/ (runner code in src/food_concierge/evaluation/)
 ├── scripts/             # build and photo tools; eval: label_queries, image_queries, original_baseline, build_eval_cache, retrieval_gate
 ├── tests/               # unit/, mcp/, agent/, api/ (offline)
-├── deploy/              # Dockerfile, hf-space/README.md (Space config), streamlit notes
+├── Dockerfile           # the server image (P4): built data and models inside, non-root, port 7860
+├── deploy/              # deploy notes; hf-space/README.md (Space config, P4 6b), streamlit notes
 ├── examples/            # a2a_client_agent.py (demo peer agent), claude_desktop_config.json
 ├── docs/                # planning/, adr/, responsible-ai/ (system card, fairness, red-team), data-card.md, evaluation.md, mcp.md, a2a.md, runbook.md
 ├── data/                # raw/ (own catalog + attributions, tracked), processed/ (descriptions tracked; db/index/thumbs built)

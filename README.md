@@ -2,7 +2,7 @@
 
 A multimodal food concierge: a LangGraph agent plans meals and recommends dishes from text and photos using tools served over the Model Context Protocol (MCP). Dietary and allergen constraints are enforced in code by the tools and a deterministic verifier, every run is traced and evaluated with Langfuse, and the whole stack runs at zero cost on free tiers and local models.
 
-> **Status:** under active development. Phases 0–2 are complete: the model layer, and the catalog with allergen safety, storage, search indexes, build flows and a measured vision model ([ADR-0007](docs/adr/0007-vision-model-and-vision-allergen-tags.md)). Phase 3 (retrieval evaluation) is built, and waits on the owner's relevance grades for ADR-0001, the choice of retrieval stack. Phase 4 is well along: the domain services, an MCP server with 6 tools, 4 resources and 2 prompts, and an HTTP server with scoped tokens and rate limits are built; the Claude Desktop guide and the first deploy are next. See [`docs/planning/phases.md`](docs/planning/phases.md) for the plan, [`CHANGELOG.md`](CHANGELOG.md) for progress and [`docs/baseline-defects.md`](docs/baseline-defects.md) for what is being fixed from the original implementation.
+> **Status:** under active development. Phases 0–2 are complete: the model layer, and the catalog with allergen safety, storage, search indexes, build flows and a measured vision model ([ADR-0007](docs/adr/0007-vision-model-and-vision-allergen-tags.md)). Phase 3 (retrieval evaluation) is built, and waits on the owner's relevance grades for ADR-0001, the choice of retrieval stack. Phase 4 is well along: the domain services, an MCP server with 6 tools, 4 resources and 2 prompts, and an HTTP server with scoped tokens and rate limits are built; so are the Claude Desktop guide and a container image smoke-tested in CI ([ADR-0002](docs/adr/0002-mcp-first-layering.md) records the layering). The public deploy to a Hugging Face Space is next. See [`docs/planning/phases.md`](docs/planning/phases.md) for the plan, [`CHANGELOG.md`](CHANGELOG.md) for progress and [`docs/baseline-defects.md`](docs/baseline-defects.md) for what is being fixed from the original implementation.
 
 > **Acknowledgement:** this is an independent rebuild of a course exercise on multimodal RAG. No course code, data or images are redistributed; the catalog in this repository is authored for this project.
 
@@ -87,6 +87,14 @@ curl -s localhost:8000/v1/search -H 'content-type: application/json' \
 | `search_dishes`, `find_similar`, `get_dish`, `check_allergens`, `meal_totals`, `describe_image` | `menu://catalog`, `menu://dishes/{dish_id}`, `menu://dishes/{dish_id}/image`, `menu://policy/allergens` | `plan_meal`, `find_similar_dish` |
 
 Search never returns a dish that breaks the constraints given: it filters in SQL before ranking and re-checks every result. Over HTTP a request without a token gets the public scope (search and the read-only tools); `describe_image`, which spends the hosted vision quota, needs the `agent` token (`API_TOKEN_AGENT`), sent as `Authorization: Bearer <token>` over HTTPS. Keep tokens in the git-ignored `.env` or platform secrets; each must be at least 32 characters and different from the others, or the server won't start (`python -c "import secrets; print(secrets.token_urlsafe(32))"`). A token that matches none is refused, and wrong guesses spend the caller's rate limit. Callers are rate-limited (`RATE_LIMIT_PER_MIN` each, `RATE_LIMIT_GLOBAL_PER_MIN` in all), and MCP answers only the hosts in `ALLOWED_HOSTS`, so add the deployed host there. Allergen information is derived and comes with a disclaimer; it is not medical advice.
+
+In a container, with the catalog, indexes, embedding model and photo thumbnails built into the image and keys passed at run time:
+
+```bash
+docker build -t food-concierge .
+docker run --rm -p 7860:7860 --env-file .env food-concierge
+python scripts/smoke_deploy.py http://127.0.0.1:7860    # health, search, MCP, scopes; no model calls
+```
 
 To connect Claude Desktop or MCP Inspector, see [`docs/mcp.md`](docs/mcp.md) and [`examples/claude_desktop_config.json`](examples/claude_desktop_config.json).
 

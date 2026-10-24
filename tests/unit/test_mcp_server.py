@@ -31,7 +31,7 @@ from food_concierge.services.allergens import DISCLAIMER
 from food_concierge.services.catalog import CatalogService
 from food_concierge.services.constraints import Constraints, dish_violations
 from food_concierge.services.retrieval import Hit, RetrievalConfig, Retriever, SearchResult
-from food_concierge.services.search import MAX_RESULTS
+from food_concierge.services.search import MAX_RESULTS, NO_MATCH
 from food_concierge.services.vision import DESCRIBE_IN_WORDS, VisionService
 from food_concierge.storage.catalog_db import CATALOG_DB, CatalogStore, Filters
 from food_concierge.storage.indexes import INDEX_DIR, load_indexes
@@ -148,6 +148,71 @@ def _random_arguments(rng: random.Random) -> dict[str, Any]:
         "include_unverified": rng.random() < 0.3,
         "k": MAX_RESULTS,
     }
+
+
+@pytest.mark.parametrize(
+    ("query", "stated", "note"),
+    [
+        ("peanut-free snack", {"exclude_allergens": ["peanuts"]}, "no peanuts"),
+        ("snack without peanuts", {"exclude_allergens": ["peanuts"]}, "no peanuts"),
+        ("dairy free curry", {"exclude_allergens": ["milk"]}, "no milk"),
+        ("vegan dessert", {"diet": "vegan"}, "vegan"),
+        ("no egg cake", {"eggless": True}, "no eggs"),
+        ("nut allergy friendly sweets", {"exclude_allergens": ["nuts"]}, "no peanuts or tree nuts"),
+        ("gluten-free and vegan", {"diet": "vegan", "exclude_allergens": ["gluten"]}, "vegan, no gluten"),
+    ],
+)
+async def test_constraints_stated_only_in_the_query_are_applied_and_named(
+    server: MCPServer, store: CatalogStore, query: str, stated: dict[str, Any], note: str
+) -> None:
+    # Audit H1: with no arguments, these queries ranked the avoided allergen first.
+    is_error, result = await call(server, "search_dishes", {"query": query, "k": MAX_RESULTS})
+
+    assert not is_error
+    assert result["dishes"]
+    constraints = Constraints.model_validate(stated)
+    dishes = CatalogService(store).get_dishes(names(result))
+    assert not [v for dish in dishes for v in dish_violations(dish, constraints)]
+    assert result["note"] == f"Also applied from the query: {note}."
+
+
+async def test_arguments_and_words_combine_and_nothing_is_noted_when_the_words_add_nothing(server: MCPServer) -> None:
+    given = {"query": "peanut-free snack", "exclude_allergens": ["peanuts"], "diet": "vegan", "k": 3}
+    _, already = await call(server, "search_dishes", given)
+    _, plain = await call(server, "search_dishes", {"query": "spicy curry", "k": 3})
+    _, both = await call(server, "search_dishes", {"query": "dairy free", "diet": "vegan", "k": 3})
+    _, none_left = await call(server, "search_dishes", {"query": "vegan curry", "max_price_inr": 1, "k": 3})
+
+    assert already["note"] is None
+    assert plain["note"] is None
+    assert both["note"] == "Also applied from the query: no milk."
+    assert none_left == {"dishes": [], "note": f"Also applied from the query: vegan. {NO_MATCH}"}
+
+
+async def test_a_confirmation_given_as_an_argument_survives_the_query_words(
+    server: MCPServer, store: CatalogStore
+) -> None:
+    unverified = {dish.item_id for dish in CatalogService(store).all_summaries() if dish.unverified}
+    _, confirmed = await call(
+        server, "search_dishes", {"query": "peanut-free curry", "include_unverified": True, "k": MAX_RESULTS}
+    )
+    _, unconfirmed = await call(server, "search_dishes", {"query": "peanut-free curry", "k": MAX_RESULTS})
+
+    assert not unverified & set(names(unconfirmed))
+    assert unverified & set(names(confirmed))  # the diner's confirmation still lets unverified dishes through
+
+
+async def test_find_similar_doesnt_read_constraints_from_a_dishs_description(server: MCPServer) -> None:
+    _, similar = await call(server, "find_similar", {"dish_id": "y09", "k": 3})  # Vegan Banana Walnut Bread
+
+    assert similar["note"] is None
+
+
+async def test_unknown_allergen_words_are_named_for_check_allergens(server: MCPServer) -> None:
+    is_error, text = await call(server, "check_allergens", {"dish_ids": ["s05"], "allergens": ["dairy", "unicorn"]})
+
+    assert is_error
+    assert text.endswith("Unknown allergen term(s): unicorn. See menu://policy/allergens.")
 
 
 async def test_search_never_returns_a_dish_that_breaks_the_constraints(server: MCPServer, store: CatalogStore) -> None:

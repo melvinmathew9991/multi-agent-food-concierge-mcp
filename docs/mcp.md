@@ -68,7 +68,7 @@ All six are read-only. Only `describe_image` reaches outside the server (a hoste
 | `meal_totals` | `dish_ids` (1–20; list a dish twice to count it twice) | kcal, protein, carbs, fat, rupees, servings |
 | `describe_image` | `image_base64` (at most `MAX_IMAGE_MB`) | A name-free description to search with, or a request for words |
 
-Search filters in SQL before ranking and re-checks every result, so it never returns a dish that breaks the constraints given. A dish whose recipe can't be checked is *unverified*: it is left out whenever allergens matter, until the diner agrees and the client searches again with `include_unverified`.
+Search filters in SQL before ranking and re-checks every result, so it never returns a dish that breaks the constraints given. Constraints the query states in words ("peanut-free snack", "no dairy", "vegan dessert", "allergic to cashews") are applied too, and the result's `note` names them ("Also applied from the query: no peanuts."); a wish is never read as a constraint ("peanut chikki"). Pass constraints as arguments as well, so they're explicit. A dish whose recipe can't be checked is *unverified*: it is left out whenever allergens matter, until the diner agrees and the client searches again with `include_unverified`.
 
 ### Resources and prompts
 

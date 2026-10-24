@@ -63,12 +63,12 @@ All six are read-only. Only `describe_image` reaches outside the server (a hoste
 |---|---|---|
 | `search_dishes` | `query`; optional `diet` (`vegan`, `vegetarian`, `non_vegetarian`), `eggless`, `exclude_allergens` (plain words: "dairy", "nuts"), `max_kcal`, `max_price_inr`, `cuisines`, `include_unverified`, `exclude_ids`, `k` (1–10, default 5) | Ranked dishes that keep every constraint |
 | `find_similar` | `dish_id` and the same constraints as search | Dishes like it, not the same dish at another restaurant |
-| `get_dish` | `dish_id` | Ingredients, nutrition, price, restaurant, allergen tags with evidence, photo credit |
+| `get_dish` | `dish_id` | Ingredients, nutrition per serving, the dish's price, restaurant, allergen tags with evidence, photo credit |
 | `check_allergens` | `dish_ids` (1–20), optional `allergens` (all if left out) | Per dish: `contains`, `may_contain` (photo only), `unverified`, `clear`; and a disclaimer |
-| `meal_totals` | `dish_ids` (1–20; list a dish twice to count it twice) | kcal, protein, carbs, fat, rupees, servings |
+| `meal_totals` | `dish_ids` (1–20; list a dish twice to count it twice), optional `diners` (1–20, default 1) | kcal, protein, carbs and fat for the whole order (`order_min`, `order_max`) and each diner's share (`per_person_min`, `per_person_max`); rupees for the order and per person; servings; `notes` when the order makes too few or too many servings |
 | `describe_image` | `image_base64` (at most `MAX_IMAGE_MB`) | A name-free description to search with, or a request for words |
 
-Search filters in SQL before ranking and re-checks every result, so it never returns a dish that breaks the constraints given. Constraints the query states in words ("peanut-free snack", "no dairy", "vegan dessert", "allergic to cashews") are applied too, and the result's `note` names them ("Also applied from the query: no peanuts."); a wish is never read as a constraint ("peanut chikki"). Pass constraints as arguments as well, so they're explicit. A dish whose recipe can't be checked is *unverified*: it is left out whenever allergens matter, until the diner agrees and the client searches again with `include_unverified`.
+Search filters in SQL before ranking and re-checks every result, so it never returns a dish that breaks the constraints given. Constraints the query states in words ("peanut-free snack", "no dairy", "vegan dessert", "allergic to cashews") are applied too, and the result's `note` names them ("Also applied from the query: no peanuts."); a wish is never read as a constraint ("peanut chikki"). Pass constraints as arguments as well, so they're explicit. The menu gives nutrition per serving and the price per dish; a dish serves a number of people or a range (1–2), so `meal_totals` multiplies each dish's servings in, and a range of servings gives a min–max range. Nutrition values are estimates, not measurements. A dish whose recipe can't be checked is *unverified*: it is left out whenever allergens matter, until the diner agrees and the client searches again with `include_unverified`.
 
 ### Resources and prompts
 

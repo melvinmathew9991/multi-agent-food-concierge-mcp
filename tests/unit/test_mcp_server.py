@@ -317,11 +317,18 @@ async def test_check_allergens_reads_plain_words_and_carries_the_disclaimer(serv
     assert everything["checks"][0]["contains"] == ["milk", "tree_nuts"]
 
 
-async def test_meal_totals_counts_a_repeated_dish_twice(server: MCPServer) -> None:
-    failed, totals = await call(server, "meal_totals", {"dish_ids": ["s05", "s05"]})
+async def test_meal_totals_counts_a_repeated_dish_twice_and_shares_it(server: MCPServer) -> None:
+    failed, totals = await call(server, "meal_totals", {"dish_ids": ["s05", "s05"], "diners": 2})
 
     assert not failed
-    assert (totals["kcal"], totals["price_inr"]) == (1020, 880)
+    assert (totals["order_max"]["kcal"], totals["per_person_max"]["kcal"]) == (2040, 1020)
+    assert (totals["price_inr"], totals["price_inr_per_person"]) == (880, 440)
+
+
+async def test_meal_totals_refuses_no_diners(server: MCPServer) -> None:
+    failed, _ = await call(server, "meal_totals", {"dish_ids": ["s05"], "diners": 0})
+
+    assert failed
 
 
 def jpeg() -> bytes:

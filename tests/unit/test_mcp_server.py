@@ -4,6 +4,7 @@ import base64
 import io
 import json
 import logging
+import os
 import random
 import runpy
 import sys
@@ -108,6 +109,30 @@ async def test_the_server_lists_its_tools_resources_and_prompts(server: MCPServe
     assert prompts == ["plan_meal", "find_similar_dish"]
     assert server.instructions is not None
     assert DISCLAIMER in server.instructions
+
+
+SCHEMA_SNAPSHOT = Path(__file__).parents[1] / "fixtures" / "mcp_schema.json"
+
+
+async def test_the_schemas_clients_see_match_the_snapshot(server: MCPServer) -> None:
+    """A change to what Claude Desktop or an agent sees is deliberate: rerun with UPDATE_MCP_SCHEMA=1 and review it."""
+    async with Client(server) as client:
+        listed = {
+            "instructions": server.instructions,
+            "tools": [t.model_dump(mode="json", exclude_none=True) for t in (await client.list_tools()).tools],
+            "resources": [
+                r.model_dump(mode="json", exclude_none=True) for r in (await client.list_resources()).resources
+            ],
+            "resource_templates": [
+                t.model_dump(mode="json", exclude_none=True)
+                for t in (await client.list_resource_templates()).resource_templates
+            ],
+            "prompts": [p.model_dump(mode="json", exclude_none=True) for p in (await client.list_prompts()).prompts],
+        }
+    text = json.dumps(listed, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    if os.environ.get("UPDATE_MCP_SCHEMA") == "1":
+        SCHEMA_SNAPSHOT.write_text(text, encoding="utf-8", newline="\n")
+    assert SCHEMA_SNAPSHOT.read_text(encoding="utf-8") == text
 
 
 def _random_arguments(rng: random.Random) -> dict[str, Any]:

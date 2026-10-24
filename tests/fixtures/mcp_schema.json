@@ -1,0 +1,1483 @@
+{
+  "instructions": "Tools for finding dishes at the restaurants in this catalog under a diner's hard constraints (diet, allergens, calories, price, cuisine). Search never returns a dish that breaks the constraints given. A dish marked unverified has an ingredient whose recipe can't be checked: ask the diner before recommending it to someone avoiding an allergen, then search again with include_unverified. may_contain allergens come from the photo only and are warnings. Prices are in Indian rupees. Allergen information is derived from restaurant labels, ingredient lists and photos of the dish. It can be incomplete and is not medical advice: anyone with a serious allergy should confirm with the restaurant.",
+  "prompts": [
+    {
+      "arguments": [
+        {
+          "name": "constraints",
+          "required": true
+        }
+      ],
+      "description": "Plan a meal under a diner's constraints, checked with the tools.",
+      "name": "plan_meal"
+    },
+    {
+      "arguments": [
+        {
+          "name": "description",
+          "required": true
+        }
+      ],
+      "description": "Find catalog dishes like one the diner describes or photographed.",
+      "name": "find_similar_dish"
+    }
+  ],
+  "resource_templates": [
+    {
+      "description": "One dish in full.",
+      "mime_type": "application/json",
+      "name": "dish",
+      "uri_template": "menu://dishes/{dish_id}"
+    },
+    {
+      "description": "A dish's photo (WebP).",
+      "mime_type": "image/webp",
+      "name": "dish_image",
+      "uri_template": "menu://dishes/{dish_id}/image"
+    }
+  ],
+  "resources": [
+    {
+      "description": "Every dish, in short form.",
+      "mime_type": "application/json",
+      "name": "catalog",
+      "uri": "menu://catalog"
+    },
+    {
+      "description": "The allergens, their words, the rules.",
+      "mime_type": "application/json",
+      "name": "allergen_policy",
+      "uri": "menu://policy/allergens"
+    }
+  ],
+  "tools": [
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Find dishes for a request, ranked by relevance. Never returns a dish that breaks the constraints.",
+      "input_schema": {
+        "$defs": {
+          "Cuisine": {
+            "enum": [
+              "north_indian",
+              "south_indian",
+              "punjabi",
+              "mughlai",
+              "hyderabadi",
+              "bengali",
+              "gujarati",
+              "kerala",
+              "maharashtrian",
+              "indian_street_food",
+              "indo_chinese",
+              "continental",
+              "italian",
+              "american",
+              "mediterranean",
+              "middle_eastern",
+              "mexican",
+              "chinese",
+              "thai",
+              "japanese",
+              "korean"
+            ],
+            "title": "Cuisine",
+            "type": "string"
+          },
+          "Diet": {
+            "enum": [
+              "vegan",
+              "vegetarian",
+              "non_vegetarian"
+            ],
+            "title": "Diet",
+            "type": "string"
+          }
+        },
+        "properties": {
+          "cuisines": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/Cuisine"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only these cuisines.",
+            "title": "Cuisines"
+          },
+          "diet": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Diet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "vegan, vegetarian (lacto-ovo) or non_vegetarian (anything)."
+          },
+          "eggless": {
+            "default": false,
+            "description": "Leave out dishes with egg.",
+            "title": "Eggless",
+            "type": "boolean"
+          },
+          "exclude_allergens": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Allergens to avoid, in plain words: 'dairy', 'nuts', 'shellfish', 'gluten'.",
+            "title": "Exclude Allergens"
+          },
+          "exclude_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Dish ids not to return again.",
+            "title": "Exclude Ids"
+          },
+          "include_unverified": {
+            "default": false,
+            "description": "Include dishes whose recipe can't be checked; only after the diner has agreed.",
+            "title": "Include Unverified",
+            "type": "boolean"
+          },
+          "k": {
+            "default": 5,
+            "description": "How many dishes to return.",
+            "maximum": 10,
+            "minimum": 1,
+            "title": "K",
+            "type": "integer"
+          },
+          "max_kcal": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Most calories one dish may have.",
+            "title": "Max Kcal"
+          },
+          "max_price_inr": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Most one dish may cost, in rupees.",
+            "title": "Max Price Inr"
+          },
+          "query": {
+            "description": "What the diner wants, in their words.",
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_dishesArguments",
+        "type": "object"
+      },
+      "name": "search_dishes",
+      "output_schema": {
+        "$defs": {
+          "Allergen": {
+            "enum": [
+              "gluten",
+              "wheat",
+              "crustaceans",
+              "molluscs",
+              "fish",
+              "eggs",
+              "milk",
+              "peanuts",
+              "tree_nuts",
+              "soy",
+              "sesame",
+              "mustard",
+              "celery",
+              "lupin",
+              "sulphites"
+            ],
+            "title": "Allergen",
+            "type": "string"
+          },
+          "Category": {
+            "enum": [
+              "breakfast",
+              "starter",
+              "soup",
+              "salad",
+              "main",
+              "bread",
+              "rice",
+              "side",
+              "snack",
+              "thali",
+              "dessert",
+              "beverage"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "Cuisine": {
+            "enum": [
+              "north_indian",
+              "south_indian",
+              "punjabi",
+              "mughlai",
+              "hyderabadi",
+              "bengali",
+              "gujarati",
+              "kerala",
+              "maharashtrian",
+              "indian_street_food",
+              "indo_chinese",
+              "continental",
+              "italian",
+              "american",
+              "mediterranean",
+              "middle_eastern",
+              "mexican",
+              "chinese",
+              "thai",
+              "japanese",
+              "korean"
+            ],
+            "title": "Cuisine",
+            "type": "string"
+          },
+          "Diet": {
+            "enum": [
+              "vegan",
+              "vegetarian",
+              "non_vegetarian"
+            ],
+            "title": "Diet",
+            "type": "string"
+          },
+          "DishSummary": {
+            "description": "A dish as a result list shows it.",
+            "properties": {
+              "category": {
+                "$ref": "#/$defs/Category"
+              },
+              "contains": {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "title": "Contains",
+                "type": "array"
+              },
+              "cuisine": {
+                "$ref": "#/$defs/Cuisine"
+              },
+              "diet": {
+                "$ref": "#/$defs/Diet"
+              },
+              "eggless": {
+                "title": "Eggless",
+                "type": "boolean"
+              },
+              "item_id": {
+                "title": "Item Id",
+                "type": "string"
+              },
+              "kcal": {
+                "title": "Kcal",
+                "type": "integer"
+              },
+              "may_contain": {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "title": "May Contain",
+                "type": "array"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "photo_url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Photo Url"
+              },
+              "price_inr": {
+                "title": "Price Inr",
+                "type": "integer"
+              },
+              "restaurant": {
+                "title": "Restaurant",
+                "type": "string"
+              },
+              "restaurant_id": {
+                "title": "Restaurant Id",
+                "type": "string"
+              },
+              "unverified": {
+                "title": "Unverified",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "item_id",
+              "name",
+              "restaurant_id",
+              "restaurant",
+              "cuisine",
+              "category",
+              "diet",
+              "eggless",
+              "price_inr",
+              "kcal",
+              "contains",
+              "may_contain",
+              "unverified",
+              "photo_url"
+            ],
+            "title": "DishSummary",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "dishes": {
+            "items": {
+              "$ref": "#/$defs/DishSummary"
+            },
+            "title": "Dishes",
+            "type": "array"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          }
+        },
+        "required": [
+          "dishes"
+        ],
+        "title": "Dishes",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Dishes like this one (not the same dish at another restaurant), under the same kind of constraints.",
+      "input_schema": {
+        "$defs": {
+          "Cuisine": {
+            "enum": [
+              "north_indian",
+              "south_indian",
+              "punjabi",
+              "mughlai",
+              "hyderabadi",
+              "bengali",
+              "gujarati",
+              "kerala",
+              "maharashtrian",
+              "indian_street_food",
+              "indo_chinese",
+              "continental",
+              "italian",
+              "american",
+              "mediterranean",
+              "middle_eastern",
+              "mexican",
+              "chinese",
+              "thai",
+              "japanese",
+              "korean"
+            ],
+            "title": "Cuisine",
+            "type": "string"
+          },
+          "Diet": {
+            "enum": [
+              "vegan",
+              "vegetarian",
+              "non_vegetarian"
+            ],
+            "title": "Diet",
+            "type": "string"
+          }
+        },
+        "properties": {
+          "cuisines": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/Cuisine"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only these cuisines.",
+            "title": "Cuisines"
+          },
+          "diet": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Diet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "vegan, vegetarian (lacto-ovo) or non_vegetarian (anything)."
+          },
+          "dish_id": {
+            "description": "A dish id, such as 's05'.",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Dish Id",
+            "type": "string"
+          },
+          "eggless": {
+            "default": false,
+            "description": "Leave out dishes with egg.",
+            "title": "Eggless",
+            "type": "boolean"
+          },
+          "exclude_allergens": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Allergens to avoid, in plain words: 'dairy', 'nuts', 'shellfish', 'gluten'.",
+            "title": "Exclude Allergens"
+          },
+          "include_unverified": {
+            "default": false,
+            "description": "Include dishes whose recipe can't be checked; only after the diner has agreed.",
+            "title": "Include Unverified",
+            "type": "boolean"
+          },
+          "k": {
+            "default": 5,
+            "description": "How many dishes to return.",
+            "maximum": 10,
+            "minimum": 1,
+            "title": "K",
+            "type": "integer"
+          },
+          "max_kcal": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Most calories one dish may have.",
+            "title": "Max Kcal"
+          },
+          "max_price_inr": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Most one dish may cost, in rupees.",
+            "title": "Max Price Inr"
+          }
+        },
+        "required": [
+          "dish_id"
+        ],
+        "title": "find_similarArguments",
+        "type": "object"
+      },
+      "name": "find_similar",
+      "output_schema": {
+        "$defs": {
+          "Allergen": {
+            "enum": [
+              "gluten",
+              "wheat",
+              "crustaceans",
+              "molluscs",
+              "fish",
+              "eggs",
+              "milk",
+              "peanuts",
+              "tree_nuts",
+              "soy",
+              "sesame",
+              "mustard",
+              "celery",
+              "lupin",
+              "sulphites"
+            ],
+            "title": "Allergen",
+            "type": "string"
+          },
+          "Category": {
+            "enum": [
+              "breakfast",
+              "starter",
+              "soup",
+              "salad",
+              "main",
+              "bread",
+              "rice",
+              "side",
+              "snack",
+              "thali",
+              "dessert",
+              "beverage"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "Cuisine": {
+            "enum": [
+              "north_indian",
+              "south_indian",
+              "punjabi",
+              "mughlai",
+              "hyderabadi",
+              "bengali",
+              "gujarati",
+              "kerala",
+              "maharashtrian",
+              "indian_street_food",
+              "indo_chinese",
+              "continental",
+              "italian",
+              "american",
+              "mediterranean",
+              "middle_eastern",
+              "mexican",
+              "chinese",
+              "thai",
+              "japanese",
+              "korean"
+            ],
+            "title": "Cuisine",
+            "type": "string"
+          },
+          "Diet": {
+            "enum": [
+              "vegan",
+              "vegetarian",
+              "non_vegetarian"
+            ],
+            "title": "Diet",
+            "type": "string"
+          },
+          "DishSummary": {
+            "description": "A dish as a result list shows it.",
+            "properties": {
+              "category": {
+                "$ref": "#/$defs/Category"
+              },
+              "contains": {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "title": "Contains",
+                "type": "array"
+              },
+              "cuisine": {
+                "$ref": "#/$defs/Cuisine"
+              },
+              "diet": {
+                "$ref": "#/$defs/Diet"
+              },
+              "eggless": {
+                "title": "Eggless",
+                "type": "boolean"
+              },
+              "item_id": {
+                "title": "Item Id",
+                "type": "string"
+              },
+              "kcal": {
+                "title": "Kcal",
+                "type": "integer"
+              },
+              "may_contain": {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "title": "May Contain",
+                "type": "array"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "photo_url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Photo Url"
+              },
+              "price_inr": {
+                "title": "Price Inr",
+                "type": "integer"
+              },
+              "restaurant": {
+                "title": "Restaurant",
+                "type": "string"
+              },
+              "restaurant_id": {
+                "title": "Restaurant Id",
+                "type": "string"
+              },
+              "unverified": {
+                "title": "Unverified",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "item_id",
+              "name",
+              "restaurant_id",
+              "restaurant",
+              "cuisine",
+              "category",
+              "diet",
+              "eggless",
+              "price_inr",
+              "kcal",
+              "contains",
+              "may_contain",
+              "unverified",
+              "photo_url"
+            ],
+            "title": "DishSummary",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "dishes": {
+            "items": {
+              "$ref": "#/$defs/DishSummary"
+            },
+            "title": "Dishes",
+            "type": "array"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          }
+        },
+        "required": [
+          "dishes"
+        ],
+        "title": "Dishes",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "One dish in full: ingredients, nutrition, price, restaurant, allergen tags with their evidence, photo.",
+      "input_schema": {
+        "properties": {
+          "dish_id": {
+            "description": "A dish id, such as 's05'.",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Dish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dish_id"
+        ],
+        "title": "get_dishArguments",
+        "type": "object"
+      },
+      "name": "get_dish",
+      "output_schema": {
+        "$defs": {
+          "Allergen": {
+            "enum": [
+              "gluten",
+              "wheat",
+              "crustaceans",
+              "molluscs",
+              "fish",
+              "eggs",
+              "milk",
+              "peanuts",
+              "tree_nuts",
+              "soy",
+              "sesame",
+              "mustard",
+              "celery",
+              "lupin",
+              "sulphites"
+            ],
+            "title": "Allergen",
+            "type": "string"
+          },
+          "Category": {
+            "enum": [
+              "breakfast",
+              "starter",
+              "soup",
+              "salad",
+              "main",
+              "bread",
+              "rice",
+              "side",
+              "snack",
+              "thali",
+              "dessert",
+              "beverage"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "Cuisine": {
+            "enum": [
+              "north_indian",
+              "south_indian",
+              "punjabi",
+              "mughlai",
+              "hyderabadi",
+              "bengali",
+              "gujarati",
+              "kerala",
+              "maharashtrian",
+              "indian_street_food",
+              "indo_chinese",
+              "continental",
+              "italian",
+              "american",
+              "mediterranean",
+              "middle_eastern",
+              "mexican",
+              "chinese",
+              "thai",
+              "japanese",
+              "korean"
+            ],
+            "title": "Cuisine",
+            "type": "string"
+          },
+          "Diet": {
+            "enum": [
+              "vegan",
+              "vegetarian",
+              "non_vegetarian"
+            ],
+            "title": "Diet",
+            "type": "string"
+          },
+          "Level": {
+            "enum": [
+              "contains",
+              "may_contain"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "PhotoCredit": {
+            "description": "The Commons photo and what its licence asks to be shown with it.",
+            "properties": {
+              "author": {
+                "title": "Author",
+                "type": "string"
+              },
+              "file_page_url": {
+                "title": "File Page Url",
+                "type": "string"
+              },
+              "file_url": {
+                "title": "File Url",
+                "type": "string"
+              },
+              "licence": {
+                "title": "Licence",
+                "type": "string"
+              },
+              "licence_url": {
+                "title": "Licence Url",
+                "type": "string"
+              },
+              "sha256": {
+                "title": "Sha256",
+                "type": "string"
+              }
+            },
+            "required": [
+              "file_url",
+              "file_page_url",
+              "author",
+              "licence",
+              "licence_url",
+              "sha256"
+            ],
+            "title": "PhotoCredit",
+            "type": "object"
+          },
+          "Source": {
+            "enum": [
+              "label",
+              "lexicon",
+              "vision"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "Tag": {
+            "properties": {
+              "allergen": {
+                "$ref": "#/$defs/Allergen"
+              },
+              "evidence": {
+                "title": "Evidence",
+                "type": "string"
+              },
+              "level": {
+                "$ref": "#/$defs/Level"
+              },
+              "source": {
+                "$ref": "#/$defs/Source"
+              }
+            },
+            "required": [
+              "allergen",
+              "source",
+              "level",
+              "evidence"
+            ],
+            "title": "Tag",
+            "type": "object"
+          }
+        },
+        "description": "One dish in full.",
+        "properties": {
+          "carbs_g": {
+            "title": "Carbs G",
+            "type": "number"
+          },
+          "category": {
+            "$ref": "#/$defs/Category"
+          },
+          "contains": {
+            "items": {
+              "$ref": "#/$defs/Allergen"
+            },
+            "title": "Contains",
+            "type": "array"
+          },
+          "cuisine": {
+            "$ref": "#/$defs/Cuisine"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "diet": {
+            "$ref": "#/$defs/Diet"
+          },
+          "dish_key": {
+            "title": "Dish Key",
+            "type": "string"
+          },
+          "eggless": {
+            "title": "Eggless",
+            "type": "boolean"
+          },
+          "fat_g": {
+            "title": "Fat G",
+            "type": "number"
+          },
+          "ingredients": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ingredients",
+            "type": "array"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "kcal": {
+            "title": "Kcal",
+            "type": "integer"
+          },
+          "label_allergens": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Allergens"
+          },
+          "may_contain": {
+            "items": {
+              "$ref": "#/$defs/Allergen"
+            },
+            "title": "May Contain",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhotoCredit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "price_inr": {
+            "title": "Price Inr",
+            "type": "integer"
+          },
+          "protein_g": {
+            "title": "Protein G",
+            "type": "number"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "number"
+          },
+          "restaurant": {
+            "title": "Restaurant",
+            "type": "string"
+          },
+          "restaurant_area": {
+            "title": "Restaurant Area",
+            "type": "string"
+          },
+          "restaurant_id": {
+            "title": "Restaurant Id",
+            "type": "string"
+          },
+          "restaurant_rating": {
+            "title": "Restaurant Rating",
+            "type": "number"
+          },
+          "review_count": {
+            "title": "Review Count",
+            "type": "integer"
+          },
+          "serves_max": {
+            "title": "Serves Max",
+            "type": "integer"
+          },
+          "serves_min": {
+            "title": "Serves Min",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/$defs/Tag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "unverified": {
+            "title": "Unverified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "item_id",
+          "name",
+          "restaurant_id",
+          "restaurant",
+          "cuisine",
+          "category",
+          "diet",
+          "eggless",
+          "price_inr",
+          "kcal",
+          "contains",
+          "may_contain",
+          "unverified",
+          "photo_url",
+          "dish_key",
+          "description",
+          "ingredients",
+          "serves_min",
+          "serves_max",
+          "protein_g",
+          "carbs_g",
+          "fat_g",
+          "rating",
+          "review_count",
+          "label_allergens",
+          "tags",
+          "restaurant_area",
+          "restaurant_rating",
+          "photo"
+        ],
+        "title": "DishDetail",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Which of these allergens each dish contains, may contain (photo only), or can't be checked for.\n\n        With no allergens given, every allergen is checked. ``clear`` is true only when nothing is found and the\n        recipe can be checked.\n        ",
+      "input_schema": {
+        "properties": {
+          "allergens": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Allergens to avoid, in plain words: 'dairy', 'nuts', 'shellfish', 'gluten'.",
+            "title": "Allergens"
+          },
+          "dish_ids": {
+            "description": "Dish ids, such as 's05'.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Dish Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dish_ids"
+        ],
+        "title": "check_allergensArguments",
+        "type": "object"
+      },
+      "name": "check_allergens",
+      "output_schema": {
+        "$defs": {
+          "Allergen": {
+            "enum": [
+              "gluten",
+              "wheat",
+              "crustaceans",
+              "molluscs",
+              "fish",
+              "eggs",
+              "milk",
+              "peanuts",
+              "tree_nuts",
+              "soy",
+              "sesame",
+              "mustard",
+              "celery",
+              "lupin",
+              "sulphites"
+            ],
+            "title": "Allergen",
+            "type": "string"
+          },
+          "AllergenCheck": {
+            "description": "One dish against the allergens asked about; ``clear`` only when none is found and the recipe is checked.",
+            "properties": {
+              "clear": {
+                "title": "Clear",
+                "type": "boolean"
+              },
+              "contains": {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "title": "Contains",
+                "type": "array"
+              },
+              "evidence": {
+                "items": {
+                  "$ref": "#/$defs/Tag"
+                },
+                "title": "Evidence",
+                "type": "array"
+              },
+              "item_id": {
+                "title": "Item Id",
+                "type": "string"
+              },
+              "may_contain": {
+                "items": {
+                  "$ref": "#/$defs/Allergen"
+                },
+                "title": "May Contain",
+                "type": "array"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "unverified": {
+                "title": "Unverified",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "item_id",
+              "name",
+              "contains",
+              "may_contain",
+              "unverified",
+              "clear",
+              "evidence"
+            ],
+            "title": "AllergenCheck",
+            "type": "object"
+          },
+          "Level": {
+            "enum": [
+              "contains",
+              "may_contain"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "Source": {
+            "enum": [
+              "label",
+              "lexicon",
+              "vision"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "Tag": {
+            "properties": {
+              "allergen": {
+                "$ref": "#/$defs/Allergen"
+              },
+              "evidence": {
+                "title": "Evidence",
+                "type": "string"
+              },
+              "level": {
+                "$ref": "#/$defs/Level"
+              },
+              "source": {
+                "$ref": "#/$defs/Source"
+              }
+            },
+            "required": [
+              "allergen",
+              "source",
+              "level",
+              "evidence"
+            ],
+            "title": "Tag",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/$defs/AllergenCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "disclaimer": {
+            "default": "Allergen information is derived from restaurant labels, ingredient lists and photos of the dish. It can be incomplete and is not medical advice: anyone with a serious allergy should confirm with the restaurant.",
+            "title": "Disclaimer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checks"
+        ],
+        "title": "AllergenChecks",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": false,
+        "read_only_hint": true
+      },
+      "description": "Calories, protein, carbs, fat, price in rupees and servings for a meal; list a dish twice to count it\n        twice.",
+      "input_schema": {
+        "properties": {
+          "dish_ids": {
+            "description": "Dish ids, such as 's05'.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Dish Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dish_ids"
+        ],
+        "title": "meal_totalsArguments",
+        "type": "object"
+      },
+      "name": "meal_totals",
+      "output_schema": {
+        "properties": {
+          "carbs_g": {
+            "title": "Carbs G",
+            "type": "number"
+          },
+          "dish_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dish Ids",
+            "type": "array"
+          },
+          "fat_g": {
+            "title": "Fat G",
+            "type": "number"
+          },
+          "kcal": {
+            "title": "Kcal",
+            "type": "integer"
+          },
+          "price_inr": {
+            "title": "Price Inr",
+            "type": "integer"
+          },
+          "protein_g": {
+            "title": "Protein G",
+            "type": "number"
+          },
+          "serves_max": {
+            "title": "Serves Max",
+            "type": "integer"
+          },
+          "serves_min": {
+            "title": "Serves Min",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dish_ids",
+          "kcal",
+          "protein_g",
+          "carbs_g",
+          "fat_g",
+          "price_inr",
+          "serves_min",
+          "serves_max"
+        ],
+        "title": "MealTotals",
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructive_hint": false,
+        "idempotent_hint": true,
+        "open_world_hint": true,
+        "read_only_hint": true
+      },
+      "description": "Describe a photo of a dish in words, for search_dishes. If it can't be described, ask for words.",
+      "input_schema": {
+        "properties": {
+          "image_base64": {
+            "description": "The photo's bytes, base64-encoded.",
+            "minLength": 1,
+            "title": "Image Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image_base64"
+        ],
+        "title": "describe_imageArguments",
+        "type": "object"
+      },
+      "name": "describe_image",
+      "output_schema": {
+        "description": "What the vision model saw; ``text`` is None when it could not say, and ``notice`` tells the user why.",
+        "properties": {
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "latency_ms": {
+            "default": 0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notice"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "sha256",
+          "text"
+        ],
+        "title": "PhotoDescription",
+        "type": "object"
+      }
+    }
+  ]
+}

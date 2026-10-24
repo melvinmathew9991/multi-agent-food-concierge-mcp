@@ -143,7 +143,7 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 | `staging` | rehearse a release | live free tiers, staging keys and caps | built in the image | Langfuse, metadata only | every merge to `main` (from P4) |
 | `prod` | public demo | live free tiers | built in the image | Langfuse Cloud Hobby, metadata only | tag |
 
-- **`APP_ENV`** (`dev | test | ci | staging | prod`) selects the defaults: trace content, sample rate, log level, rate limits. A test asserts that `staging` and `prod` refuse unsafe settings: placeholder tokens, full trace content, paid providers without the flag.
+- **`ENVIRONMENT`** (`development | ci | production`) selects the defaults (trace content: metadata only in production). Tests assert that settings refuse unsafe values: tokens shorter than 32 characters or shared between scopes and paid providers without the flag everywhere, and in production the localhost `ALLOWED_HOSTS` default and full trace content (#124). A staging value comes with a staging Space.
 - **Build once, promote the same image** (rules §9.6). Staging deploys the image built from `main`. A tag promotes that same image digest to production, so what was tested is what ships.
 - **Smoke test after every deploy:** `/health`, `/ready`, one `/v1/search`, MCP `list_tools` with a scoped token, plus one model call in staging only. A failed smoke test blocks promotion.
 - **Configuration as the release lever:** the retrieval configuration (ADR-0001), model names (ADR-0006/0007) and agent topology (ADR-0004) are settings. Rollback means redeploying the previous tag or flipping a setting.

@@ -126,9 +126,9 @@ Streamlit's built-in dark mode uses the dark column values via a `[theme.dark]` 
 | Element | Spec |
 |---|---|
 | **Tool timeline** | Under each assistant turn, a collapsible `st.status` list of steps as they stream: "Searching dishes (vegan, ≤ 400 kcal)", "Checking allergens", "Computing meal totals", "Verifying plan ✓". Muted text, `info` colour icons; failed/retried steps shown honestly. |
-| **Meal-plan card** | One row per course (starter / main / dessert) using the result-card layout (§5, compact); footer with **totals vs limits** as progress bars (calories, price) in `primary`, turning `warning` above 90% of a limit. Totals come from `meal_totals`, labelled "calculated". |
+| **Meal-plan card** | One row per course (starter / main / dessert) using the result-card layout (§5, compact); footer with **totals vs limits** as progress bars (calories per person, price for the order) in `primary`, turning `warning` above 90% of a limit. Totals come from `meal_totals`, labelled "calculated". |
 | **Confirmation (interrupt)** | Inline `warning` box: "Tiramisu has ingredients we can't fully verify for *egg*. Include it anyway?" with **Include** / **Find an alternative** buttons. No modal dialogs. |
-| **Applied constraints chips** | Row of removable chips above results showing every active constraint, marked "from you" or "inferred"; inferred chips have a dotted border and must be confirmable (A15). |
+| **Applied constraints chips** | Row of removable chips above results showing every active constraint, marked "from you" or "inferred" (constraints search read from the user's own words, named in its `note`, are "from you"); inferred chips have a dotted border and must be confirmable (A15). |
 | **Preferences panel** (sidebar) | "Remembered about you": allergies, diet, dislikes, each with a remove ×, plus **Forget everything**. Only items the user stated. |
 | **Model / trace footer** | Small muted line per answer: model used (and "fallback" if used), latency, trace ID (copy button). |
 | **AI-interaction disclosure** | Persistent caption under the title: "You're chatting with an AI assistant. Always confirm allergens with the restaurant." |

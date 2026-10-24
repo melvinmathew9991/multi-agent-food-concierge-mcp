@@ -81,7 +81,7 @@ Search filters in SQL before ranking and re-checks every result, so it never ret
 
 | Prompt | Argument | Asks the model to |
 |---|---|---|
-| `plan_meal` | `constraints` | Search with the constraints as arguments, check the meal with `meal_totals` and `check_allergens`, end with the disclaimer |
+| `plan_meal` | `constraints` | Search with the constraints as arguments, check the meal with `meal_totals` for the number of diners (calories per person, budget for the order) and `check_allergens`, end with the disclaimer |
 | `find_similar_dish` | `description` | Search on a described or photographed dish and say why each result is similar |
 
 The exact schemas clients see are pinned in [`tests/fixtures/mcp_schema.json`](../tests/fixtures/mcp_schema.json); a change to them fails the tests until the snapshot is regenerated (`UPDATE_MCP_SCHEMA=1 pytest tests/unit/test_mcp_server.py -k snapshot`) and reviewed.

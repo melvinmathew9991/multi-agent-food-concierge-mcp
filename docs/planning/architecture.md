@@ -85,8 +85,8 @@ Pure functions and classes, no LLM framework imports; the single source of busin
 | `catalog` | SQLite reads: one dish in full or several as summaries (prices in rupees); `candidate_ids(constraints)` | Indexed SQL, O(log N + \|C\|) |
 | `retrieval` | `VectorStore` protocol with FAISS and Qdrant backends; BM25; hybrid RRF; optional cross-encoder rerank of top-20; de-duplication. Hard filters are decided once in SQL (`candidate_ids`); each backend only restricts its search to those ids (FAISS id selector, Qdrant id filter, BM25 mask) | O(\|C\|·d) exact; HNSW behind the same interface beyond ~10⁵ items |
 | `allergens` | Tag lookup; `check(dish_ids, allergens)` → contains / may_contain / unverified, `clear` only when none applies; reads the tags search filters on | O(k) |
-| `nutrition` | `meal_totals(dish_ids)`: kcal, macros, rupees, serves; a repeated dish counts twice | O(k) exact arithmetic |
-| `constraints` | Parse loose input (unknown terms refused), merge (allergens: union; caps: min; diet: strictest; cuisine: latest) and **check** a proposal: every per-dish rule broken (the same verdict as `candidate_ids`, tested), meal caps (`meal_max_kcal`, `meal_budget_inr`), photo-only allergens as warnings. Grounding and numeric-claim checks are the P5 verifier's | O(k) |
+| `nutrition` | `meal_totals(dish_ids, diners)`: kcal and macros (the menu's per-serving estimates times each dish's servings) for the whole order and each diner's share, as min–max ranges when a dish serves 1–2; rupees for the order and per person; servings, and notes when they don't fit the diners; a repeated dish counts twice | O(k) exact arithmetic |
+| `constraints` | Parse loose input (unknown terms refused), merge (allergens: union; caps: min; diet: strictest; cuisine: latest) and **check** a proposal: every per-dish rule broken (the same verdict as `candidate_ids`, tested), meal caps (`meal_max_kcal` per person, against the most a share may hold; `meal_budget_inr` for the whole order), photo-only allergens as warnings. `constraints_in_text` reads what a request avoids from its words ("peanut-free", "no dairy", "allergic to cashews", "vegan"; never a wish such as "peanut chikki"), and search merges it into the arguments, which only tightens. Grounding and numeric-claim checks are the P5 verifier's | O(k) |
 | `vision` | Validate image (Pillow), downscale to `vision_image_px` (the catalog's 1,024), re-encode, describe via the vision model with the name-free prompt (Groq `qwen/qwen3.8-27b`; on failure ask the user to describe the dish in words), cache the description by sha256 for `cache_ttl_hours` | 1 LLM call (~1,900 tokens), cached |
 
 ## 5. MCP server (`food_concierge/mcp_server/`)
@@ -97,17 +97,17 @@ Built with the official `mcp` Python SDK (2.x `MCPServer`, the 1.x `FastMCP`); `
 
 | Tool | Input → Output |
 |---|---|
-| `search_dishes` | query (≤ `max_query_chars`), diet?, eggless?, exclude_allergens[] (plain words: "dairy", "nuts"), max_kcal?, max_price_inr?, cuisines[]?, include_unverified?, exclude_ids[], k≤10 → ranked `DishSummary[]`; filtered in SQL, then every result re-checked against the constraints (a violating dish is dropped and logged, never returned) |
+| `search_dishes` | query (≤ `max_query_chars`), diet?, eggless?, exclude_allergens[] (plain words: "dairy", "nuts"), max_kcal?, max_price_inr?, cuisines[]?, include_unverified?, exclude_ids[], k≤10 → ranked `DishSummary[]`; filtered in SQL, then every result re-checked against the constraints (a violating dish is dropped and logged, never returned); constraints the query states in words are applied too and named in the result's `note` |
 | `find_similar` | dish_id, same constraints, k → `DishSummary[]`, never the same dish at another restaurant |
 | `get_dish` | dish_id → `DishDetail` (nutrition, ingredients, allergen tags with source/level/evidence, restaurant, photo credit) |
 | `check_allergens` | dish_ids[], allergens[] → per dish {contains[], may_contain[], unverified, clear, evidence[]} |
-| `meal_totals` | dish_ids[] → {kcal, protein_g, carbs_g, fat_g, price_inr, serves} |
+| `meal_totals` | dish_ids[], diners (1–20, default 1) → {order_min, order_max, per_person_min, per_person_max: {kcal, protein_g, carbs_g, fat_g}; price_inr, price_inr_per_person; serves_min, serves_max; notes[]} |
 | `describe_image` | image (base64, ≤ 5 MB) → dish description (uses the vision model; rate-limited) |
 
 **Resources:** `menu://catalog` (compact list), `menu://dishes/{id}` (JSON), `menu://dishes/{id}/image` (WebP, from the local thumbnail cache), `menu://policy/allergens` (taxonomy, the words each allergen answers to, levels, disclaimer).
 **Prompts:** `plan_meal(constraints)`, `find_similar_dish(description)`.
 **Errors:** domain errors are returned as tool results with `isError=true` and a safe message, so the agent can recover; anything unexpected reaches the client only as "Error executing tool <name>", with the traceback logged. Resource errors are protocol errors (unknown dish: invalid params).
-**Security:** read-only tools; input size limits; HTTP transport rate-limited; no filesystem or network side effects. OAuth 2.1 (per the MCP auth spec) is backlog.
+**Security:** read-only tools; input size limits; HTTP transport rate-limited per caller, for all anonymous callers together and globally, an anonymous caller known by the address its trusted proxy recorded (§8); no filesystem or network side effects. OAuth 2.1 (per the MCP auth spec) is backlog.
 **Testing:** in-memory client–server sessions (no network); schema snapshot tests; MCP Inspector for manual checks; a Claude Desktop config example in `docs/mcp.md`.
 
 ## 6. Agents (`food_concierge/agent/`) — LangGraph supervisor + specialists
@@ -190,7 +190,7 @@ Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from 
 
 ## 9. Configuration and secrets
 
-`pydantic-settings`; `.env` locally; HF Space secrets and Streamlit secrets in production. Keys: `GROQ_API_KEY`, `GEMINI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`, `API_TOKEN_PUBLIC` / `API_TOKEN_AGENT` / `API_TOKEN_ADMIN` (no token is the public scope), `ALLOWED_HOSTS` (the deployed host; production refuses the localhost default and `TRACE_CONTENT=full`), `TRUSTED_PROXY_HOPS`, `RATE_LIMIT_PER_MIN` / `RATE_LIMIT_GLOBAL_PER_MIN`; optional `AWS_*` (Bedrock, off), `OPENAI_API_KEY` (off). `.env.example` lists every key and a test checks it against `Settings`; unknown keys in `.env` are rejected at startup. Model names, fallback order, budgets and limits are all settings. Free-tier model names are verified at implementation time and recorded in an ADR.
+`pydantic-settings`; `.env` locally; HF Space secrets and Streamlit secrets in production. Keys: `GROQ_API_KEY`, `GEMINI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`, `API_TOKEN_PUBLIC` / `API_TOKEN_AGENT` / `API_TOKEN_ADMIN` (no token is the public scope), `ALLOWED_HOSTS` (the deployed host; production refuses the localhost default and `TRACE_CONTENT=full`), `TRUSTED_PROXY_HOPS` (1 on a Space), `RATE_LIMIT_PER_MIN` / `RATE_LIMIT_GLOBAL_PER_MIN` / `RATE_LIMIT_ANONYMOUS_PER_MIN`; only the repository's `.env` is read, never one in the working directory; optional `AWS_*` (Bedrock, off), `OPENAI_API_KEY` (off). `.env.example` lists every key and a test checks it against `Settings`; unknown keys in `.env` are rejected at startup. Model names, fallback order, budgets and limits are all settings. Free-tier model names are verified at implementation time and recorded in an ADR.
 
 ## 10. Zero-cost guardrails
 

@@ -1,5 +1,5 @@
 {
-  "instructions": "Tools for finding dishes at the restaurants in this catalog under a diner's hard constraints (diet, allergens, calories, price, cuisine). Search never returns a dish that breaks the constraints given. A dish marked unverified has an ingredient whose recipe can't be checked: ask the diner before recommending it to someone avoiding an allergen, then search again with include_unverified. may_contain allergens come from the photo only and are warnings. Prices are in Indian rupees. Allergen information is derived from restaurant labels, ingredient lists and photos of the dish. It can be incomplete and is not medical advice: anyone with a serious allergy should confirm with the restaurant.",
+  "instructions": "Tools for finding dishes at the restaurants in this catalog under a diner's hard constraints (diet, allergens, calories, price, cuisine). Search never returns a dish that breaks the constraints given. Pass constraints as arguments; ones the query states in words ('peanut-free', 'vegan') are applied too, and the result's note names them. A dish marked unverified has an ingredient whose recipe can't be checked: ask the diner before recommending it to someone avoiding an allergen, then search again with include_unverified. may_contain allergens come from the photo only and are warnings. Prices are in Indian rupees. Allergen information is derived from restaurant labels, ingredient lists and photos of the dish. It can be incomplete and is not medical advice: anyone with a serious allergy should confirm with the restaurant.",
   "prompts": [
     {
       "arguments": [
@@ -58,7 +58,7 @@
         "open_world_hint": false,
         "read_only_hint": true
       },
-      "description": "Find dishes for a request, ranked by relevance. Never returns a dish that breaks the constraints.",
+      "description": "Find dishes for a request, ranked by relevance. Never returns a dish that breaks the constraints.\n\nConstraints the query states in words (\"peanut-free\", \"no dairy\", \"vegan\") are added to the arguments, and\nthe note says which; pass them as arguments too.",
       "input_schema": {
         "$defs": {
           "Cuisine": {
@@ -1148,7 +1148,7 @@
         "open_world_hint": false,
         "read_only_hint": true
       },
-      "description": "Which of these allergens each dish contains, may contain (photo only), or can't be checked for.\n\n        With no allergens given, every allergen is checked. ``clear`` is true only when nothing is found and the\n        recipe can be checked.\n        ",
+      "description": "Which of these allergens each dish contains, may contain (photo only), or can't be checked for.\n\nWith no allergens given, every allergen is checked. ``clear`` is true only when nothing is found and the\nrecipe can be checked.",
       "input_schema": {
         "properties": {
           "allergens": {
@@ -1333,7 +1333,7 @@
         "open_world_hint": false,
         "read_only_hint": true
       },
-      "description": "Calories, protein, carbs, fat, price in rupees and servings for a meal; list a dish twice to count it\n        twice.",
+      "description": "Calories, protein, carbs, fat, price in rupees and servings for a meal; list a dish twice to count it\ntwice.",
       "input_schema": {
         "properties": {
           "dish_ids": {

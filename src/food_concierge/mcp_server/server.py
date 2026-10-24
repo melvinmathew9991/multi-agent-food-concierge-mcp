@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import base64
 import binascii
+import inspect
 import json
 import logging
 from collections.abc import Callable
-from typing import Annotated, TypeVar
+from typing import Annotated, Any, TypeVar
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ResourceError, ResourceNotFoundError, ToolError
@@ -26,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from food_concierge import __version__
 from food_concierge.errors import AppError, InputValidationError, NotFoundError
 from food_concierge.ingestion.photos import thumbnail_path
-from food_concierge.ingestion.taxonomy import EU_14, US_BIG_9, USER_TERMS, Allergen, Cuisine, Diet
+from food_concierge.ingestion.taxonomy import EU_14, US_BIG_9, USER_TERMS, Allergen, Cuisine, Diet, parse_allergen_terms
 from food_concierge.mcp_server.access import ToolAccess
 from food_concierge.mcp_server.services import Services
 from food_concierge.services.allergens import DISCLAIMER, AllergenCheck
@@ -44,13 +45,16 @@ DESCRIBES = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempot
 
 INSTRUCTIONS = (
     "Tools for finding dishes at the restaurants in this catalog under a diner's hard constraints (diet, "
-    "allergens, calories, price, cuisine). Search never returns a dish that breaks the constraints given. A dish "
+    "allergens, calories, price, cuisine). Search never returns a dish that breaks the constraints given. Pass "
+    "constraints as arguments; ones the query states in words ('peanut-free', 'vegan') are applied too, and the "
+    "result's note names them. A dish "
     "marked unverified has an ingredient whose recipe can't be checked: ask the diner before recommending it to "
     "someone avoiding an allergen, then search again with include_unverified. may_contain allergens come from the "
     "photo only and are warnings. Prices are in Indian rupees. " + DISCLAIMER
 )
 
 _T = TypeVar("_T")
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 Query = Annotated[str, Field(min_length=1, description="What the diner wants, in their words.")]
 DishId = Annotated[str, Field(min_length=1, max_length=40, description="A dish id, such as 's05'.")]
@@ -131,7 +135,15 @@ def create_server(services: Services) -> MCPServer:
     )
     search = services.search.search
 
-    @server.tool(annotations=READ_ONLY)
+    def tool(annotations: ToolAnnotations) -> Callable[[_F], _F]:
+        """``server.tool`` with the docstring dedented, so clients don't see the source's indentation."""
+
+        def register(fn: _F) -> _F:
+            return server.tool(annotations=annotations, description=inspect.cleandoc(fn.__doc__ or ""))(fn)
+
+        return register
+
+    @tool(READ_ONLY)
     def search_dishes(
         query: Query,
         diet: DietArg = None,
@@ -144,7 +156,11 @@ def create_server(services: Services) -> MCPServer:
         exclude_ids: ExcludeIds = None,
         k: K = 5,
     ) -> Dishes:
-        """Find dishes for a request, ranked by relevance. Never returns a dish that breaks the constraints."""
+        """Find dishes for a request, ranked by relevance. Never returns a dish that breaks the constraints.
+
+        Constraints the query states in words ("peanut-free", "no dairy", "vegan") are added to the arguments, and
+        the note says which; pass them as arguments too.
+        """
 
         def run() -> Dishes:
             constraints = _constraints(
@@ -155,7 +171,7 @@ def create_server(services: Services) -> MCPServer:
 
         return _tool_errors(run)
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(READ_ONLY)
     def find_similar(
         dish_id: DishId,
         diet: DietArg = None,
@@ -176,16 +192,16 @@ def create_server(services: Services) -> MCPServer:
             dish = services.catalog.get_dish(dish_id)
             same = {item_id for item_id, key in services.store.dish_keys().items() if key == dish.dish_key}
             text = f"{dish.name}. {dish.description} Ingredients: {', '.join(dish.ingredients)}."
-            return search(text[: settings.max_query_chars], constraints, k, same)
+            return search(text[: settings.max_query_chars], constraints, k, same, read_query=False)
 
         return _tool_errors(run)
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(READ_ONLY)
     def get_dish(dish_id: DishId) -> DishDetail:
         """One dish in full: ingredients, nutrition, price, restaurant, allergen tags with their evidence, photo."""
         return _tool_errors(lambda: services.catalog.get_dish(dish_id))
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(READ_ONLY)
     def check_allergens(dish_ids: DishIds, allergens: AllergenTerms = None) -> AllergenChecks:
         """Which of these allergens each dish contains, may contain (photo only), or can't be checked for.
 
@@ -194,18 +210,21 @@ def create_server(services: Services) -> MCPServer:
         """
 
         def run() -> AllergenChecks:
-            asked = parse_constraints({"exclude_allergens": allergens or []}).exclude_allergens
+            try:
+                asked = parse_allergen_terms(";".join(allergens or []))
+            except ValueError as error:  # the same words search takes, named in the policy resource
+                raise InputValidationError(f"{str(error).capitalize()}. See menu://policy/allergens.") from error
             return AllergenChecks(checks=services.allergens.check(dish_ids, asked))
 
         return _tool_errors(run)
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(READ_ONLY)
     def meal_totals(dish_ids: DishIds) -> MealTotals:
         """Calories, protein, carbs, fat, price in rupees and servings for a meal; list a dish twice to count it
         twice."""
         return _tool_errors(lambda: services.nutrition.meal_totals(dish_ids))
 
-    @server.tool(annotations=DESCRIBES)
+    @tool(DESCRIBES)
     def describe_image(
         image_base64: Annotated[str, Field(min_length=1, description="The photo's bytes, base64-encoded.")],
     ) -> PhotoDescription:

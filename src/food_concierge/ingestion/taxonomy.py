@@ -75,6 +75,23 @@ USER_TERMS: dict[str, frozenset[Allergen]] = {
     "sulfites": frozenset({A.SULPHITES}),
     "sulphur dioxide": frozenset({A.SULPHITES}),
     "sulfur dioxide": frozenset({A.SULPHITES}),
+    # The words diners use for one member of a group (audit L2): the group is what the tags record. Kept as
+    # comma-separated text, one group per line, rather than a list ruff would spread over a line per word.
+    **dict.fromkeys(
+        (  # noqa: SIM905
+            "almond, almonds, cashew, cashews, pistachio, pistachios, walnut, walnuts, hazelnut, hazelnuts, pecan, "
+            "pecans, macadamia, macadamias, brazil nut, brazil nuts"
+        ).split(", "),
+        frozenset({A.TREE_NUTS}),
+    ),
+    **dict.fromkeys(
+        "prawn, prawns, shrimp, shrimps, crab, crabs, lobster, lobsters, crayfish".split(", "),  # noqa: SIM905
+        frozenset({A.CRUSTACEANS}),
+    ),
+    **dict.fromkeys(
+        "squid, octopus, clam, clams, mussel, mussels, oyster, oysters, scallop, scallops".split(", "),  # noqa: SIM905
+        frozenset({A.MOLLUSCS}),
+    ),
 }
 
 

@@ -3,6 +3,9 @@ PRD F4, F7, F8).
 
 - **Parse**: tool arguments arrive as text ("Dairy, nuts", "veg", "eggless"). They map onto the catalog's terms
   through the taxonomy's aliases; an unknown term is refused, never dropped, since a dropped allergen is a missed one.
+- **Read from text**: a query that says what to avoid ("peanut-free snack", "no dairy", "vegan dessert") yields
+  those constraints too (``constraints_in_text``), because embeddings place "peanut-free" next to "peanut": search
+  would otherwise rank the very allergen first (audit H1). Only avoidance is read, never a wish ("peanut chikki").
 - **Merge**: constraints from several turns or diners only tighten: allergens are joined, caps take the lower
   value, the strictest diet wins. Cuisine is a preference, not a safety rule, so the latest one given wins.
 - **Check**: each dish of a proposal against the per-dish rules, and the meal's totals against the meal caps.
@@ -15,6 +18,7 @@ The Phase 5 verifier builds on ``check``; grounding and numeric-claim checks bel
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from typing import Any
@@ -22,7 +26,16 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from food_concierge.errors import InputValidationError
-from food_concierge.ingestion.taxonomy import DIET_ALIASES, Allergen, Cuisine, Diet, parse_allergen_terms, slug
+from food_concierge.ingestion.taxonomy import (
+    DIET_ALIASES,
+    USER_TERMS,
+    Allergen,
+    Cuisine,
+    Diet,
+    parse_allergen_terms,
+    slug,
+    with_implied,
+)
 from food_concierge.services.catalog import CatalogService, DishDetail
 from food_concierge.services.nutrition import MealTotals, NutritionService
 from food_concierge.storage.catalog_db import ALLOWED_DIETS, CatalogStore, Filters
@@ -110,6 +123,50 @@ def parse_constraints(data: Mapping[str, Any]) -> Constraints:
             for e in error.errors()
         )
         raise InputValidationError(f"The constraints could not be read: {problems}") from error
+
+
+_TERM = "|".join(r"[\s-]+".join(map(re.escape, term.split())) for term in sorted(USER_TERMS, key=len, reverse=True))
+_TERMS = rf"(?:{_TERM})(?:\s*(?:,|/|&|\band\b|\bor\b|\bnor\b)\s*(?:{_TERM}))*"
+_AVOIDED = re.compile(
+    rf"\b(?:no|non|without|avoid|avoiding|exclude|excluding|minus|zero|free\s+(?:of|from)|"
+    rf"allergic\s+to|allergy\s+to|intolerant\s+to|(?:can'?t|cannot|don'?t|do\s+not)\s+(?:eat|have|take))"
+    rf"[\s-]+(?:any\s+)?(?P<listed>{_TERMS})\b"
+    rf"|\b(?P<suffixed>{_TERM})[\s-]*(?:free|less)\b"
+    rf"|\b(?P<named>{_TERM})\s+(?:allergy|allergies|allergic|intolerance|intolerant)\b",
+    re.IGNORECASE,
+)
+_SPLIT_TERMS = re.compile(r"\s*(?:,|/|&|\band\b|\bor\b|\bnor\b)\s*", re.IGNORECASE)
+_NOT_DIET = r"(?<!non[\s-])(?<!non)"
+_VEGAN = re.compile(rf"{_NOT_DIET}\b(?:vegan|plant[\s-]+based)\b", re.IGNORECASE)
+_VEGETARIAN = re.compile(rf"{_NOT_DIET}\b(?:vegetarian|veggie|veg|pure[\s-]+veg)\b", re.IGNORECASE)
+
+
+def constraints_in_text(text: str, include_unverified: bool = False) -> Constraints:
+    """The constraints a request states in words: allergens it avoids and a vegan or vegetarian diet.
+
+    ``include_unverified`` is carried through, so merging these with the caller's own constraints keeps a
+    confirmation the diner already gave.
+    """
+    allergens: set[Allergen] = set()
+    for match in _AVOIDED.finditer(text):
+        listed = match.group("listed") or match.group("suffixed") or match.group("named")
+        for term in _SPLIT_TERMS.split(listed):
+            allergens |= USER_TERMS.get(" ".join(term.lower().replace("-", " ").split()), frozenset())
+    diet = Diet.VEGAN if _VEGAN.search(text) else Diet.VEGETARIAN if _VEGETARIAN.search(text) else None
+    return Constraints(
+        diet=diet,
+        eggless=Allergen.EGGS in allergens,
+        exclude_allergens=with_implied(frozenset(allergens)),
+        include_unverified=include_unverified,
+    )
+
+
+def describe(constraints: Constraints) -> str:
+    """The per-dish rules in words, for a note: "vegan, no peanuts or tree nuts"."""
+    parts = [constraints.diet.value.replace("_", " ")] if constraints.diet else []
+    if constraints.excluded:
+        parts.append("no " + " or ".join(sorted(a.value.replace("_", " ") for a in constraints.excluded)))
+    return ", ".join(parts)
 
 
 def _lowest(values: Iterable[int | None]) -> int | None:

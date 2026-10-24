@@ -87,9 +87,10 @@ def test_strong_distinct_tokens_and_blank_ones_are_accepted() -> None:
     Settings(_env_file=None, api_token_public=SecretStr(""))  # blank is "not set": no error, and it matches nothing
 
 
-def test_the_repos_env_file_is_read_wherever_the_process_starts() -> None:
-    # Claude Desktop starts the MCP server from its own directory; the keys must still come from the repo's .env.
-    assert Settings.model_config["env_file"] == (REPO_ROOT / ".env", ".env")
+def test_only_the_repos_env_file_is_read_wherever_the_process_starts() -> None:
+    # Claude Desktop starts the MCP server from its own directory; the keys must still come from the repo's .env,
+    # and a .env in that directory (another project's) must not be read.
+    assert Settings.model_config["env_file"] == REPO_ROOT / ".env"
 
 
 def test_each_tool_needs_its_scope_and_an_unlisted_tool_needs_admin() -> None:
@@ -138,6 +139,31 @@ def test_a_refused_request_takes_nothing_from_either_bucket() -> None:
             limiter.acquire("a")
     for caller in "bcdefghij":
         limiter.acquire(caller)  # all nine fit: a's refusals spent none of the server's ten
+
+
+def test_anonymous_callers_together_leave_capacity_for_token_holders() -> None:
+    clock = Clock()
+    limiter = RateLimiter(per_caller=5, overall=10, anonymous=2, clock=clock)
+
+    limiter.acquire("ip:a", anonymous=True)
+    limiter.acquire("ip:b", anonymous=True)
+    with pytest.raises(RateLimitedError, match="retry in 30 s"):
+        limiter.acquire("ip:c", anonymous=True)  # a fresh address, but anonymous traffic has used its share
+    for _ in range(5):
+        limiter.acquire("token:agent")  # the rest of the server's ten stays open to tokens
+
+
+def test_the_anonymous_bucket_defaults_to_the_overall_limit() -> None:
+    limiter = RateLimiter(per_caller=1, overall=3, clock=Clock())
+    for caller in "abc":
+        limiter.acquire(caller, anonymous=True)
+    with pytest.raises(RateLimitedError):
+        limiter.acquire("d", anonymous=True)
+
+
+def test_the_anonymous_limit_cant_exceed_the_global_one() -> None:
+    with pytest.raises(ValidationError, match="RATE_LIMIT_ANONYMOUS_PER_MIN can't be more"):
+        Settings(_env_file=None, rate_limit_global_per_min=50, rate_limit_anonymous_per_min=60)
 
 
 def test_forgotten_callers_start_with_a_full_bucket(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -20,7 +20,7 @@ from PIL import Image
 from pydantic import SecretStr
 
 from food_concierge.api import app as app_module
-from food_concierge.api.app import create_app
+from food_concierge.api.app import caller_address, create_app
 from food_concierge.config import Settings
 from food_concierge.mcp_server import services as services_module
 from food_concierge.mcp_server.services import Services
@@ -208,12 +208,100 @@ def test_the_entry_point_serves_the_app_with_uvicorn(monkeypatch: pytest.MonkeyP
     sentinel = object()
     monkeypatch.setattr(services_module, "build_services", lambda _settings: object())
     monkeypatch.setattr(app_module, "create_app", lambda _services: sentinel)
-    monkeypatch.setattr("uvicorn.run", lambda app, host, port, log_config: served.append((app, host, port)))
+
+    def run(app: object, host: str, port: int, log_config: None, proxy_headers: bool) -> None:
+        assert proxy_headers is False  # X-Forwarded-For is read by AccessGate, per TRUSTED_PROXY_HOPS
+        served.append((app, host, port))
+
+    monkeypatch.setattr("uvicorn.run", run)
     monkeypatch.delitem(sys.modules, "food_concierge.api.__main__", raising=False)
 
     runpy.run_module("food_concierge.api", run_name="__main__")
 
     assert served == [(sentinel, "127.0.0.1", 8000)]
+
+
+def forwarded(*hops: str) -> dict[str, str]:
+    return {"X-Forwarded-For": ", ".join(hops)}
+
+
+async def test_a_forged_forwarded_header_gets_no_fresh_allowance(store: CatalogStore, tmp_path: Path) -> None:
+    # Audit H3: with no trusted proxy, a client that writes a new address per request must still be one caller.
+    async with running(make_app(store, tmp_path, rate_limit_per_min=2)) as http:
+        statuses = [
+            (await http.post("/v1/search", json={"query": "dosa"}, headers=forwarded(f"10.0.0.{n}"))).status_code
+            for n in range(3)
+        ]
+
+    assert statuses == [200, 200, 429]
+
+
+async def test_behind_a_trusted_proxy_each_visitor_is_its_own_caller(store: CatalogStore, tmp_path: Path) -> None:
+    app = make_app(store, tmp_path, rate_limit_per_min=1, trusted_proxy_hops=1)
+    async with running(app) as http:
+        first = await http.post("/v1/search", json={"query": "dosa"}, headers=forwarded("203.0.113.7"))
+        other = await http.post("/v1/search", json={"query": "dosa"}, headers=forwarded("198.51.100.2"))
+        # The visitor forges an earlier hop; the proxy still appends the address it saw, which is what counts.
+        forged = await http.post("/v1/search", json={"query": "dosa"}, headers=forwarded("1.2.3.4", "203.0.113.7"))
+
+    assert (first.status_code, other.status_code, forged.status_code) == (200, 200, 429)
+
+
+@pytest.mark.parametrize(
+    ("hops", "headers", "address"),
+    [
+        (0, [("x-forwarded-for", "10.0.0.1")], "ip:testclient"),
+        (1, [("x-forwarded-for", "1.2.3.4, 10.0.0.1")], "ip:10.0.0.1"),
+        (2, [("x-forwarded-for", "1.2.3.4, 10.0.0.1, 10.0.0.2")], "ip:10.0.0.1"),
+        (1, [("x-forwarded-for", "1.2.3.4"), ("x-forwarded-for", "10.0.0.9")], "ip:10.0.0.9"),
+        (2, [("x-forwarded-for", "10.0.0.1")], "ip:testclient"),  # fewer hops than proxies: not through them
+        (1, [], "ip:testclient"),
+    ],
+)
+def test_the_caller_address_is_the_one_a_trusted_proxy_recorded(
+    hops: int, headers: list[tuple[str, str]], address: str
+) -> None:
+    scope = {
+        "type": "http",
+        "client": ("testclient", 50000),
+        "headers": [(name.encode(), value.encode()) for name, value in headers],
+    }
+    assert caller_address(scope, hops) == address
+    assert caller_address({"type": "http", "headers": []}, hops) == "ip:unknown"
+
+
+async def test_anonymous_callers_cant_take_the_capacity_token_holders_need(store: CatalogStore, tmp_path: Path) -> None:
+    app = make_app(
+        store,
+        tmp_path,
+        rate_limit_per_min=5,
+        rate_limit_global_per_min=10,
+        rate_limit_anonymous_per_min=2,
+        trusted_proxy_hops=1,
+    )
+    async with running(app) as http:
+        visitors = [
+            (await http.post("/v1/search", json={"query": "dosa"}, headers=forwarded(f"203.0.113.{n}"))).status_code
+            for n in range(3)
+        ]
+        agent = await http.post(
+            "/v1/search", json={"query": "dosa"}, headers={"Authorization": f"Bearer {AGENT_TOKEN}"}
+        )
+
+    assert visitors == [200, 200, 429]
+    assert agent.status_code == 200
+
+
+def test_production_without_an_agent_token_warns(
+    store: CatalogStore, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    settings = Settings(_env_file=None, environment="production", allowed_hosts=[HOST], photo_cache_dir=tmp_path)
+    embedder = HashingEmbedder()
+    retriever = Retriever(store, load_indexes(store, embedder, store_dir(store) / INDEX_DIR), embedder)
+    with caplog.at_level(logging.WARNING, logger="food_concierge.api.app"):
+        create_app(Services.over(store, retriever, settings))
+
+    assert [r.message for r in caplog.records] == ["no API_TOKEN_AGENT set: describe_image can't be called over HTTP"]
 
 
 async def test_wrong_tokens_spend_the_address_allowance_so_guessing_is_slow(

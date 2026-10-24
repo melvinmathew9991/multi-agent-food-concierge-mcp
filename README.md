@@ -92,7 +92,7 @@ In a container, with the catalog, indexes, embedding model and photo thumbnails 
 
 ```bash
 docker build -t food-concierge .
-docker run --rm -p 7860:7860 --env-file .env food-concierge
+docker run --rm -p 7860:7860 -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 -e GROQ_API_KEY food-concierge
 python scripts/smoke_deploy.py http://127.0.0.1:7860    # health, search, MCP, scopes; no model calls
 ```
 

@@ -48,6 +48,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     for name, ndcg in report.ndcg_at_3.items():
         print(f"{name}: nDCG@3 {'not graded yet' if ndcg is None else f'{ndcg:.4f}'}")
+        found = report.targeted - len(report.target_misses.get(name, ()))
+        print(f"{name}: target dish in the top 3 on {found} of {report.targeted} queries")
     for failure in report.failures:
         print(f"FAIL {failure}")
     if args.update:

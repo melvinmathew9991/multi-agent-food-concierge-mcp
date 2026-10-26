@@ -8,13 +8,14 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 import pytest
 import respx
 from PIL import Image
 
-from food_concierge.config import REPO_ROOT
+from food_concierge.config import REPO_ROOT, Settings
 from food_concierge.errors import CatalogValidationError, PhotoSourceError
 from food_concierge.ingestion.loader import ATTRIBUTIONS_FILE, load_catalog
 from food_concierge.ingestion.photos import (
@@ -26,7 +27,9 @@ from food_concierge.ingestion.photos import (
     Licence,
     attribution,
     classify_licence,
+    commons_thumb_url,
     ensure_cached,
+    ensure_thumbnail,
     make_thumbnail,
     original_path,
     parse_candidates,
@@ -228,7 +231,65 @@ def test_ensure_cached_downloads_verifies_and_reuses(tmp_path: Path) -> None:
 
     assert client.downloads == [FILE_URL]  # the second call reads the cache
     assert original_path(tmp_path, p).read_bytes() == data
-    assert thumbnail_path(tmp_path, p).exists()
+
+
+def test_a_thumbnail_is_built_once_beside_the_others_from_the_verified_original(tmp_path: Path) -> None:
+    p = photo()
+    client = FakeClient(files={FILE_URL: jpeg()})
+    photos_dir = tmp_path / "data" / "photos"
+
+    thumbnail = ensure_thumbnail(p, client, tmp_path / "cache", photos_dir)
+    thumbnail.write_bytes(b"kept")
+    ensure_thumbnail(p, client, tmp_path / "cache", photos_dir)
+
+    assert thumbnail == thumbnail_path(photos_dir, p) == photos_dir / f"{p.sha256}.webp"
+    assert thumbnail.read_bytes() == b"kept"  # an existing thumbnail is not rebuilt
+    assert client.downloads == [FILE_URL]
+    with pytest.raises(PhotoSourceError, match="no longer matches"):
+        ensure_thumbnail(photo(sha256="0" * 64), client, tmp_path / "other", photos_dir)
+
+
+@pytest.mark.parametrize(
+    ("file_url", "width", "expected"),
+    [
+        (
+            "https://upload.wikimedia.org/wikipedia/commons/1/19/Paneer_butter_masala_2.jpg",
+            12240,
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Paneer_butter_masala_2.jpg/"
+            "500px-Paneer_butter_masala_2.jpg",
+        ),
+        (  # percent-encoded names keep their encoding
+            "https://upload.wikimedia.org/wikipedia/commons/f/f0/Upma_%286005559046%29.JPG",
+            4000,
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Upma_%286005559046%29.JPG/"
+            "500px-Upma_%286005559046%29.JPG",
+        ),
+        (  # an upload no wider than the thumbnail is shown as it is
+            "https://upload.wikimedia.org/wikipedia/commons/a/ab/Small.png",
+            500,
+            "https://upload.wikimedia.org/wikipedia/commons/a/ab/Small.png",
+        ),
+    ],
+)
+def test_commons_thumbnail_urls(file_url: str, width: int, expected: str) -> None:
+    assert commons_thumb_url(file_url, width) == expected
+
+
+@pytest.mark.parametrize(("extension", "thumb"), [(".JPG", "thumbnail.jpg"), (".jpeg", "thumbnail.jpg")])
+def test_commons_names_long_file_names_thumbnail(extension: str, thumb: str) -> None:
+    name = quote("ഉഴുന്നുവട" * 7 + extension)  # 189 bytes before the extension: past MediaWiki's 160
+    url = commons_thumb_url(f"https://upload.wikimedia.org/wikipedia/commons/0/06/{name}", 3000)
+
+    assert url == f"https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/{name}/500px-{thumb}"
+
+
+def test_every_attributed_photo_has_its_committed_thumbnail_and_nothing_else_is_there() -> None:
+    settings = Settings(_env_file=None)
+    attributed = {thumbnail_path(settings.photos_dir, p) for p in load_catalog(settings.raw_dir).catalog.photos}
+    committed = set(settings.photos_dir.glob("*.webp"))
+
+    assert attributed == committed
+    assert sum(path.stat().st_size for path in committed) < 5 * 1024 * 1024  # small enough to keep in git
 
 
 def test_hash_mismatch_is_refused_and_not_cached(tmp_path: Path) -> None:
@@ -384,8 +445,12 @@ def test_approve_writes_attributions_and_reuses_unchanged(script: ModuleType, tm
     [attributed] = load_catalog(raw).catalog.photos
     assert (attributed.item_id, attributed.sha256, attributed.author) == ("fx005", sha256(data), "Cook & Co")
     assert client.downloads == [candidate.file_url]  # the second run keeps the existing attribution
-    assert script.sync([attributed], client, tmp_path) == 0
-    assert thumbnail_path(tmp_path, attributed).exists()
+    photos_dir = tmp_path / "photos"
+    stale = photos_dir / f"{'f' * 64}.webp"
+    stale.parent.mkdir()
+    stale.write_bytes(b"no longer attributed")
+    assert script.sync([attributed], client, tmp_path, photos_dir) == 0
+    assert list(photos_dir.iterdir()) == [thumbnail_path(photos_dir, attributed)]
 
 
 class QueryClient(FakeClient):

@@ -1,4 +1,4 @@
-# Only what the image needs goes into the build context: the locks, the source, the tracked data and one script.
+# Only what the image needs goes into the build context: the locks, the source and the tracked data.
 # Everything else is left out, secrets above all (.env and friends must never reach a layer).
 *
 !pyproject.toml
@@ -7,8 +7,8 @@
 !src/
 !data/lexicon/
 !data/raw/
+!data/photos/
 !data/processed/image_descriptions.jsonl
-!scripts/fetch_photos.py
 
 # Never, even inside an allowed folder
 **/__pycache__

@@ -3,7 +3,8 @@
 Checks the deploy definition of done (optimization.md §6) against a base URL:
 
 1. ``/health`` and ``/ready`` answer 200, and the catalog has dishes;
-2. ``/v1/search`` returns dishes that keep its constraints (vegan, no peanuts);
+2. ``/v1/search`` returns dishes that keep its constraints (vegan, no peanuts), and the first with a photo links
+   Commons' scaled copy, carries its credit, and has its thumbnail served by the MCP image resource;
 3. MCP without a token lists the six tools and refuses ``describe_image`` for needing the ``agent`` scope;
 4. a token that matches none is refused with 401;
 5. with ``--token-env`` (the agent token), the same call passes the scope check and fails only on its deliberately
@@ -23,6 +24,7 @@ import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import httpx2
 from mcp import Client
@@ -63,6 +65,27 @@ async def _describe_error(base_url: str, connect: Connect, token: str | None) ->
     return result.content[0].text if result.is_error else "no error"  # type: ignore[union-attr]
 
 
+async def _image_type(base_url: str, http: httpx2.AsyncClient, dish_id: str) -> str:
+    """The media type of the dish's photo as the MCP image resource serves it, or why it couldn't be read."""
+    try:
+        async with Client(streamable_http_client(f"{base_url}/mcp", http_client=http)) as client:
+            (content,) = (await client.read_resource(f"menu://dishes/{dish_id}/image")).contents
+    except Exception as error:
+        return f"MCP failed: {error!r}"
+    return content.mime_type or "no type"
+
+
+def _photo_check(found: list[dict[str, Any]], image_type: str) -> Check:
+    with_photo = [dish for dish in found if dish.get("photo_url")]
+    if not with_photo:
+        return Check("dish photo", False, "no result has a photo")
+    dish = with_photo[0]
+    credited = bool((dish.get("photo") or {}).get("author"))
+    scaled = "/thumb/" in dish["photo_url"]  # Commons' scaled copy, not the multi-MB original
+    passed = credited and scaled and image_type == "image/webp"
+    return Check("dish photo", passed, f"{dish['item_id']}: credited={credited}, scaled={scaled}, {image_type}")
+
+
 async def _tool_names(base_url: str, http: httpx2.AsyncClient) -> set[str]:
     try:
         async with Client(streamable_http_client(f"{base_url}/mcp", http_client=http)) as client:
@@ -98,6 +121,8 @@ async def _http_checks(base_url: str, http: httpx2.AsyncClient) -> list[Check]:
     found = search.json().get("dishes", []) if search.status_code == 200 else []
     vegan = all(dish.get("diet") == "vegan" for dish in found)
     checks.append(Check("v1 search", bool(found) and vegan, f"{search.status_code}, {len(found)} dishes"))
+    pictured = next((dish["item_id"] for dish in found if dish.get("photo_url")), None)
+    checks.append(_photo_check(found, await _image_type(base_url, http, pictured) if pictured else "not read"))
 
     listed = await _tool_names(base_url, http)
     checks.append(Check("mcp tools", listed == TOOLS, ", ".join(sorted(listed))))

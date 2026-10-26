@@ -51,7 +51,6 @@ htmlcov/
 # Generated artifacts (rebuilt by the ingestion flow)
 data/processed/catalog.db*
 data/processed/indexes/
-data/processed/thumbs/
 eval/results/*.tmp
 
 # OS and editor

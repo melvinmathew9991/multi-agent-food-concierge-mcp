@@ -255,13 +255,17 @@ def create_server(services: Services) -> MCPServer:
     def dish(dish_id: str) -> str:
         return _resource_errors(lambda: services.catalog.get_dish(dish_id).model_dump_json())
 
-    @server.resource("menu://dishes/{dish_id}/image", mime_type="image/webp", description="A dish's photo (WebP).")
+    @server.resource(
+        "menu://dishes/{dish_id}/image",
+        mime_type="image/webp",
+        description="A dish's photo (WebP, 480 px). Show the dish's photo credit (author, licence) with it.",
+    )
     def dish_image(dish_id: str) -> bytes:
         def read() -> bytes:
             photo = services.catalog.get_dish(dish_id).photo
             if photo is None:
                 raise NotFoundError(f"Dish {dish_id} has no photo.")
-            path = thumbnail_path(settings.photo_cache_dir, photo)
+            path = thumbnail_path(settings.photos_dir, photo)
             if not path.is_file():
                 raise NotFoundError(f"The photo of {dish_id} isn't stored on this server; its photo_url links to it.")
             return path.read_bytes()

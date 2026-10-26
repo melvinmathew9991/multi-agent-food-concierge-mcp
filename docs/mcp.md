@@ -63,7 +63,7 @@ All six are read-only. Only `describe_image` reaches outside the server (a hoste
 |---|---|---|
 | `search_dishes` | `query`; optional `diet` (`vegan`, `vegetarian`, `non_vegetarian`), `eggless`, `exclude_allergens` (plain words: "dairy", "nuts"), `max_kcal`, `max_price_inr`, `cuisines`, `include_unverified`, `exclude_ids`, `k` (1–10, default 5) | Ranked dishes that keep every constraint |
 | `find_similar` | `dish_id` and the same constraints as search | Dishes like it, not the same dish at another restaurant |
-| `get_dish` | `dish_id` | Ingredients, nutrition per serving, the dish's price, restaurant, allergen tags with evidence, photo credit |
+| `get_dish` | `dish_id` | Ingredients, nutrition per serving, the dish's price, restaurant, allergen tags with evidence, the photo's credit, original and SHA-256 |
 | `check_allergens` | `dish_ids` (1–20), optional `allergens` (all if left out) | Per dish: `contains`, `may_contain` (photo only), `unverified`, `clear`; and a disclaimer |
 | `meal_totals` | `dish_ids` (1–20; list a dish twice to count it twice), optional `diners` (1–20, default 1) | kcal, protein, carbs and fat for the whole order (`order_min`, `order_max`) and each diner's share (`per_person_min`, `per_person_max`); rupees for the order and per person; servings; `notes` when the order makes too few or too many servings |
 | `describe_image` | `image_base64` (at most `MAX_IMAGE_MB`) | A name-free description to search with, or a request for words |
@@ -76,7 +76,7 @@ Search filters in SQL before ranking and re-checks every result, so it never ret
 |---|---|
 | `menu://catalog` | Every dish in short form, prices in INR |
 | `menu://dishes/{dish_id}` | One dish in full |
-| `menu://dishes/{dish_id}/image` | Its photo (WebP), when the thumbnail is cached on the server |
+| `menu://dishes/{dish_id}/image` | Its photo (WebP, at most 480 px), from the thumbnails in `data/photos/`; show the dish's `photo` credit with it |
 | `menu://policy/allergens` | The allergens, the words each answers to, what `contains` / `may_contain` / `unverified` mean |
 
 | Prompt | Argument | Asks the model to |

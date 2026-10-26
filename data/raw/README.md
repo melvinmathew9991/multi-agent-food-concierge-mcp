@@ -17,7 +17,7 @@ The catalog is written in reviewed batches of about 50 dishes and validated by `
 
 Photos come from Wikimedia Commons only, under CC0, public domain, CC BY or CC BY-SA. NC, ND, GFDL-only, non-free and unknown licences are refused, and so are files with restrictions such as trademarks or personality rights. The owner approves one photo per dish, or marks the dish as having no suitable photo.
 
-The image files are not committed. `scripts/fetch_photos.py sync` downloads each one into the photo cache outside the repository, checks it against its pinned SHA-256, and builds a WebP thumbnail of at most 480 px. Wherever a photo is shown, its author and licence are shown with it.
+The original files are not committed. Their WebP thumbnails, at most 480 px and 3.6 MB in all, are committed in `data/photos/`, named by the original's SHA-256, so the server image is built without Wikimedia. `scripts/fetch_photos.py sync` maintains that folder: it builds any missing thumbnail from the original, which it downloads into the photo cache outside the repository and checks against its pinned SHA-256, and removes thumbnails no longer attributed. Clients link Commons' own 500 px copy (`photo_url`). Wherever a photo is shown, its author and licence are shown with it: every search result and dish carries them in `photo`.
 
 ## `menu.csv` columns
 

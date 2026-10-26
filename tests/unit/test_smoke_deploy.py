@@ -56,6 +56,7 @@ async def test_every_check_passes_against_the_app(smoke: ModuleType, app: FastAP
         ("health", True),
         ("ready", True),
         ("v1 search", True),
+        ("dish photo", True),  # served from the committed thumbnails in data/photos/
         ("mcp tools", True),
         ("wrong token refused", True),
         ("public scope refused", True),
@@ -68,7 +69,40 @@ async def test_a_server_that_is_down_fails_the_http_checks(smoke: ModuleType) ->
     async with httpx2.AsyncClient(transport=down) as http:
         checks = await smoke._http_checks(f"http://{HOST}", http)
 
-    assert not any(check.passed for check in checks[:4])
+    assert not any(check.passed for check in checks[:5])
+
+
+SCALED = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Dosa.jpg/500px-Dosa.jpg"
+CREDIT = {"author": "Cook & Co", "licence": "CC BY 4.0"}
+
+
+@pytest.mark.parametrize(
+    ("found", "image_type", "detail"),
+    [
+        ([{"item_id": "d1", "photo_url": None}], "not read", "no result has a photo"),
+        (
+            [{"item_id": "d1", "photo_url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Dosa.jpg"}],
+            "image/webp",
+            "d1: credited=False, scaled=False, image/webp",
+        ),
+        ([{"item_id": "d1", "photo_url": SCALED, "photo": CREDIT}], "MCP failed: 404", "MCP failed: 404"),
+    ],
+)
+def test_a_photo_that_is_missing_unscaled_uncredited_or_not_served_fails(
+    smoke: ModuleType, found: list[dict[str, object]], image_type: str, detail: str
+) -> None:
+    check = smoke._photo_check(found, image_type)
+
+    assert not check.passed
+    assert detail in check.detail
+
+
+def test_a_scaled_credited_served_photo_passes(smoke: ModuleType) -> None:
+    found = [{"item_id": "d1"}, {"item_id": "d2", "photo_url": SCALED, "photo": CREDIT}]
+
+    check = smoke._photo_check(found, "image/webp")
+
+    assert check == smoke.Check("dish photo", True, "d2: credited=True, scaled=True, image/webp")
 
 
 async def test_an_unreachable_mcp_endpoint_fails_its_checks(smoke: ModuleType) -> None:

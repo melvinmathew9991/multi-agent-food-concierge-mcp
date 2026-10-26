@@ -1,6 +1,6 @@
 # deploy
 
-The server image is the repository's [`Dockerfile`](../Dockerfile): the catalog, indexes, embedding model and photo thumbnails are built in, and provider keys and tokens are passed at run time, never baked in. The image runs with `ENVIRONMENT=production`, which needs `ALLOWED_HOSTS`; pass variables one by one rather than a whole `.env`, whose `ENVIRONMENT=development` would override it.
+The server image is the repository's [`Dockerfile`](../Dockerfile): the catalog, indexes, embedding model and the committed photo thumbnails are built in, so the build needs nothing from Wikimedia, and provider keys and tokens are passed at run time, never baked in. Code and data belong to root and the server runs as uid 1000, so it can't change them. The thumbnails are Commons photos redistributed under their licences: `data/raw/attributions.csv` (in the image) credits each one, and so does every dish the server returns; the Space's README should say so. The image runs with `ENVIRONMENT=production`, which needs `ALLOWED_HOSTS`; pass variables one by one rather than a whole `.env`, whose `ENVIRONMENT=development` would override it.
 
 ```bash
 docker build -t food-concierge .

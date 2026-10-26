@@ -48,7 +48,7 @@ def store(built_data_dir: Path) -> Iterator[CatalogStore]:
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(_env_file=None).model_copy(update={"photo_cache_dir": tmp_path / "photos"})
+    return Settings(_env_file=None).model_copy(update={"data_dir": tmp_path / "data"})  # photos_dir starts empty
 
 
 def make_services(store: CatalogStore, settings: Settings, **overrides: Any) -> Services:
@@ -388,12 +388,12 @@ async def test_the_catalog_and_a_dish_are_readable_as_resources(server: MCPServe
     assert (dish["name"], dish["ingredients"][0]) == ("Butter Chicken", "tandoori chicken")
 
 
-async def test_a_dish_photo_is_served_from_the_thumbnail_cache(server: MCPServer, settings: Settings) -> None:
+async def test_a_dish_photo_is_served_from_the_committed_thumbnails(server: MCPServer, settings: Settings) -> None:
     async with Client(server) as client:
         with pytest.raises(MCPError, match="isn't stored on this server"):
             await client.read_resource("menu://dishes/s05/image")
         dish = json.loads((await client.read_resource("menu://dishes/s05")).contents[0].text)  # type: ignore[union-attr]
-        thumbnail = settings.photo_cache_dir / "thumbs" / f"{dish['photo']['sha256']}.webp"
+        thumbnail = settings.photos_dir / f"{dish['photo']['sha256']}.webp"
         thumbnail.parent.mkdir(parents=True)
         thumbnail.write_bytes(b"webp bytes")
         (content,) = (await client.read_resource("menu://dishes/s05/image")).contents

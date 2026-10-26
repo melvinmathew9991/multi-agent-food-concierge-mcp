@@ -507,7 +507,7 @@ Critical path: workstream 3 (the owner's grading). Workstream 4 runs alongside i
 **DoD:** every metric reproducible from a committed run; limitations and failure modes documented.
 
 ## Phase 10 — Hardening and portfolio release · `chore/p10-*` · M
-1. Dependabot (pip + GitHub Actions, which also keeps the pinned action current), PR template, CHANGELOG release notes (gitleaks, pip-audit and mypy are already in CI from Phase 0).
+1. Dependabot version updates (pip + GitHub Actions, which also keeps the pinned action current; security updates are on since P4, #133), PR template, CHANGELOG release notes (gitleaks, pip-audit and mypy are already in CI from Phase 0).
 2. Small load test against a local container; latency/throughput table.
 3. `docs/runbook.md` (quota exhausted, Space asleep, Langfuse down, token rotation), ADR index.
 4. README: problem, architecture diagram, results (legacy vs new, retrieval, agent, red-team, RAI), live links, demo GIF, MCP + A2A quick starts, limitations, "what didn't work".

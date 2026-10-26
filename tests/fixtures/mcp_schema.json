@@ -301,8 +301,8 @@
             "title": "Diet",
             "type": "string"
           },
-          "DishSummary": {
-            "description": "A dish as a result list shows it.",
+          "Match": {
+            "description": "A dish found by search.",
             "properties": {
               "category": {
                 "$ref": "#/$defs/Category"
@@ -376,6 +376,10 @@
                 "title": "Restaurant Id",
                 "type": "string"
               },
+              "score": {
+                "title": "Score",
+                "type": "number"
+              },
               "unverified": {
                 "title": "Unverified",
                 "type": "boolean"
@@ -396,9 +400,10 @@
               "may_contain",
               "unverified",
               "photo_url",
-              "photo"
+              "photo",
+              "score"
             ],
-            "title": "DishSummary",
+            "title": "Match",
             "type": "object"
           },
           "PhotoCredit": {
@@ -434,7 +439,7 @@
         "properties": {
           "dishes": {
             "items": {
-              "$ref": "#/$defs/DishSummary"
+              "$ref": "#/$defs/Match"
             },
             "title": "Dishes",
             "type": "array"
@@ -450,6 +455,11 @@
             ],
             "default": null,
             "title": "Note"
+          },
+          "weak_match": {
+            "default": false,
+            "title": "Weak Match",
+            "type": "boolean"
           }
         },
         "required": [
@@ -693,8 +703,8 @@
             "title": "Diet",
             "type": "string"
           },
-          "DishSummary": {
-            "description": "A dish as a result list shows it.",
+          "Match": {
+            "description": "A dish found by search.",
             "properties": {
               "category": {
                 "$ref": "#/$defs/Category"
@@ -768,6 +778,10 @@
                 "title": "Restaurant Id",
                 "type": "string"
               },
+              "score": {
+                "title": "Score",
+                "type": "number"
+              },
               "unverified": {
                 "title": "Unverified",
                 "type": "boolean"
@@ -788,9 +802,10 @@
               "may_contain",
               "unverified",
               "photo_url",
-              "photo"
+              "photo",
+              "score"
             ],
-            "title": "DishSummary",
+            "title": "Match",
             "type": "object"
           },
           "PhotoCredit": {
@@ -826,7 +841,7 @@
         "properties": {
           "dishes": {
             "items": {
-              "$ref": "#/$defs/DishSummary"
+              "$ref": "#/$defs/Match"
             },
             "title": "Dishes",
             "type": "array"
@@ -842,6 +857,11 @@
             ],
             "default": null,
             "title": "Note"
+          },
+          "weak_match": {
+            "default": false,
+            "title": "Weak Match",
+            "type": "boolean"
           }
         },
         "required": [

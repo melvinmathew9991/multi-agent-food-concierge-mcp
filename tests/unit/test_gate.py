@@ -9,6 +9,7 @@ import pytest
 
 from food_concierge.config import REPO_ROOT
 from food_concierge.errors import EvaluationError
+from food_concierge.evaluation import gate as gate_module
 from food_concierge.evaluation.caches import EvalCaches, build_caches, load_caches, texts_sha256
 from food_concierge.evaluation.dataset import RetrievalDataset, TextQuery
 from food_concierge.evaluation.gate import (
@@ -24,7 +25,7 @@ from food_concierge.ingestion.allergens import load_lexicon, tag_item
 from food_concierge.ingestion.loader import CatalogLoad, load_catalog
 from food_concierge.models.embeddings import HashingEmbedder, OverlapReranker, RerankerFingerprint
 from food_concierge.services.retrieval import RetrievalConfig
-from food_concierge.storage.catalog_db import CatalogStore, Filters, build_catalog_db
+from food_concierge.storage.catalog_db import CatalogStore, Filters, build_catalog_db, dish_key
 
 RERANKED = Candidate(name="reranked", config=RetrievalConfig(mode="hybrid", rerank_depth=10))
 
@@ -52,6 +53,22 @@ def test_the_gate_fails_on_any_violation_and_on_a_drop_beyond_the_tolerance() ->
     assert ungraded.failures == ("reranked: no graded query to compare with the baseline nDCG@3",)
 
 
+def test_the_gate_fails_when_a_target_dish_leaves_the_top_3_or_a_real_query_is_called_weak() -> None:
+    found = QueryResult("t001", "known_item", ("a", "b", "c"), {"violation@3": 0.0}, ())
+    lost = QueryResult("t002", "known_item", ("a", "b", "c", "d"), {"violation@3": 0.0}, ())
+    results = {"reranked": [found, lost]}
+    targets = {"t001": frozenset({"c"}), "t002": frozenset({"d"})}
+
+    missed = check_gate(results, baseline(None), targets)
+    assert missed.failures == ("reranked: the target dish is not in the top 3 on t002",)
+    assert (missed.target_misses, missed.targeted) == ({"reranked": ("t002",)}, 2)
+    accepted = updated_baseline(baseline(None), missed, "t002 accepted")
+    assert accepted.gated[0].target_misses == ("t002",)
+    assert check_gate(results, accepted, targets).passed
+    weak = check_gate(results, accepted, targets, {"reranked": ["t001"]})
+    assert weak.failures == ("reranked: real queries would be called weak matches: t001",)
+
+
 @pytest.fixture(scope="module")
 def loaded() -> CatalogLoad:
     return load_catalog(REPO_ROOT / "data" / "raw")
@@ -72,7 +89,14 @@ def store(loaded: CatalogLoad, tmp_path_factory: pytest.TempPathFactory) -> Iter
 def dataset(loaded: CatalogLoad) -> RetrievalDataset:
     """Each dish's own name, graded 3 for that dish, plus dairy dishes asked for without milk."""
     named = [
-        TextQuery(id=f"t{n:03d}", text=item.name, type="known_item", author="drafted", grades={item.item_id: 3})
+        TextQuery(
+            id=f"t{n:03d}",
+            text=item.name,
+            type="known_item",
+            author="drafted",
+            target=dish_key(item.name),
+            grades={item.item_id: 3},
+        )
         for n, item in enumerate(loaded.catalog.items[:12], start=1)
     ]
     no_milk = Filters.model_validate({"exclude_allergens": ["milk"]})
@@ -181,3 +205,24 @@ def test_the_committed_baseline_reads() -> None:
 
     assert committed.tolerance == 0.02
     assert [gated.candidate.name for gated in committed.gated] == ["production"]
+
+
+def test_the_gate_checks_weak_matches_for_dense_search_with_a_measured_model(
+    caches: EvalCaches,
+    store: CatalogStore,
+    truth: GroundTruth,
+    dataset: RetrievalDataset,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dense = GateBaseline(
+        reason="test", gated=(GatedCandidate(candidate=Candidate(name="dense", config=RetrievalConfig())),)
+    )
+    monkeypatch.setattr(gate_module, "is_weak", lambda query, _score, _cutoff, _words: query == "mango lassi")
+
+    unmeasured = run_gate(caches, store, truth, dataset, dense, tmp_path / "a")
+    monkeypatch.setattr(gate_module, "WEAK_SCORES", {HashingEmbedder().fingerprint.model: 1.0})
+    measured = run_gate(caches, store, truth, dataset, dense, tmp_path / "b")
+
+    assert unmeasured.passed  # no cut-off for this model, so search never says weak and nothing is checked
+    assert measured.failures == ("dense: real queries would be called weak matches: t015",)

@@ -30,6 +30,7 @@ from food_concierge.models.fake import ScriptedChatModel
 from food_concierge.services.allergens import DISCLAIMER
 from food_concierge.services.catalog import CatalogService
 from food_concierge.services.constraints import Constraints, dish_violations
+from food_concierge.services.relevance import WEAK_MATCH
 from food_concierge.services.retrieval import Hit, RetrievalConfig, Retriever, SearchResult
 from food_concierge.services.search import MAX_RESULTS, NO_MATCH
 from food_concierge.services.vision import DESCRIBE_IN_WORDS, VisionService
@@ -186,7 +187,7 @@ async def test_arguments_and_words_combine_and_nothing_is_noted_when_the_words_a
     assert already["note"] is None
     assert plain["note"] is None
     assert both["note"] == "Also applied from the query: no milk."
-    assert none_left == {"dishes": [], "note": f"Also applied from the query: vegan. {NO_MATCH}"}
+    assert none_left == {"dishes": [], "weak_match": False, "note": f"Also applied from the query: vegan. {NO_MATCH}"}
 
 
 async def test_a_confirmation_given_as_an_argument_survives_the_query_words(
@@ -232,6 +233,25 @@ async def test_search_never_returns_a_dish_that_breaks_the_constraints(server: M
     assert returned > 50  # the property was tested on real results, not on empty lists
 
 
+async def test_search_scores_each_dish_and_says_when_the_best_match_is_weak(
+    store: CatalogStore, settings: Settings
+) -> None:
+    weak_server = create_server(make_services(store, settings, weak_score=1.0))  # every cosine is below 1
+    _, nonsense = await call(weak_server, "search_dishes", {"query": "asdfghjkl", "k": 3})
+    _, paneer = await call(weak_server, "search_dishes", {"query": "paneer", "k": 3})
+    _, uncalibrated = await call(create_server(make_services(store, settings)), "search_dishes", {"query": "asdfghjkl"})
+    hybrid = make_services(store, settings, weak_score=1.0, retrieval=RetrievalConfig(mode="hybrid"))
+
+    assert nonsense["weak_match"] is True
+    assert nonsense["note"] == WEAK_MATCH
+    assert len(nonsense["dishes"]) == 3  # still the nearest dishes, flagged rather than hidden
+    scores = [dish["score"] for dish in paneer["dishes"]]
+    assert scores == sorted(scores, reverse=True)
+    assert paneer["weak_match"] is False  # the menu has the word
+    assert uncalibrated["weak_match"] is False  # a model without a measured cut-off never says weak
+    assert hybrid.search.search("asdfghjkl", Constraints(), 3).weak_match is False  # fused scores have no scale
+
+
 async def test_search_skips_excluded_ids_and_explains_an_empty_result(server: MCPServer) -> None:
     _, first = await call(server, "search_dishes", {"query": "paneer", "k": 3})
     _, again = await call(server, "search_dishes", {"query": "paneer", "k": 3, "exclude_ids": names(first)})
@@ -240,7 +260,11 @@ async def test_search_skips_excluded_ids_and_explains_an_empty_result(server: MC
     assert len(names(first)) == 3
     assert not set(names(first)) & set(names(again))
     assert len(names(again)) == 3
-    assert none == {"dishes": [], "note": "No dish meets all of these constraints; relaxing one may help."}
+    assert none == {
+        "dishes": [],
+        "weak_match": False,
+        "note": "No dish meets all of these constraints; relaxing one may help.",
+    }
 
 
 @pytest.mark.parametrize(
@@ -436,7 +460,13 @@ def test_services_are_built_from_settings(
 
     built = build_services(settings)
     assert built.vision is None  # no vision model configured in tests
+    assert not built.search.search("asdfghjkl", Constraints(), 3).weak_match  # no cut-off for the fake model
     built.store.close()
+
+    monkeypatch.setattr(services_module, "WEAK_SCORES", {HashingEmbedder().fingerprint.model: 1.0})
+    calibrated = build_services(settings)
+    assert calibrated.search.search("asdfghjkl", Constraints(), 3).weak_match  # the model's cut-off is used
+    calibrated.store.close()
 
     sentinel = object()
     monkeypatch.setattr(services_module, "build_vision_service", lambda _settings: sentinel)

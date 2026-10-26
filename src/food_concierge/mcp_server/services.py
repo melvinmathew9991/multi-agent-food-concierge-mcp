@@ -12,6 +12,7 @@ from food_concierge.services.allergens import AllergenService
 from food_concierge.services.catalog import CatalogService
 from food_concierge.services.constraints import ConstraintService
 from food_concierge.services.nutrition import NutritionService
+from food_concierge.services.relevance import WEAK_SCORES, MenuWords
 from food_concierge.services.retrieval import RetrievalConfig, Retriever
 from food_concierge.services.search import Searcher, SearchService
 from food_concierge.services.vision import VisionService, build_vision_service
@@ -41,6 +42,7 @@ class Services:
         *,
         retrieval: RetrievalConfig | None = None,
         vision: VisionService | None = None,
+        weak_score: float | None = None,
     ) -> Services:
         catalog = CatalogService(store)
         return cls(
@@ -50,7 +52,14 @@ class Services:
             nutrition=NutritionService(store),
             constraints=ConstraintService(store),
             # The stack's k is replaced per request.
-            search=SearchService(catalog, searcher, retrieval or RetrievalConfig(), settings),
+            search=SearchService(
+                catalog,
+                searcher,
+                retrieval or RetrievalConfig(),
+                settings,
+                MenuWords(store.doc_texts().values()),
+                weak_score,
+            ),
             vision=vision,
             settings=settings,
         )
@@ -70,4 +79,5 @@ def build_services(settings: Settings) -> Services:
         logger.warning("no vision model configured; describe_image will ask for words instead")
         vision = None
     # RetrievalConfig() is the Phase 2 stack until ADR-0001 (#47) chooses the production one.
-    return Services.over(store, retriever, settings, vision=vision)
+    weak_score = WEAK_SCORES.get(embedder.fingerprint.model)
+    return Services.over(store, retriever, settings, vision=vision, weak_score=weak_score)

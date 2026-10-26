@@ -52,6 +52,7 @@ class QueryResult:
     ranked: tuple[str, ...]
     metrics: dict[str, float]
     timings_ms: tuple[dict[str, float], ...]  # one per measured repeat
+    top_score: float | None = None  # the best hit's score; None when nothing was found
 
 
 def score_query(query: TextQuery, ranked: Sequence[str], truth: GroundTruth) -> dict[str, float]:
@@ -99,7 +100,8 @@ def run_candidates(
         rows = []
         for query in queries:
             runs = [retriever.search(query.text, query.filters, config) for _ in range(repeats)]
-            ranked = tuple(hit.item_id for hit in runs[-1].hits)
+            hits = runs[-1].hits
+            ranked = tuple(hit.item_id for hit in hits)
             rows.append(
                 QueryResult(
                     query.id,
@@ -107,6 +109,7 @@ def run_candidates(
                     ranked,
                     score_query(query, ranked, truth),
                     tuple(run.timings_ms for run in runs),
+                    hits[0].score if hits else None,
                 )
             )
         results[candidate.name] = rows

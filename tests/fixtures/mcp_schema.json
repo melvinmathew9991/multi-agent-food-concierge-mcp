@@ -30,7 +30,7 @@
       "uri_template": "menu://dishes/{dish_id}"
     },
     {
-      "description": "A dish's photo (WebP).",
+      "description": "A dish's photo (WebP, 480 px). Show the dish's photo credit (author, licence) with it.",
       "mime_type": "image/webp",
       "name": "dish_image",
       "uri_template": "menu://dishes/{dish_id}/image"
@@ -343,6 +343,16 @@
                 "title": "Name",
                 "type": "string"
               },
+              "photo": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PhotoCredit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "photo_url": {
                 "anyOf": [
                   {
@@ -385,9 +395,39 @@
               "contains",
               "may_contain",
               "unverified",
-              "photo_url"
+              "photo_url",
+              "photo"
             ],
             "title": "DishSummary",
+            "type": "object"
+          },
+          "PhotoCredit": {
+            "description": "What the photo's licence asks to be shown wherever the photo is: author, licence and source.",
+            "properties": {
+              "author": {
+                "title": "Author",
+                "type": "string"
+              },
+              "file_page_url": {
+                "title": "File Page Url",
+                "type": "string"
+              },
+              "licence": {
+                "title": "Licence",
+                "type": "string"
+              },
+              "licence_url": {
+                "title": "Licence Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "author",
+              "licence",
+              "licence_url",
+              "file_page_url"
+            ],
+            "title": "PhotoCredit",
             "type": "object"
           }
         },
@@ -695,6 +735,16 @@
                 "title": "Name",
                 "type": "string"
               },
+              "photo": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PhotoCredit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "photo_url": {
                 "anyOf": [
                   {
@@ -737,9 +787,39 @@
               "contains",
               "may_contain",
               "unverified",
-              "photo_url"
+              "photo_url",
+              "photo"
             ],
             "title": "DishSummary",
+            "type": "object"
+          },
+          "PhotoCredit": {
+            "description": "What the photo's licence asks to be shown wherever the photo is: author, licence and source.",
+            "properties": {
+              "author": {
+                "title": "Author",
+                "type": "string"
+              },
+              "file_page_url": {
+                "title": "File Page Url",
+                "type": "string"
+              },
+              "licence": {
+                "title": "Licence",
+                "type": "string"
+              },
+              "licence_url": {
+                "title": "Licence Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "author",
+              "licence",
+              "licence_url",
+              "file_page_url"
+            ],
+            "title": "PhotoCredit",
             "type": "object"
           }
         },
@@ -881,8 +961,8 @@
             "title": "Level",
             "type": "string"
           },
-          "PhotoCredit": {
-            "description": "The Commons photo and what its licence asks to be shown with it.",
+          "PhotoFile": {
+            "description": "The credit, plus the original upload and the hash that pins it.",
             "properties": {
               "author": {
                 "title": "Author",
@@ -910,14 +990,14 @@
               }
             },
             "required": [
-              "file_url",
-              "file_page_url",
               "author",
               "licence",
               "licence_url",
+              "file_page_url",
+              "file_url",
               "sha256"
             ],
-            "title": "PhotoCredit",
+            "title": "PhotoFile",
             "type": "object"
           },
           "Source": {
@@ -1036,7 +1116,7 @@
           "photo": {
             "anyOf": [
               {
-                "$ref": "#/$defs/PhotoCredit"
+                "$ref": "#/$defs/PhotoFile"
               },
               {
                 "type": "null"
@@ -1121,6 +1201,7 @@
           "may_contain",
           "unverified",
           "photo_url",
+          "photo",
           "dish_key",
           "description",
           "ingredients",
@@ -1134,8 +1215,7 @@
           "label_allergens",
           "tags",
           "restaurant_area",
-          "restaurant_rating",
-          "photo"
+          "restaurant_rating"
         ],
         "title": "DishDetail",
         "type": "object"

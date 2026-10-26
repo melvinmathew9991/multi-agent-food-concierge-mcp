@@ -172,11 +172,12 @@ def test_render_says_whether_the_owner_has_reviewed() -> None:
 
 
 def test_the_review_page_escapes_model_text() -> None:
-    page = vm.review_page([_entry(description="<script>x</script>", allergen_terms={"egg": ["eggs"]})])
+    entries = [_entry(description="<script>x</script>", allergen_terms={"egg": ["eggs"]})]
+    page = vm.review_page(entries, "file:///repo/data/photos")
 
     assert "<script>x" not in page
     assert "&lt;script&gt;" in page
-    assert f"thumbs/{_sha(1)}.webp" in page
+    assert f'src="file:///repo/data/photos/{_sha(1)}.webp"' in page
     assert "egg → eggs" in page
 
 

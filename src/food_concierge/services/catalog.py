@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from food_concierge.errors import InputValidationError, NotFoundError
 from food_concierge.ingestion.allergens import AllergenTag, Level, Source
+from food_concierge.ingestion.photos import commons_thumb_url
 from food_concierge.ingestion.taxonomy import Allergen, Category, Cuisine, Diet
 from food_concierge.storage.catalog_db import CatalogStore
 
@@ -25,14 +26,19 @@ class _Out(BaseModel):
 
 
 class PhotoCredit(_Out):
-    """The Commons photo and what its licence asks to be shown with it."""
+    """What the photo's licence asks to be shown wherever the photo is: author, licence and source."""
 
-    file_url: str
-    file_page_url: str
     author: str
     licence: str
     licence_url: str
-    sha256: str  # pins the file; names its cached thumbnail
+    file_page_url: str  # the file's page on Wikimedia Commons
+
+
+class PhotoFile(PhotoCredit):
+    """The credit, plus the original upload and the hash that pins it."""
+
+    file_url: str  # the full-size original, often several MB; ``photo_url`` is the one to show
+    sha256: str  # pins the file; names its thumbnail
 
 
 class Tag(_Out):
@@ -62,7 +68,8 @@ class DishSummary(_Out):
     contains: list[Allergen]
     may_contain: list[Allergen]  # from the photo only: a warning, never a filter (ADR-0007)
     unverified: bool  # an ingredient's recipe can't be checked, so allergens may be missing
-    photo_url: str | None
+    photo_url: str | None  # Commons' 500 px copy; show ``photo`` (the credit) with it
+    photo: PhotoCredit | None
 
 
 class DishDetail(DishSummary):
@@ -82,7 +89,7 @@ class DishDetail(DishSummary):
     tags: list[Tag]
     restaurant_area: str
     restaurant_rating: float
-    photo: PhotoCredit | None
+    photo: PhotoFile | None
 
 
 def dish_ids(values: Iterable[str], *, distinct: bool = True) -> list[str]:
@@ -151,16 +158,17 @@ def _detail(row: dict[str, Any], tags: list[AllergenTag]) -> DishDetail:
     contains = sorted({tag.allergen for tag in tags if tag.level is Level.CONTAINS})
     may_contain = sorted({tag.allergen for tag in tags if tag.level is Level.MAY_CONTAIN} - set(contains))
     label = row["label_allergens"]
-    photo = None
+    photo = photo_url = None
     if row["file_url"] is not None:
-        photo = PhotoCredit(
-            file_url=row["file_url"],
-            file_page_url=row["file_page_url"],
+        photo = PhotoFile(
             author=row["author"],
             licence=row["licence"],
             licence_url=row["licence_url"],
+            file_page_url=row["file_page_url"],
+            file_url=row["file_url"],
             sha256=row["photo_sha256"],
         )
+        photo_url = commons_thumb_url(row["file_url"], row["photo_width"])
     return DishDetail(
         item_id=row["item_id"],
         name=row["name"],
@@ -175,7 +183,7 @@ def _detail(row: dict[str, Any], tags: list[AllergenTag]) -> DishDetail:
         contains=contains,
         may_contain=may_contain,
         unverified=bool(row["unverified"]),
-        photo_url=row["file_url"],
+        photo_url=photo_url,
         dish_key=row["dish_key"],
         description=row["description"],
         ingredients=_split(row["ingredients"]),

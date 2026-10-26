@@ -99,12 +99,12 @@ Built with the official `mcp` Python SDK (2.x `MCPServer`, the 1.x `FastMCP`); `
 |---|---|
 | `search_dishes` | query (≤ `max_query_chars`), diet?, eggless?, exclude_allergens[] (plain words: "dairy", "nuts"), max_kcal?, max_price_inr?, cuisines[]?, include_unverified?, exclude_ids[], k≤10 → ranked `DishSummary[]`; filtered in SQL, then every result re-checked against the constraints (a violating dish is dropped and logged, never returned); constraints the query states in words are applied too and named in the result's `note` |
 | `find_similar` | dish_id, same constraints, k → `DishSummary[]`, never the same dish at another restaurant |
-| `get_dish` | dish_id → `DishDetail` (nutrition, ingredients, allergen tags with source/level/evidence, restaurant, photo credit) |
+| `get_dish` | dish_id → `DishDetail` (nutrition, ingredients, allergen tags with source/level/evidence, restaurant, the photo's credit, original URL and SHA-256) |
 | `check_allergens` | dish_ids[], allergens[] → per dish {contains[], may_contain[], unverified, clear, evidence[]} |
 | `meal_totals` | dish_ids[], diners (1–20, default 1) → {order_min, order_max, per_person_min, per_person_max: {kcal, protein_g, carbs_g, fat_g}; price_inr, price_inr_per_person; serves_min, serves_max; notes[]} |
 | `describe_image` | image (base64, ≤ 5 MB) → dish description (uses the vision model; rate-limited) |
 
-**Resources:** `menu://catalog` (compact list), `menu://dishes/{id}` (JSON), `menu://dishes/{id}/image` (WebP, from the local thumbnail cache), `menu://policy/allergens` (taxonomy, the words each allergen answers to, levels, disclaimer).
+**Resources:** `menu://catalog` (compact list), `menu://dishes/{id}` (JSON), `menu://dishes/{id}/image` (WebP, from the committed thumbnails in `data/photos/`), `menu://policy/allergens` (taxonomy, the words each allergen answers to, levels, disclaimer).
 **Prompts:** `plan_meal(constraints)`, `find_similar_dish(description)`.
 **Errors:** domain errors are returned as tool results with `isError=true` and a safe message, so the agent can recover; anything unexpected reaches the client only as "Error executing tool <name>", with the traceback logged. Resource errors are protocol errors (unknown dish: invalid params).
 **Security:** read-only tools; input size limits; HTTP transport rate-limited per caller, for all anonymous callers together and globally, an anonymous caller known by the address its trusted proxy recorded (§8); no filesystem or network side effects. OAuth 2.1 (per the MCP auth spec) is backlog.
@@ -199,7 +199,7 @@ Errors: `{"error": {"code", "message", "request_id", "trace_id"}}`, mapped from 
 | Accidental paid usage | Paid providers (OpenAI, Bedrock) disabled unless `ALLOW_PAID_PROVIDERS=true`; CI asserts the default config has no paid provider |
 | Free quota exhaustion | Fallback chain → retrieval-only answer; per-session + global rate limits; `describe_image` limited separately |
 | Services needing a card | Rule: none. Hosting = HF Spaces + Streamlit Community Cloud; tracing = Langfuse Hobby; CI = GitHub Actions |
-| Image/container bloat | fastembed ONNX (no torch); thumbnails only in the image; model files cached at build |
+| Image/container bloat | fastembed ONNX (no torch); committed thumbnails only (3.6 MB), never the originals; model files cached at build |
 
 ## 11. Deployment
 
@@ -239,7 +239,7 @@ multi-agent-food-concierge-mcp/
 ├── deploy/              # deploy notes; hf-space/README.md (Space config, P4 6b), streamlit notes
 ├── examples/            # a2a_client_agent.py (demo peer agent), claude_desktop_config.json
 ├── docs/                # planning/, adr/, responsible-ai/ (system card, fairness, red-team), data-card.md, evaluation.md, mcp.md, a2a.md, runbook.md
-├── data/                # raw/ (own catalog + attributions, tracked), processed/ (descriptions tracked; db/index/thumbs built)
+├── data/                # raw/ (own catalog + attributions, tracked), photos/ (thumbnails, tracked), processed/ (descriptions tracked; db/index built)
 └── private/             # git-ignored local material (course baseline, notes); never committed
 ```
 

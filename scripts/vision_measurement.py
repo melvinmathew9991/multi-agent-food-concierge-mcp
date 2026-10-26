@@ -289,14 +289,14 @@ def render(summary: Mapping[str, Any], timing: Mapping[str, Any], reviewed: bool
     return "\n".join(lines)
 
 
-def review_page(entries: Sequence[Mapping[str, Any]]) -> str:
-    """A static page for checking scores against photos; thumbnails are read from ``thumbs/`` beside it."""
+def review_page(entries: Sequence[Mapping[str, Any]], thumbs: str) -> str:
+    """A static page for checking scores against photos; thumbnails are read from the folder at URL ``thumbs``."""
     cards = []
     for entry in entries:
         esc = {key: html.escape(str(value)) for key, value in entry.items()}
         terms = ", ".join(f"{t} → {'/'.join(a)}" for t, a in entry["allergen_terms"].items()) or "none"
         cards.append(
-            f'<section><img src="thumbs/{esc["sha256"]}.webp" alt="{esc["dish"]}" loading="lazy">'
+            f'<section><img src="{html.escape(thumbs)}/{esc["sha256"]}.webp" alt="{esc["dish"]}" loading="lazy">'
             f"<div><h2>{esc['item_id']} · {esc['dish']}</h2><p>{esc['description']}</p>"
             f"<dl><dt>dish type</dt><dd>{esc['dish_type']}</dd>"
             f"<dt>seen</dt><dd>{html.escape(', '.join(entry['seen']))}</dd>"
@@ -464,7 +464,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         write_dataset(path, {key: dataset[key] for key in ("version", "seed", "prompt_version", "reviewed", "entries")})
         suffix = "" if provider == LOCAL else f"_{run}"
         page = settings.photo_cache_dir / f"vision_review{suffix}.html"
-        page.write_text(review_page(dataset["entries"]), encoding="utf-8")
+        page.write_text(review_page(dataset["entries"], settings.photos_dir.as_uri()), encoding="utf-8")
         print(f"wrote {path.relative_to(REPO_ROOT)} ({len(dataset['entries'])} entries) and {page}")
         return 0
 

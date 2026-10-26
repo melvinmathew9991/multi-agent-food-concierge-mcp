@@ -47,7 +47,7 @@ The first build downloads the local embedding model (fastembed, cached outside t
 Catalog photos are maintained by hand, never by CI:
 
 ```bash
-python scripts/fetch_photos.py sync    # fetch the approved Commons photos into the local cache and verify their hashes
+python scripts/fetch_photos.py sync    # rebuild data/photos/ thumbnails from verified originals; commit the result
 python scripts/describe_photos.py      # describe new photos with the local Ollama vision model (qwen2.5vl:7b)
 ```
 

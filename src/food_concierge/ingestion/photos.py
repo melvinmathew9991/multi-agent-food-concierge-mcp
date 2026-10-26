@@ -3,7 +3,8 @@
 Only CC0, public-domain, CC BY and CC BY-SA files are kept; NC, ND, GFDL-only, non-free and unknown licences are
 refused. The owner approves one candidate per dish (or none). Approved files are recorded in ``attributions.csv``
 with author, licence and SHA-256, and fetched into ``Settings.photo_cache_dir``, never into the repository. A file
-whose bytes no longer match its pinned hash is refused.
+whose bytes no longer match its pinned hash is refused. Only the small WebP thumbnails are committed, under
+``Settings.photos_dir``, so building the server image needs nothing from Commons.
 
 Commons API etiquette: a descriptive User-Agent naming the project, and at most one request per second
 (``docs/planning/architecture.md`` §18).
@@ -20,6 +21,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import unquote
 
 import httpx
 from PIL import Image
@@ -35,6 +37,8 @@ USER_AGENT = (
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 MIN_WIDTH = 480
 THUMBNAIL_PX = 480
+COMMONS_THUMB_PX = 500  # Commons serves only its standard thumbnail widths (https://w.wiki/GHai); 640 is refused
+THUMB_NAME_MAX_BYTES = 160  # MediaWiki names the thumbnails of longer file names "thumbnail.<ext>"
 CATALOG_MAX_PIXELS = 250_000_000  # the largest approved original is 200 MP
 NONE = "none"  # the review-sheet candidate meaning "no suitable photo for this dish"
 
@@ -80,6 +84,17 @@ def _meta(extmetadata: Mapping[str, Any], field: str) -> str:
 def _clean_url(url: str) -> str:
     # Commons appends tracking parameters (utm_source=...) to file URLs; the attribution keeps the plain URL.
     return url.split("?", 1)[0]
+
+
+def commons_thumb_url(file_url: str, width: int, px: int = COMMONS_THUMB_PX) -> str:
+    """Commons' own scaled copy of an upload, ``px`` wide; the upload itself when it is no wider than that."""
+    if width <= px:
+        return file_url
+    folder, name = file_url.rsplit("/", 1)
+    decoded = unquote(name)
+    extension = {"jpeg": "jpg"}.get(ext := Path(decoded).suffix.lower().lstrip("."), ext)  # as MediaWiki has it
+    thumb = name if len(decoded.encode()) <= THUMB_NAME_MAX_BYTES else f"thumbnail.{extension}"
+    return f"{folder.replace('/wikipedia/commons/', '/wikipedia/commons/thumb/', 1)}/{name}/{px}px-{thumb}"
 
 
 def plain_text(markup: str) -> str:
@@ -198,8 +213,8 @@ class Pinned(Protocol):
     def sha256(self) -> str: ...
 
 
-def thumbnail_path(cache_dir: Path, photo: Pinned) -> Path:
-    return cache_dir / "thumbs" / f"{photo.sha256}.webp"
+def thumbnail_path(photos_dir: Path, photo: Pinned) -> Path:
+    return photos_dir / f"{photo.sha256}.webp"
 
 
 def _write_atomically(path: Path, data: bytes) -> None:
@@ -230,7 +245,7 @@ def make_thumbnail(data: bytes, max_px: int = THUMBNAIL_PX) -> bytes:
 
 
 def ensure_cached(photo: Photo, client: CommonsClient, cache_dir: Path) -> Path:
-    """Fetch the photo into the cache if missing, verify its hash, and build its thumbnail."""
+    """Fetch the photo into the cache if missing and verify its hash."""
     original = original_path(cache_dir, photo)
     data = original.read_bytes() if original.exists() else client.download(photo.file_url)
     if sha256(data) != photo.sha256:
@@ -238,10 +253,15 @@ def ensure_cached(photo: Photo, client: CommonsClient, cache_dir: Path) -> Path:
         raise PhotoSourceError(f"{photo.item_id}: {photo.file_url} no longer matches its pinned SHA-256")
     if not original.exists():
         _write_atomically(original, data)
-    thumbnail = thumbnail_path(cache_dir, photo)
-    if not thumbnail.exists():
-        _write_atomically(thumbnail, make_thumbnail(data))
     return original
+
+
+def ensure_thumbnail(photo: Photo, client: CommonsClient, cache_dir: Path, photos_dir: Path) -> Path:
+    """The photo's thumbnail in ``photos_dir``, built from the verified original when missing."""
+    thumbnail = thumbnail_path(photos_dir, photo)
+    if not thumbnail.exists():
+        _write_atomically(thumbnail, make_thumbnail(ensure_cached(photo, client, cache_dir).read_bytes()))
+    return thumbnail
 
 
 def review_rows(item_id: str, dish: str, candidates: Iterable[Candidate]) -> list[dict[str, str]]:

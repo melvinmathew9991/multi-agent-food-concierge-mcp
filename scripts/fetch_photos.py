@@ -15,7 +15,8 @@
 
        python scripts/fetch_photos.py approve
 
-3. On another machine, or after clearing the cache, fetch every attributed photo and verify it:
+3. Build the committed thumbnails in data/photos/ (missing ones only, from originals fetched and verified as
+   needed) and remove thumbnails no longer attributed; commit the result with attributions.csv:
 
        python scripts/fetch_photos.py sync
 """
@@ -39,7 +40,7 @@ from food_concierge.ingestion.photos import (
     CommonsClient,
     approve,
     attribution,
-    ensure_cached,
+    ensure_thumbnail,
     read_approvals,
     review_rows,
 )
@@ -231,10 +232,12 @@ def apply_approvals(
     return 0
 
 
-def sync(photos: Sequence[Photo], client: CommonsClient, cache_dir: Path) -> int:
-    for photo in photos:
-        ensure_cached(photo, client, cache_dir)
-    print(f"{len(photos)} photos verified in {cache_dir}")
+def sync(photos: Sequence[Photo], client: CommonsClient, cache_dir: Path, photos_dir: Path) -> int:
+    kept = {ensure_thumbnail(photo, client, cache_dir, photos_dir) for photo in photos}
+    stale = [path for path in photos_dir.glob("*.webp") if path not in kept]
+    for path in stale:
+        path.unlink()
+    print(f"{len(kept)} thumbnails in {photos_dir}, {len(stale)} no longer attributed removed")
     return 0
 
 
@@ -258,7 +261,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return write_review_page(rows, cache)
     if args.command == "approve":
         return apply_approvals(loaded.catalog.items, raw / REVIEW_FILE, raw / ATTRIBUTIONS_FILE, client, cache)
-    return sync(loaded.catalog.photos, client, cache)
+    return sync(loaded.catalog.photos, client, cache, settings.photos_dir)
 
 
 if __name__ == "__main__":

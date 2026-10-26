@@ -1,7 +1,7 @@
 name: docker
 
-# Builds the server image, starts it and runs the deploy smoke test against it. Not on every PR: the build
-# downloads the embedding model and about 380 MB of catalog photos from Wikimedia Commons.
+# Builds the server image, starts it and runs the deploy smoke test against it, then again with no network at all.
+# Not on every PR: the build downloads the embedding model and takes a few minutes.
 on:
   push:
     branches: [main]
@@ -9,6 +9,7 @@ on:
     paths:
       - Dockerfile
       - .dockerignore
+      - data/photos/**
       - requirements.lock
       - requirements-dev.lock
       - scripts/smoke_deploy.py
@@ -48,10 +49,27 @@ jobs:
         run: |
           docker run --rm --network host -e SMOKE_TOKEN -v "$PWD/scripts:/scripts:ro" food-concierge:ci \
             python /scripts/smoke_deploy.py http://127.0.0.1:7860 --token-env SMOKE_TOKEN
-      - name: Runs as non-root, offline model files
+      - name: Runs as non-root, offline model files, read-only code and data, no pip
         run: |
           test "$(docker exec app id -u)" = "1000"
           docker exec app python -c "import os; assert os.environ['HF_HUB_OFFLINE'] == '1'"
-      - name: Server log
+          docker exec app sh -c 'for d in /app /app/src /app/data /app/cache; do test ! -w "$d" || exit 1; done'
+          if docker exec app python -m pip --version; then echo "pip is still in the image"; exit 1; fi
+      - name: Smoke test with no network and a read-only filesystem
+        run: |
+          docker run -d --name offline --network none --read-only --tmpfs /tmp \
+            -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 food-concierge:ci
+          for i in $(seq 1 60); do
+            if docker exec offline python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/ready', timeout=4)" 2> /dev/null; then
+              echo "ready after ${i}s"; break
+            fi
+            if [ "$i" = 60 ]; then docker logs offline; exit 1; fi
+            sleep 1
+          done
+          docker run --rm --network container:offline -v "$PWD/scripts:/scripts:ro" food-concierge:ci \
+            python /scripts/smoke_deploy.py http://127.0.0.1:7860
+      - name: Server logs
         if: always()
-        run: docker logs app 2>&1 | tail -50
+        run: |
+          docker logs app 2>&1 | tail -50
+          docker logs offline 2>&1 | tail -30 || true

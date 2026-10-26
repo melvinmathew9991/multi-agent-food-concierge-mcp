@@ -227,7 +227,8 @@ class CatalogStore:
         """The rows of these items, with their restaurant and photo credit joined in; unknown ids are left out."""
         sql = (
             "SELECT items.*, r.name AS restaurant_name, r.area AS restaurant_area, r.rating AS restaurant_rating, "  # noqa: S608
-            "im.file_url, im.file_page_url, im.author, im.licence, im.licence_url, im.sha256 AS photo_sha256 "
+            "im.file_url, im.file_page_url, im.author, im.licence, im.licence_url, im.sha256 AS photo_sha256, "
+            "im.width AS photo_width "
             "FROM items JOIN restaurants r USING (restaurant_id) LEFT JOIN images im USING (item_id) "
             f"WHERE item_id IN ({', '.join('?' * len(item_ids))})"  # placeholders only
         )

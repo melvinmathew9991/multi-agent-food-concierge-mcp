@@ -190,7 +190,7 @@ class Settings(BaseSettings):
     # Paths
     data_dir: Path = REPO_ROOT / "data"
     model_cache_dir: Path = Field(default_factory=_default_model_cache_dir)
-    photo_cache_dir: Path = Field(default_factory=_default_photo_cache_dir)  # catalog photos and thumbnails
+    photo_cache_dir: Path = Field(default_factory=_default_photo_cache_dir)  # catalog photo originals
     log_level: str = "INFO"
 
     @field_validator("fallback_providers", "cors_origins", "allowed_hosts", mode="before")
@@ -277,6 +277,11 @@ class Settings(BaseSettings):
     @property
     def processed_dir(self) -> Path:
         return self.data_dir / "processed"
+
+    @property
+    def photos_dir(self) -> Path:
+        """The catalog's photo thumbnails, committed: the server and the image read them from here."""
+        return self.data_dir / "photos"
 
     @property
     def max_image_bytes(self) -> int:

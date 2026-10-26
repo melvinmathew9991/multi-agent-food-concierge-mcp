@@ -82,7 +82,25 @@ def test_a_dish_in_full(catalog: CatalogService) -> None:
     }
     assert dish.photo is not None
     assert dish.photo.licence == "CC BY-SA 4.0"
-    assert dish.photo_url == dish.photo.file_url
+    assert dish.photo_url == (  # Commons' 500 px copy, not the 9248 px original
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Butter_Chicken%2C_City_Grill_Kottayam.jpg/"
+        "500px-Butter_Chicken%2C_City_Grill_Kottayam.jpg"
+    )
+
+
+def test_a_summary_carries_the_photo_credit_but_not_the_original(catalog: CatalogService) -> None:
+    detail = catalog.get_dish("s05")
+    [summary] = catalog.summaries(["s05"])
+
+    assert detail.photo is not None
+    assert summary.photo is not None
+    assert summary.photo_url == detail.photo_url
+    assert summary.photo.model_dump() == {
+        "author": detail.photo.author,
+        "licence": detail.photo.licence,
+        "licence_url": detail.photo.licence_url,
+        "file_page_url": detail.photo.file_page_url,
+    }
 
 
 def test_a_dish_without_a_photo_or_a_checkable_recipe(catalog: CatalogService) -> None:

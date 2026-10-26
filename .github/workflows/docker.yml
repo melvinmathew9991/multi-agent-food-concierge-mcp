@@ -1,19 +1,12 @@
 name: docker
 
 # Builds the server image, starts it and runs the deploy smoke test against it, then again with no network at all.
-# Not on every PR: the build downloads the embedding model and takes a few minutes.
+# Runs on every PR so that `image` always reports and can be a required check, but a PR that changes nothing the
+# image is built from passes after the first step: the build downloads the embedding model and takes a few minutes.
 on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - data/photos/**
-      - requirements.lock
-      - requirements-dev.lock
-      - scripts/smoke_deploy.py
-      - .github/workflows/docker.yml
   workflow_dispatch:
 
 permissions:
@@ -29,11 +22,31 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Does this change touch the image?
+        id: changes
+        # Everything the build context lets in (.dockerignore), plus the smoke test and this workflow.
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$BASE...HEAD" -- Dockerfile .dockerignore pyproject.toml requirements.lock \
+            requirements-dev.lock src data/lexicon data/raw data/photos data/processed/image_descriptions.jsonl \
+            scripts/smoke_deploy.py .github/workflows/docker.yml)
+          if [ -n "$changed" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; echo "Image inputs changed:"; echo "$changed"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"; echo "Nothing the image is built from changed; skipping the build."
+          fi
       - name: Build
+        if: steps.changes.outputs.build == 'true'
         run: docker build -t food-concierge:ci .
       - name: Size
+        if: steps.changes.outputs.build == 'true'
         run: docker image ls food-concierge:ci --format '{{.Size}}'
       - name: Start, with a throwaway agent token
+        if: steps.changes.outputs.build == 'true'
         run: |
           token=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
           echo "::add-mask::$token"
@@ -45,17 +58,20 @@ jobs:
           done
           docker logs app; exit 1
       - name: Smoke test (no model calls)
+        if: steps.changes.outputs.build == 'true'
         # Runs in the image itself, so the runner needs no Python packages.
         run: |
           docker run --rm --network host -e SMOKE_TOKEN -v "$PWD/scripts:/scripts:ro" food-concierge:ci \
             python /scripts/smoke_deploy.py http://127.0.0.1:7860 --token-env SMOKE_TOKEN
       - name: Runs as non-root, offline model files, read-only code and data, no pip
+        if: steps.changes.outputs.build == 'true'
         run: |
           test "$(docker exec app id -u)" = "1000"
           docker exec app python -c "import os; assert os.environ['HF_HUB_OFFLINE'] == '1'"
           docker exec app sh -c 'for d in /app /app/src /app/data /app/cache; do test ! -w "$d" || exit 1; done'
           if docker exec app python -m pip --version; then echo "pip is still in the image"; exit 1; fi
       - name: Smoke test with no network and a read-only filesystem
+        if: steps.changes.outputs.build == 'true'
         run: |
           docker run -d --name offline --network none --read-only --tmpfs /tmp \
             -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 food-concierge:ci
@@ -69,7 +85,7 @@ jobs:
           docker run --rm --network container:offline -v "$PWD/scripts:/scripts:ro" food-concierge:ci \
             python /scripts/smoke_deploy.py http://127.0.0.1:7860
       - name: Server logs
-        if: always()
+        if: always() && steps.changes.outputs.build == 'true'
         run: |
           docker logs app 2>&1 | tail -50
           docker logs offline 2>&1 | tail -30 || true

@@ -8,7 +8,9 @@ Checks the deploy definition of done (optimization.md §6) against a base URL:
 3. MCP without a token lists the six tools and refuses ``describe_image`` for needing the ``agent`` scope;
 4. a token that matches none is refused with 401;
 5. with ``--token-env`` (the agent token), the same call passes the scope check and fails only on its deliberately
-   invalid image (or asks for words when no vision model is configured), so no vision quota is spent.
+   invalid image (or asks for words when no vision model is configured), so no vision quota is spent. Without a
+   vision key, as in CI, this proves the scope check only: the call stops before the image is read. Against the
+   Space, which has the key, it fails on the image itself.
 
     python scripts/smoke_deploy.py http://127.0.0.1:7860
     SMOKE_TOKEN=<agent token> python scripts/smoke_deploy.py https://<space>.hf.space --token-env SMOKE_TOKEN

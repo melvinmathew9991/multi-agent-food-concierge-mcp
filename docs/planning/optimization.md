@@ -138,8 +138,8 @@ The design is sized for the demo. The interfaces are the ones that let it grow w
 |---|---|---|---|---|---|
 | `dev` (local) | build and try | fakes, or live free tiers via `.env` | full catalog | local Langfuse (Docker), full content | manual |
 | `test` (pytest) | correctness | fakes only, no network | fixtures and the tracked catalog | off | every commit |
-| `ci` (PR) | gates | fakes and committed caches | tracked | off | every PR |
-| nightly | drift, build, evaluate | open-model downloads; never hosted LLMs | tracked | off | schedule |
+| `ci` (PR) | gates (`secrets`, `test` and `image` required; `image` builds only when an image input changed) | fakes and committed caches | tracked | off | every PR |
+| nightly | dependency audit of both locks, drift, build, evaluate | open-model downloads; never hosted LLMs | tracked | off | schedule |
 | `staging` | rehearse a release | live free tiers, staging keys and caps | built in the image | Langfuse, metadata only | every merge to `main` (from P4) |
 | `prod` | public demo | live free tiers | built in the image | Langfuse Cloud Hobby, metadata only | tag |
 

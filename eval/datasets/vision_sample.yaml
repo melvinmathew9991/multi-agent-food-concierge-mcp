@@ -516,6 +516,8 @@ entries:
     - wheat
     rye:
     - gluten
+    raisin:
+    - sulphites
   dish_type: correct
   seen:
   - bread

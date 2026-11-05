@@ -6,14 +6,19 @@
 # A term listed under several allergens maps to all of them. Wheat implies gluten, which is added automatically.
 #
 # - allergens: terms whose presence means the dish contains that allergen (level "contains").
-# - neutral: phrases that look like an allergen term but aren't one; they map to nothing.
+# - neutral: terms that carry no allergen, including phrases that look like one but aren't ("coconut milk").
 # - opaque: composite ingredients whose recipe can't be seen; a dish listing one is "unverified". A term may also
 #   appear under allergens, when its usual recipe is known to contain something (farsan: peanuts).
+#
+# The lexicon is closed-world: every word of every ingredient must be covered by some term above or below. A word
+# it doesn't know fails the catalog build, and makes a dish unverified wherever it is tagged outside the build, so
+# a new ingredient ("custard", "sev") can't slip through as allergen-free. Add it under the allergens it carries,
+# to neutral, or to opaque when its recipe can't be seen.
 #
 # Negations such as "dairy-free" or "eggless" are deliberately not understood: for safety, a false alarm beats a miss.
 # Recipe assumptions for composite ingredients are recorded in data/raw/README.md.
 
-version: 2
+version: 3
 
 allergens:
   gluten:
@@ -23,6 +28,7 @@ allergens:
     - oats
     - oat milk
     - granola
+    - beer
   wheat:
     - wheat
     - atta
@@ -64,6 +70,10 @@ allergens:
     - savoiardi
     - biscuit
     - seitan
+    - couscous
+    - bulgur
+    - spelt
+    - beer batter
     - muthia
     - hing
     - asafoetida
@@ -92,6 +102,7 @@ allergens:
     - mussel
     - oyster
     - scallop
+    - kalamari
   fish:
     - fish
     - fish sauce
@@ -111,6 +122,9 @@ allergens:
     - cod
     - tilapia
     - karimeen
+    - pearl spot
+    - surimi
+    - dashi
     - worcestershire
     - caesar dressing
     - kimchi
@@ -119,6 +133,8 @@ allergens:
     - mayonnaise
     - mayo
     - meringue
+    - custard
+    - aioli
     - savoiardi
     - caesar dressing
     - tartare sauce
@@ -143,6 +159,11 @@ allergens:
     - chhena
     - rabri
     - whey
+    - casein
+    - custard
+    - raita
+    - pesto
+    - nutella
     - mozzarella
     - cheddar
     - parmesan
@@ -189,6 +210,8 @@ allergens:
     - brazil nut
     - praline
     - marzipan
+    - pesto
+    - nutella
   soy:
     - soy
     - soya
@@ -197,6 +220,7 @@ allergens:
     - soy sauce
     - soy dipping sauce
     - soy lecithin
+    - nutella
     - tofu
     - edamame
     - miso
@@ -216,6 +240,8 @@ allergens:
   mustard:
     - mustard
     - kasundi
+    - rai
+    - sarson
     - wasabi
     - caesar dressing
     - tartare sauce
@@ -232,6 +258,7 @@ allergens:
     - balsamic vinegar
     - dried apricot
     - candied fruit
+    - raisin
     - tutti frutti
 
 neutral:
@@ -258,6 +285,172 @@ neutral:
   - ginger garlic paste
   - tomato sauce
 
+  # Ingredients and words checked to carry none of the 14 allergens (#139).
+  - acai
+  - ajwain
+  - anardana
+  - apple
+  - avocado
+  - baby
+  - baking soda
+  - banana
+  - basil
+  - basmati rice
+  - bay leaf
+  - bean
+  - bean sprout
+  - black
+  - besan
+  - bhindi
+  - biryani
+  - black pepper
+  - black salt
+  - boiled
+  - bottle gourd
+  - brinjal
+  - broccoli
+  - broken
+  - brown rice
+  - burger
+  - cabbage
+  - capsicum
+  - cardamom
+  - carrot
+  - chaat
+  - chana dal
+  - cherry tomato
+  - chia seed
+  - chicken
+  - chickpea
+  - chilli
+  - chilli flakes
+  - chole
+  - cocoa powder
+  - coconut
+  - coffee
+  - coffee decoction
+  - condensed
+  - coriander
+  - corn
+  - cornflour
+  - cucumber
+  - cumin
+  - dal
+  - curry leaves
+  - dark
+  - desiccated coconut
+  - dried red chilli
+  - drumstick
+  - dry coconut
+  - dry ginger
+  - espresso
+  - fennel
+  - fenugreek seed
+  - fillet
+  - flattened rice
+  - fresh
+  - fried onion
+  - fruit salt
+  - galangal
+  - garlic
+  - ginger
+  - glaze
+  - green
+  - grilled
+  - honey
+  - hung
+  - jaggery
+  - japanese
+  - jasmine rice
+  - kaffir lime leaves
+  - kalamata olive
+  - kashmiri chilli
+  - kidney
+  - kasuri methi
+  - kudampuli
+  - lemon
+  - lemongrass
+  - lettuce
+  - lime
+  - mango
+  - melon seed
+  - methi
+  - methi leaves
+  - mint
+  - misal
+  - mixed
+  - moong dal
+  - mushroom
+  - mutton
+  - nigella seed
+  - nori
+  - oil
+  - olive oil
+  - onion
+  - oregano
+  - parsley
+  - paste
+  - pea
+  - pickled onion
+  - pico de gallo
+  - pizza
+  - pomegranate
+  - poppy seed
+  - pork
+  - potato
+  - potato starch
+  - powder
+  - puff
+  - puffed rice
+  - purple yam
+  - quinoa
+  - rajma
+  - red chilli
+  - red lentil
+  - red onion
+  - rice
+  - rice vinegar
+  - roasted cumin
+  - romaine lettuce
+  - rose water
+  - saffron
+  - sago
+  - salt
+  - seed
+  - shallot
+  - silver varq
+  - slice
+  - sour
+  - spinach
+  - spring onion
+  - sprouted moth bean
+  - sugar
+  - sugar syrup
+  - sunflower oil
+  - surti papdi
+  - sushi rice
+  - sweet potato
+  - tamarind
+  - tea
+  - tea leaves
+  - thai basil
+  - tomato
+  - toor dal
+  - turmeric
+  - urad dal
+  - vanilla
+  - vegetable
+  - vegetable mash
+  - vegetarian
+  - vinegar
+  - wash
+  - water
+  - white
+  - white pepper
+  - whole urad dal
+  - wrapper
+  - yeast
+
 opaque:
   - masala
   - pav bhaji masala
@@ -282,3 +475,8 @@ opaque:
   - khaman
   - gujarati dal
   - sabzi
+  - sev
+  - boondi
+  - bhujia
+  - toum
+  - pepperoni

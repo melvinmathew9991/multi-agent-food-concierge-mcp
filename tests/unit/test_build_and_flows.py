@@ -97,6 +97,19 @@ def test_invalid_catalog_fails_the_build(data_dir: Path) -> None:
         build_catalog(Settings())
 
 
+def test_an_ingredient_the_lexicon_does_not_know_fails_the_build(data_dir: Path) -> None:
+    # Closed world (#139): "custard" could be eggs and milk; "wobbly jelly" is unknown, so the build names it.
+    menu = data_dir / "raw" / "menu.csv"
+    menu.write_text(menu.read_text(encoding="utf-8").replace("condensed milk", "condensed milk; wobbly jelly"), "utf-8")
+
+    with pytest.raises(CatalogValidationError) as raised:
+        build_catalog(Settings())
+
+    [issue] = raised.value.issues
+    assert "'wobbly jelly': the allergen lexicon doesn't know 'wobbly', 'jelly'" in str(issue)
+    assert not (data_dir / "processed" / "catalog.db").exists()
+
+
 @pytest.fixture(scope="module")
 def prefect_harness() -> Iterator[None]:
     with prefect_test_harness():

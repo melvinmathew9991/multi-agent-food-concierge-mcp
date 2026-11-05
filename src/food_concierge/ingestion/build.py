@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from food_concierge.config import Settings
-from food_concierge.errors import NotReadyError
-from food_concierge.ingestion.allergens import LEXICON_PATH, load_lexicon, tag_item
+from food_concierge.errors import CatalogValidationError, NotReadyError
+from food_concierge.ingestion.allergens import LEXICON_PATH, load_lexicon, tag_item, unresolved_issues
 from food_concierge.ingestion.descriptions import DESCRIPTIONS_FILE, Variant, read_descriptions, vision_texts
 from food_concierge.ingestion.loader import ATTRIBUTIONS_FILE, MENU_FILE, RESTAURANTS_FILE, load_catalog
 from food_concierge.models.embeddings import Embedder
@@ -73,6 +73,10 @@ def build_catalog(settings: Settings, *, force: bool = False) -> StepResult:
     for warning in loaded.warnings:
         logger.warning("catalog warning", extra={"issue": str(warning)})
     lexicon = load_lexicon(settings.data_dir / LEXICON_PATH)
+    # Closed world (#139): a word the lexicon doesn't know could hide an allergen, so the tracked catalog must not
+    # have one. Tagged outside the build, such a dish is only marked unverified.
+    if issues := unresolved_issues(loaded.catalog.items, lexicon):
+        raise CatalogValidationError(issues)
     # Descriptions come from the tracked cache only; a photo without one is tagged from label and lexicon alone.
     cache = read_descriptions(settings.processed_dir / DESCRIPTIONS_FILE)
     vision = vision_texts(loaded.catalog.photos, cache)

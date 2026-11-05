@@ -58,6 +58,8 @@ Composite ingredients are opaque in the ingredient list. The ground truth assume
 | barley | gluten (not wheat) | A gluten cereal that is not wheat |
 | makki atta (maize), rice flour, rice ada | nothing | Gluten-free grains |
 | dried apricots | sulphites | Usually preserved with sulphur dioxide |
+
+Since lexicon version 3 (#139) the tagger is stricter than this ground truth in two places, both on the safe side: `raisins` are tagged sulphites (golden raisins are sulphured; Cholar Dal's truth assumes plain ones), and `sev`, `toum` and `pepperoni` are opaque (frying oil or recipe unseen), so Sev Tameta nu Shaak and Pepperoni Pizza are unverified.
 | raisins | nothing | Dark raisins, assumed unsulphited |
 | paratha, rotli, methi muthia | wheat, gluten | Wheat flour (muthia mixes wheat and gram flour) |
 | Gujarati dal | peanuts | Traditionally cooked with peanuts |

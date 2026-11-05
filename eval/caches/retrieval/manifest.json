@@ -22,16 +22,16 @@
     "revision": "a09144355adeed5f58c8ed011d209bf8ee5a1fec",
     "model_sha256": "c623d0bcb99f4622beb413eaef00cfbe5db20df9f1dd982da4b4f26022881870"
   },
-  "data_sha256": "2897ed7f07739c8d0e66bd8b3e85404a50b3f18f7d1d1c5a7886fd22116caf58",
+  "data_sha256": "33c4b3a63884f3bb22e7c8e02de135d2cd509f43a5e740b3813cd580829ffe40",
   "doc_text_version": 1,
   "dataset_sha256": "989069fbc4239d7441af8654ad6109da71e5d2a52872af95250fe16577244935",
-  "created_at": "2026-10-11T12:28:06.513481Z",
+  "created_at": "2026-11-05T08:30:38.682584Z",
   "files": {
-    "doc_vectors.npy": "9aa1bae7bd1b65f73ed7041d32d9d14f4615075caf7500779457cc3631adf559",
+    "doc_vectors.npy": "45edb3a38e2b6089a01a02b0f808ccb85b7dcd576b1e1ed624bfb7d4a6c64876",
     "documents.json": "dc9b848e70ee7c6f0e9fb8a491f31a2e044bc8d2c201057be7a5ea6ee05aa7da",
     "queries.json": "66cff3f2562ba068e5d18715e300346e5c257365f713be38cc812c72a2d63eb8",
-    "query_vectors_no_prefix.npy": "8cb678088c664533c7559613aa45ebb690bf533d722dbad36294e2cd9fb3ab22",
-    "query_vectors_prefix.npy": "dc37610d464018e0c8ea8d5b62af26e82e8a9b15bf6574e9ea07788c734edd8b",
+    "query_vectors_no_prefix.npy": "d18836049304bf3f2bd7f06ec9e7aba668c7b9f89d99d0280f6b1a9b9ed85427",
+    "query_vectors_prefix.npy": "8a4b25f4c6bccff1973216c1ed00783f5c20f1fae5e0bcc14e0ec909a36eb18a",
     "rerank_scores.npy": "4d30894be16bc6f4de63db7d7cd6e45cc4b63c5cf0c681eb49ebc62448457fb5"
   }
 }

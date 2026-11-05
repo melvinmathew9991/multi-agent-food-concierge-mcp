@@ -21,6 +21,7 @@ from food_concierge.ingestion.allergens import (
     evaluate,
     load_lexicon,
     tag_item,
+    unresolved_issues,
 )
 from food_concierge.ingestion.loader import load_catalog
 from food_concierge.ingestion.schemas import MenuItem
@@ -107,6 +108,64 @@ def test_lexicon_matching(lexicon: Lexicon, text: str, expected: set[Allergen]) 
 )
 def test_opaque_terms(lexicon: Lexicon, text: str, opaque: bool) -> None:
     assert any(hit.opaque for hit in lexicon.match(text)) is opaque
+
+
+@pytest.mark.parametrize(
+    ("text", "unknown"),
+    [
+        ("Paneer Butter", []),
+        ("basil walnut pesto", []),  # once only "pesto" was unknown, and its parmesan went untagged
+        ("dried red chillies", []),  # plurals
+        ("almond custard", []),
+        ("nut oil", ["nut"]),  # "nuts" is a term, "nut" isn't: unknown, not clean
+        ("eggless sponge", ["eggless", "sponge"]),
+        ("chef's special", ["chef's", "special"]),
+    ],
+)
+def test_unresolved_words(lexicon: Lexicon, text: str, unknown: list[str]) -> None:
+    assert lexicon.unresolved(text) == unknown
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("pesto", {A.MILK, A.TREE_NUTS}),
+        ("custard", {A.EGGS, A.MILK}),
+        ("aioli", {A.EGGS}),
+        ("couscous", {A.WHEAT}),
+        ("beer batter", {A.WHEAT}),
+        ("surimi", {A.FISH}),
+        ("dashi", {A.FISH}),
+        ("kalamari", {A.MOLLUSCS}),
+        ("nutella", {A.MILK, A.SOY, A.TREE_NUTS}),
+        ("rai", {A.MUSTARD}),
+        ("sarson ka saag", {A.MUSTARD}),
+        ("pearl spot", {A.FISH}),
+    ],
+)
+def test_terms_added_with_the_closed_world(lexicon: Lexicon, text: str, expected: set[Allergen]) -> None:
+    assert allergens_in(lexicon, text) == expected
+
+
+def test_an_unknown_ingredient_makes_the_dish_unverified(lexicon: Lexicon) -> None:
+    dish = item(ingredients=("rice", "wobbly jelly", "paneer", "wobbly jelly"))
+
+    result = tag_item(dish, lexicon)
+
+    assert result.contains == {A.MILK}
+    assert result.opaque_ingredients == ()
+    assert result.unresolved_ingredients == ("wobbly jelly",)
+    assert result.unverified
+    [issue] = unresolved_issues([item(ingredients=("rice", "wobbly jelly"))], lexicon)
+    assert str(issue) == (
+        "menu.csv ingredients: t1 'wobbly jelly': the allergen lexicon doesn't know 'wobbly', 'jelly'; "
+        "add it to lexicon/allergens.yaml as an allergen, neutral or opaque term"
+    )
+
+
+@pytest.mark.parametrize("raw_dir", [REPO_ROOT / "data" / "raw", FIXTURE], ids=["catalog", "fixture"])
+def test_every_catalog_ingredient_is_resolved(lexicon: Lexicon, raw_dir: Path) -> None:
+    assert unresolved_issues(load_catalog(raw_dir).catalog.items, lexicon) == []
 
 
 @pytest.mark.parametrize(

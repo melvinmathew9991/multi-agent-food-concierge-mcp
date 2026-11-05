@@ -9,6 +9,10 @@
 A dish listing an opaque ingredient (a masala mix, an unnamed sauce, a chutney) is ``unverified``: its recipe can't
 be checked, so the agent must ask before recommending it to someone avoiding an allergen (PRD F8).
 
+The lexicon is closed-world (#139): every word of an ingredient must belong to an allergen, neutral or opaque term.
+A word it doesn't know ("custard", "sev") could hide an allergen, so the dish is ``unverified`` too, and the catalog
+build refuses it until the lexicon is told what the word is (``unresolved_issues``).
+
 Search hides a dish on ``contains`` and ``unverified`` only; ``may_contain`` is shown as a warning, never filtered
 on (ADR-0007). So the safety property, checked against the hand-reviewed ground truth by the tests, is recall of
 ``contains``: every true allergen of every dish is tagged ``contains``, or the dish is unverified. Precision is
@@ -29,7 +33,7 @@ import yaml
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from food_concierge.config import get_settings
-from food_concierge.errors import ConfigError
+from food_concierge.errors import CatalogIssue, ConfigError
 from food_concierge.ingestion.schemas import MenuItem
 from food_concierge.ingestion.taxonomy import Allergen, with_implied
 
@@ -116,6 +120,10 @@ class Lexicon:
                 hits.append(self._hit(found))
         return hits
 
+    def unresolved(self, text: str) -> list[str]:
+        """The words of ``text`` that no lexicon term covers; empty when the lexicon accounts for all of it."""
+        return _WORD.findall(self.pattern.sub(" ", text.lower()))
+
     def _hit(self, found: re.Match[str]) -> TermHit:
         return self.phrases[" ".join(re.split(r"[\s-]+", found.group("term")))]
 
@@ -130,6 +138,7 @@ _CLAUSE_END = re.compile(
     r"|,\s+(?:(?:and|or)\s+)?(?:with|alongside|which|that|where|plus|the|a|an|its|it|there|\w+ed|\w+ing)\b"
 )
 _FREE = re.compile(r"[\s-]+free\b")
+_WORD = re.compile(r"[a-z]+(?:'[a-z]+)?")
 
 
 def _denied_spans(text: str) -> list[tuple[int, int]]:
@@ -182,10 +191,11 @@ class DishAllergens:
     item_id: str
     tags: tuple[AllergenTag, ...]
     opaque_ingredients: tuple[str, ...]
+    unresolved_ingredients: tuple[str, ...] = ()  # ingredients with a word the lexicon doesn't know
 
     @property
     def unverified(self) -> bool:
-        return bool(self.opaque_ingredients)
+        return bool(self.opaque_ingredients or self.unresolved_ingredients)
 
     @property
     def contains(self) -> frozenset[Allergen]:
@@ -206,7 +216,10 @@ def tag_item(item: MenuItem, lexicon: Lexicon, description: str | None = None) -
     for allergen in sorted(with_implied(item.label_allergens or ())):
         tags.append(AllergenTag(allergen, Source.LABEL, Level.CONTAINS, "label"))
     opaque: list[str] = []
+    unresolved: list[str] = []
     for ingredient in item.ingredients:
+        if lexicon.unresolved(ingredient) and ingredient not in unresolved:
+            unresolved.append(ingredient)
         for hit in lexicon.match(ingredient):
             tags += [
                 AllergenTag(a, Source.LEXICON, Level.CONTAINS, ingredient) for a in sorted(with_implied(hit.allergens))
@@ -217,7 +230,28 @@ def tag_item(item: MenuItem, lexicon: Lexicon, description: str | None = None) -
         tags += [
             AllergenTag(a, Source.VISION, Level.MAY_CONTAIN, hit.term) for a in sorted(with_implied(hit.allergens))
         ]
-    return DishAllergens(item_id=item.item_id, tags=tuple(dict.fromkeys(tags)), opaque_ingredients=tuple(opaque))
+    return DishAllergens(
+        item_id=item.item_id,
+        tags=tuple(dict.fromkeys(tags)),
+        opaque_ingredients=tuple(opaque),
+        unresolved_ingredients=tuple(unresolved),
+    )
+
+
+def unresolved_issues(items: Iterable[MenuItem], lexicon: Lexicon) -> list[CatalogIssue]:
+    """One issue per ingredient with a word the lexicon doesn't know, so a build names every one of them at once."""
+    return [
+        CatalogIssue(
+            "menu.csv",
+            None,
+            "ingredients",
+            f"{item.item_id} {ingredient!r}: the allergen lexicon doesn't know {', '.join(map(repr, words))}; "
+            f"add it to {LEXICON_PATH.as_posix()} as an allergen, neutral or opaque term",
+        )
+        for item in items
+        for ingredient in item.ingredients
+        if (words := lexicon.unresolved(ingredient))
+    ]
 
 
 @dataclass(frozen=True)

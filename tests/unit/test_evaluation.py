@@ -50,7 +50,7 @@ from food_concierge.ingestion.loader import CatalogLoad, load_catalog
 from food_concierge.ingestion.taxonomy import Allergen, Diet
 from food_concierge.models.embeddings import HashingEmbedder, OverlapReranker, RerankerFingerprint, Vectors
 from food_concierge.services.retrieval import RetrievalConfig
-from food_concierge.storage.catalog_db import CatalogStore, Filters, build_catalog_db
+from food_concierge.storage.catalog_db import CatalogStore, Filters, build_catalog_db, dish_key
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
@@ -385,6 +385,8 @@ def test_runner_scores_each_candidate_and_variant(store: CatalogStore, truth: Gr
         "ndcg@3",
         "success@3",
         "judged@3",
+        "hit@1",
+        "hit@3",
         "recall@3",
         "recall@10",
         "mrr",
@@ -420,3 +422,21 @@ def test_score_query_leaves_out_metrics_a_query_cannot_define(truth: GroundTruth
     assert "recall@3" not in metrics
     assert metrics["success@3"] == 1.0
     assert QueryResult("t001", "vague", (), {}, ()).metrics == {}
+
+
+def test_a_target_dish_scores_hit_recall_and_mrr_without_grades(truth: GroundTruth) -> None:
+    first = next(iter(truth.items.values()))
+    key = dish_key(first.name)
+    targets = truth.dish_items(key)
+    other = next(item for item in truth.items if item not in targets)
+    known = query("t001", type="known_item", target=key)
+
+    second = score_query(known, [other, first.item_id], truth)
+
+    assert truth.dish_items(None) == frozenset()
+    assert first.item_id in targets
+    assert {"hit@1", "hit@3", "recall@3", "recall@10", "mrr"} <= second.keys()
+    assert "ndcg@3" not in second  # still ungraded
+    assert (second["hit@1"], second["hit@3"], second["mrr"]) == (0.0, 1.0, 0.5)
+    assert second["recall@3"] == 1 / len(targets)
+    assert score_query(known, [other], truth)["hit@3"] == 0.0

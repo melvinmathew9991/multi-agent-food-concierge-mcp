@@ -15,7 +15,7 @@ from food_concierge.ingestion.allergens import AllergenTag, DishAllergens, Level
 from food_concierge.ingestion.loader import CatalogLoad
 from food_concierge.ingestion.schemas import MenuItem
 from food_concierge.ingestion.taxonomy import Allergen
-from food_concierge.storage.catalog_db import Filters
+from food_concierge.storage.catalog_db import Filters, dish_key
 
 
 def _gain(grade: int) -> float:
@@ -44,6 +44,11 @@ def recall_at_k(ranked: Sequence[str], relevant: Collection[str], k: int) -> flo
     return len(set(ranked[:k]) & set(relevant)) / len(relevant)
 
 
+def hit_at_k(ranked: Sequence[str], relevant: Collection[str], k: int) -> float:
+    """1 if any relevant item is in the top k: Success@k on a target dish, which needs no grades (#141)."""
+    return float(any(item in relevant for item in ranked[:k]))
+
+
 def reciprocal_rank(ranked: Sequence[str], relevant: Collection[str]) -> float:
     return next((1.0 / rank for rank, item in enumerate(ranked, start=1) if item in relevant), 0.0)
 
@@ -62,6 +67,12 @@ class GroundTruth:
     @classmethod
     def from_load(cls, load: CatalogLoad) -> GroundTruth:
         return cls({item.item_id: item for item in load.catalog.items}, load.true_allergens)
+
+    def dish_items(self, key: str | None) -> frozenset[str]:
+        """Every item of the dish ``key`` names, across restaurants; empty for ``None``."""
+        return frozenset(
+            item_id for item_id, item in self.items.items() if key is not None and dish_key(item.name) == key
+        )
 
     def admits(self, filters: Filters, item_id: str) -> bool:
         # The reviewed allergens stand in for the tags, so the filter rules are the ones search uses.

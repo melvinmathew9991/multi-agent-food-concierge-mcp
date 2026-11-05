@@ -27,6 +27,7 @@ from food_concierge.evaluation.bootstrap import Interval, bootstrap_mean, paired
 from food_concierge.evaluation.dataset import TARGETED_TYPES, TextQuery
 from food_concierge.evaluation.metrics import (
     GroundTruth,
+    hit_at_k,
     judged_at_k,
     ndcg_at_k,
     recall_at_k,
@@ -88,11 +89,15 @@ def score_query(query: TextQuery, ranked: Sequence[str], truth: GroundTruth) -> 
             "success@3": success_at_k(ranked, query.grades),
             "judged@3": judged_at_k(ranked, query.grades),
         }
-    if query.type in TARGETED_TYPES and query.exact:
+    # A target dish's items are exact by rule, as the labelling page grades them, so these need no grades (#141).
+    exact = query.exact | truth.dish_items(query.target)
+    if query.type in TARGETED_TYPES and exact:
         metrics |= {
-            "recall@3": recall_at_k(ranked, query.exact, 3),
-            "recall@10": recall_at_k(ranked, query.exact, 10),
-            "mrr": reciprocal_rank(ranked, query.exact),
+            "hit@1": hit_at_k(ranked, exact, 1),
+            "hit@3": hit_at_k(ranked, exact, 3),
+            "recall@3": recall_at_k(ranked, exact, 3),
+            "recall@10": recall_at_k(ranked, exact, 10),
+            "mrr": reciprocal_rank(ranked, exact),
         }
     return metrics
 

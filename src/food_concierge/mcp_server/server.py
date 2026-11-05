@@ -46,8 +46,10 @@ DESCRIBES = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempot
 INSTRUCTIONS = (
     "Tools for finding dishes at the restaurants in this catalog under a diner's hard constraints (diet, "
     "allergens, calories, price, cuisine). Search never returns a dish that breaks the constraints given. Pass "
-    "constraints as arguments; ones the query states in words ('peanut-free', 'vegan') are applied too, and the "
-    "result's note names them. A dish "
+    "every constraint the diner states as arguments: they are the contract. Search also reads constraints from "
+    "the query's words ('peanut-free', 'no meat') as a backstop and names them in the result's note, but it can "
+    "miss a phrasing; the note also names what the menu doesn't record (onion, garlic, beef, pork, halal), "
+    "which is not applied. A dish "
     "marked unverified has an ingredient whose recipe can't be checked: ask the diner before recommending it to "
     "someone avoiding an allergen, then search again with include_unverified. may_contain allergens come from the "
     "photo only and are warnings. Prices are in Indian rupees. " + DISCLAIMER
@@ -159,8 +161,9 @@ def create_server(services: Services) -> MCPServer:
     ) -> Dishes:
         """Find dishes for a request, ranked by relevance. Never returns a dish that breaks the constraints.
 
-        Constraints the query states in words ("peanut-free", "no dairy", "vegan") are added to the arguments, and
-        the note says which; pass them as arguments too.
+        Pass every constraint as an argument: the arguments are the contract. Constraints the query states in
+        words ("peanut-free", "no dairy", "vegan") are added as a backstop and the note says which, but a phrasing
+        can be missed. The note also names what the menu doesn't record (onion, garlic, halal), not applied.
         """
 
         def run() -> Dishes:

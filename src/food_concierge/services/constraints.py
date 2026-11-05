@@ -6,6 +6,8 @@ PRD F4, F7, F8).
 - **Read from text**: a query that says what to avoid ("peanut-free snack", "no dairy", "vegan dessert") yields
   those constraints too (``constraints_in_text``), because embeddings place "peanut-free" next to "peanut": search
   would otherwise rank the very allergen first (audit H1). Only avoidance is read, never a wish ("peanut chikki").
+  It is a backstop to the arguments, not the contract (#142, ``read_query``): what the menu doesn't record ("no
+  onion", "halal") is named for the note, and so is an allergen mentioned near a negation but not read.
 - **Merge**: constraints from several turns or diners only tighten: allergens are joined, caps take the lower
   value, the strictest diet wins. Cuisine is a preference, not a safety rule, so the latest one given wins.
 - **Check**: each dish of a proposal against the per-dish rules, and the meal's totals against the meal caps.
@@ -126,39 +128,125 @@ def parse_constraints(data: Mapping[str, Any]) -> Constraints:
 
 
 _TERM = "|".join(r"[\s-]+".join(map(re.escape, term.split())) for term in sorted(USER_TERMS, key=len, reverse=True))
-_TERMS = rf"(?:{_TERM})(?:\s*(?:,|/|&|\band\b|\bor\b|\bnor\b)\s*(?:{_TERM}))*"
+_SEP = r"\s*(?:,|/|&|\band\b|\bor\b|\bnor\b)\s*"
+_TERMS = rf"(?:{_TERM})(?:{_SEP}(?:{_TERM}))*"
+# Words that say what follows is avoided (#142 widened these from the audit's misses).
+_CUES = (
+    r"no|non|without|avoid|avoiding|exclude|excluding|minus|zero|free\s+(?:of|from)|"
+    r"allergic\s+to|allerg(?:y|ies)\s*(?:to|:)|(?:intolerant|sensitive|sensitivity|react|reacts)\s+to|"
+    r"(?:can'?t|cannot|don'?t|do\s+not|never)\s+(?:eat|have|take|tolerate|handle|do)|"
+    r"nothing\s+(?:with|containing|that\s+has)|not\s+with|hold|skip|leave\s+(?:out|off)|except(?:\s+for)?|"
+    r"anything\s+but|away\s+from|steer\s+clear\s+of"
+)
+_FILLER = r"(?:(?:any|the|all|ones?|with|of|those|containing)\s+)*"
 _AVOIDED = re.compile(
-    rf"\b(?:no|non|without|avoid|avoiding|exclude|excluding|minus|zero|free\s+(?:of|from)|"
-    rf"allergic\s+to|allergy\s+to|intolerant\s+to|(?:can'?t|cannot|don'?t|do\s+not)\s+(?:eat|have|take))"
-    rf"[\s-]+(?:any\s+)?(?P<listed>{_TERMS})\b"
+    rf"\b(?:{_CUES})[\s-]+{_FILLER}(?P<listed>{_TERMS})\b"
     rf"|\b(?P<suffixed>{_TERM})[\s-]*(?:free|less)\b"
-    rf"|\b(?P<named>{_TERM})\s+(?:allergy|allergies|allergic|intolerance|intolerant)\b",
+    rf"|\b(?P<named>{_TERM})[\s-]+(?:allergy|allergies|allergic|intolerance|intolerant|sensitivity|sensitive)\b"
+    rf"|\b(?P<refused>{_TERM})\s+(?:(?:are|is)\s+(?:a\s+no(?:-go)?|off[\s-]+limits)|makes?\s+me\s+(?:sick|ill))\b"
+    r"|\b(?P<condition>coeliac|celiac)\b",
     re.IGNORECASE,
 )
-_SPLIT_TERMS = re.compile(r"\s*(?:,|/|&|\band\b|\bor\b|\bnor\b)\s*", re.IGNORECASE)
+_SPLIT_TERMS = re.compile(_SEP, re.IGNORECASE)
+_NOT_ALLERGIC = re.compile(r"\b(?:not|never\s+been|isn'?t|aren'?t)\s+(?:allergic|intolerant|sensitive)\b", re.I)
+_DIET_WORD = r"(?:vegan|plant[\s-]+based|vegetarian|veggie|veg|pure[\s-]+veg)"
+_NOT_A_DIET = re.compile(
+    r"\b(?:not|isn'?t|aren'?t|(?:doesn'?t|does\s+not|don'?t|do\s+not)\s+(?:have|need)\s+to\s+be|"
+    rf"no\s+need\s+(?:for|to\s+be)|needn'?t\s+be)\s+(?:(?:a|necessarily|strictly|fully)\s+)?{_DIET_WORD}\b",
+    re.IGNORECASE,
+)
 _NOT_DIET = r"(?<!non[\s-])(?<!non)"
 _VEGAN = re.compile(rf"{_NOT_DIET}\b(?:vegan|plant[\s-]+based)\b", re.IGNORECASE)
 _VEGETARIAN = re.compile(rf"{_NOT_DIET}\b(?:vegetarian|veggie|veg|pure[\s-]+veg)\b", re.IGNORECASE)
+_NO_MEAT = re.compile(rf"\b(?:{_CUES})[\s-]+{_FILLER}meats?\b|\bmeat[\s-]*(?:free|less)\b", re.IGNORECASE)
+_JAIN = re.compile(r"\bjain\b", re.IGNORECASE)
+# Avoided or required, but no tag records it: named in the note, never applied.
+_UNTRACKED = {
+    "onion": "onions?",
+    "garlic": "garlic",
+    "beef": "beef",
+    "pork": "pork|ham|bacon",
+    "alcohol": "alcohol|alcoholic",
+    "mushroom": "mushrooms?",
+}
+_UNTRACKED_TERM = "|".join(_UNTRACKED.values())
+_UNTRACKED_AVOIDED = re.compile(
+    rf"\b(?:{_CUES})[\s-]+{_FILLER}(?P<listed>(?:{_UNTRACKED_TERM})(?:{_SEP}(?:{_UNTRACKED_TERM}))*)\b"
+    rf"|\b(?P<suffixed>{_UNTRACKED_TERM})[\s-]*(?:free|less)\b",
+    re.IGNORECASE,
+)
+_UNTRACKED_REQUIRED = re.compile(r"\b(halal|kosher)\b", re.IGNORECASE)
+JAIN_UNTRACKED = ("onion", "garlic", "root vegetables")
+_NAMED = re.compile(rf"\b(?:{_TERM})\b", re.IGNORECASE)
+_NEGATION = re.compile(
+    r"\b(?:no|not|nothing|none|without|hold|skip|except|avoid\w*|away|free|allerg\w*|intoleran\w*|can'?t|cannot|"
+    r"don'?t|never|zero|minus|exclud\w*|leave|steer|sensitiv\w*)\b",
+    re.IGNORECASE,
+)
+
+
+def _term(text: str) -> str:
+    return " ".join(text.lower().replace("-", " ").split())
+
+
+class QueryReading(BaseModel):
+    """What a request's words say: constraints to apply, and what can't be (#142)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    constraints: Constraints
+    # Avoided or required but recorded by no tag ("no onion", "halal"): the note names them; nothing is applied.
+    untracked: tuple[str, ...] = ()
+    # Allergens the words name near a negation without being read as avoided ("nuts are a no for me" read, but a
+    # phrasing the patterns don't know): the note asks the client to pass them as arguments.
+    unread: frozenset[Allergen] = frozenset()
+
+
+def read_query(text: str, include_unverified: bool = False) -> QueryReading:
+    """The constraints a request states in words, and what it states that can't be applied.
+
+    Read: allergens it avoids, a vegan or vegetarian diet ("no meat" is vegetarian; "not vegan" is no diet), and
+    Jain (vegetarian without eggs). ``include_unverified`` is carried through, so merging these with the caller's
+    own constraints keeps a confirmation the diner already gave.
+    """
+    allergens: set[Allergen] = set()
+    for match in _AVOIDED.finditer(_NOT_ALLERGIC.sub(" ", text)):
+        listed = next(group for group in match.groups() if group)
+        for term in _SPLIT_TERMS.split(listed):
+            allergens |= USER_TERMS.get(_term(term), frozenset())
+    jain = bool(_JAIN.search(text))
+    diet_text = _NOT_A_DIET.sub(" ", text)
+    diet = (
+        Diet.VEGAN
+        if _VEGAN.search(diet_text)
+        else Diet.VEGETARIAN
+        if _VEGETARIAN.search(diet_text) or _NO_MEAT.search(text) or jain
+        else None
+    )
+    if jain:
+        allergens.add(Allergen.EGGS)
+    untracked: dict[str, None] = dict.fromkeys(JAIN_UNTRACKED if jain else ())
+    for match in _UNTRACKED_AVOIDED.finditer(text):
+        for word in _SPLIT_TERMS.split(match.group("listed") or match.group("suffixed")):
+            untracked |= {name: None for name, pattern in _UNTRACKED.items() if re.fullmatch(pattern, word, re.I)}
+    untracked |= dict.fromkeys(match.lower() for match in _UNTRACKED_REQUIRED.findall(text))
+    excluded = with_implied(frozenset(allergens))
+    named = frozenset().union(*(USER_TERMS[_term(word)] for word in _NAMED.findall(text)))
+    return QueryReading(
+        constraints=Constraints(
+            diet=diet,
+            eggless=Allergen.EGGS in allergens,
+            exclude_allergens=excluded,
+            include_unverified=include_unverified,
+        ),
+        untracked=tuple(untracked),
+        unread=named - excluded if _NEGATION.search(text) else frozenset(),
+    )
 
 
 def constraints_in_text(text: str, include_unverified: bool = False) -> Constraints:
-    """The constraints a request states in words: allergens it avoids and a vegan or vegetarian diet.
-
-    ``include_unverified`` is carried through, so merging these with the caller's own constraints keeps a
-    confirmation the diner already gave.
-    """
-    allergens: set[Allergen] = set()
-    for match in _AVOIDED.finditer(text):
-        listed = match.group("listed") or match.group("suffixed") or match.group("named")
-        for term in _SPLIT_TERMS.split(listed):
-            allergens |= USER_TERMS.get(" ".join(term.lower().replace("-", " ").split()), frozenset())
-    diet = Diet.VEGAN if _VEGAN.search(text) else Diet.VEGETARIAN if _VEGETARIAN.search(text) else None
-    return Constraints(
-        diet=diet,
-        eggless=Allergen.EGGS in allergens,
-        exclude_allergens=with_implied(frozenset(allergens)),
-        include_unverified=include_unverified,
-    )
+    """The constraints a request states in words (``read_query`` without what can't be applied)."""
+    return read_query(text, include_unverified).constraints
 
 
 def describe(constraints: Constraints) -> str:

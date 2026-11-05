@@ -53,7 +53,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for failure in report.failures:
         print(f"FAIL {failure}")
     if args.update:
-        if any("break the filters" in failure for failure in report.failures):
+        if any("break the filters" in f or "re-check dropped" in f for f in report.failures):
             raise SystemExit("not updating the baseline while a dish breaks a filter")
         updated = updated_baseline(baseline, report, args.reason.strip())
         BASELINE.write_text(updated.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")

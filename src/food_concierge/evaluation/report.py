@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from food_concierge.evaluation.results import PRIMARY, CandidateResult, RetrievalResults, Stat
 
-METRICS = ("ndcg@3", "success@3", "recall@3", "recall@10", "mrr", "violation@3", "judged@3", "empty")
+METRICS = ("ndcg@3", "success@3", "hit@1", "hit@3", "recall@3", "recall@10", "mrr", "violation@3", "judged@3", "empty")
 LABELS = {
     "ndcg@3": "nDCG@3",
     "success@3": "Success@3",
+    "hit@1": "Hit@1",
+    "hit@3": "Hit@3",
     "recall@3": "Recall@3",
     "recall@10": "Recall@10",
     "mrr": "MRR",
@@ -33,7 +35,7 @@ def _candidates(candidates: tuple[CandidateResult, ...]) -> list[str]:
 
 
 def _slices(candidates: tuple[CandidateResult, ...]) -> list[str]:
-    metric = PRIMARY if any(PRIMARY in c.summary for c in candidates) else "violation@3"
+    metric = next(m for m in (PRIMARY, "mrr", "violation@3") if any(m in c.summary for c in candidates))
     keys = sorted({key for c in candidates for key in c.slices})
     rows = [[c.name] + [_cell(c.slices.get(key, {}).get(metric)) for key in keys] for c in candidates]
     return [f"{LABELS[metric]} by slice.", "", *_table(["Candidate", *keys], rows)]
@@ -56,6 +58,10 @@ def render_report(results: RetrievalResults) -> str:
         "resamples; the ladder deltas are paired). A metric a query cannot define is left out, not zeroed, so"
         " `—` means no query defines it yet (nDCG@3 and Success@3 need the owner's grades). C0 is the "
         "original approach re-implemented; Violation@3 is judged against the reviewed allergens.",
+        "",
+        "Hit@k, Recall@k and MRR are scored on the known-item and described queries that name a target dish: "
+        "that dish's items, at every restaurant, are the exact answer, so these need no grades. Hit@k is "
+        "Success@k on the target dish (it is somewhere in the top k).",
         "",
         "Every query was drafted with the catalog in view (the owner's catalog-blind queries were dropped), so "
         "queries tend to reuse menu words, which may flatter BM25 in particular.",

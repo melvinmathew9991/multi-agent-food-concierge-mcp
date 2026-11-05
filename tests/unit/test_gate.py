@@ -9,7 +9,7 @@ import pytest
 
 from food_concierge.config import REPO_ROOT
 from food_concierge.errors import EvaluationError
-from food_concierge.evaluation import gate as gate_module
+from food_concierge.evaluation import runner as runner_module
 from food_concierge.evaluation.caches import EvalCaches, build_caches, load_caches, texts_sha256
 from food_concierge.evaluation.dataset import RetrievalDataset, TextQuery
 from food_concierge.evaluation.gate import (
@@ -24,6 +24,7 @@ from food_concierge.evaluation.runner import Candidate, QueryResult
 from food_concierge.ingestion.allergens import load_lexicon, tag_item
 from food_concierge.ingestion.loader import CatalogLoad, load_catalog
 from food_concierge.models.embeddings import HashingEmbedder, OverlapReranker, RerankerFingerprint
+from food_concierge.services import search as search_module
 from food_concierge.services.retrieval import RetrievalConfig
 from food_concierge.storage.catalog_db import CatalogStore, Filters, build_catalog_db, dish_key
 
@@ -65,8 +66,10 @@ def test_the_gate_fails_when_a_target_dish_leaves_the_top_3_or_a_real_query_is_c
     accepted = updated_baseline(baseline(None), missed, "t002 accepted")
     assert accepted.gated[0].target_misses == ("t002",)
     assert check_gate(results, accepted, targets).passed
-    weak = check_gate(results, accepted, targets, {"reranked": ["t001"]})
+    weak = check_gate({"reranked": [dataclasses.replace(found, weak_match=True), lost]}, accepted, targets)
     assert weak.failures == ("reranked: real queries would be called weak matches: t001",)
+    disagree = check_gate({"reranked": [dataclasses.replace(found, dropped=("x",)), lost]}, accepted, targets)
+    assert disagree.failures == ("reranked: the SQL filter let through dishes the re-check dropped on t001",)
 
 
 @pytest.fixture(scope="module")
@@ -183,8 +186,10 @@ def test_a_pipeline_without_sql_filters_fails_the_gate(
 
     report = run_gate(caches, store, truth, dataset, healthy, tmp_path)
 
+    # Search's re-check drops what the SQL filter let through, so no violating dish is returned, but the gate
+    # still fails on the disagreement.
     assert not report.passed
-    assert "dishes that break the filters" in report.failures[0]
+    assert "the SQL filter let through dishes the re-check dropped" in report.failures[0]
 
 
 def test_stale_caches_fail_the_gate_naming_the_field(
@@ -218,10 +223,10 @@ def test_the_gate_checks_weak_matches_for_dense_search_with_a_measured_model(
     dense = GateBaseline(
         reason="test", gated=(GatedCandidate(candidate=Candidate(name="dense", config=RetrievalConfig())),)
     )
-    monkeypatch.setattr(gate_module, "is_weak", lambda query, _score, _cutoff, _words: query == "mango lassi")
+    monkeypatch.setattr(search_module, "is_weak", lambda query, _score, _cutoff, _words: query == "mango lassi")
 
     unmeasured = run_gate(caches, store, truth, dataset, dense, tmp_path / "a")
-    monkeypatch.setattr(gate_module, "WEAK_SCORES", {HashingEmbedder().fingerprint.model: 1.0})
+    monkeypatch.setattr(runner_module, "WEAK_SCORES", {HashingEmbedder().fingerprint.model: 1.0})
     measured = run_gate(caches, store, truth, dataset, dense, tmp_path / "b")
 
     assert unmeasured.passed  # no cut-off for this model, so search never says weak and nothing is checked

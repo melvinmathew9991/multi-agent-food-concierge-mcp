@@ -3,6 +3,10 @@
 Each embedder variant gets its own index, built in a scratch directory from the same catalog: the query prefix
 is part of the embedder fingerprint, so an index refuses queries embedded under another prefix.
 
+Every query goes through ``SearchService``, the path the MCP tools and the API serve (#140): constraints read from
+the query text, the safety re-check and the weak-match signal are all part of what is measured, so a change to any
+of them shows up here and in the PR gate. The retriever under it is recorded, for its timings and raw top score.
+
 Quality metrics are the same with cached or real models, but timings are not: a cached embedder or reranker
 looks scores up instead of running the model. Latency for the decision rules is measured with the real models.
 """
@@ -17,6 +21,7 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
+from food_concierge.config import get_settings
 from food_concierge.errors import EvaluationError
 from food_concierge.evaluation.bootstrap import Interval, bootstrap_mean, paired_bootstrap
 from food_concierge.evaluation.dataset import TARGETED_TYPES, TextQuery
@@ -30,11 +35,15 @@ from food_concierge.evaluation.metrics import (
     violation_at_k,
 )
 from food_concierge.models.embeddings import Embedder, Reranker
-from food_concierge.services.retrieval import RetrievalConfig, Retriever
-from food_concierge.storage.catalog_db import CatalogStore
+from food_concierge.services.catalog import CatalogService
+from food_concierge.services.constraints import Constraints
+from food_concierge.services.relevance import WEAK_SCORES, MenuWords
+from food_concierge.services.retrieval import RetrievalConfig, Retriever, SearchResult
+from food_concierge.services.search import MAX_RESULTS, SearchService
+from food_concierge.storage.catalog_db import CatalogStore, Filters
 from food_concierge.storage.indexes import build_indexes, load_indexes
 
-DEPTH = 10  # results kept per query, for Recall@10 and MRR; the @3 metrics read the top 3 of these
+DEPTH = MAX_RESULTS  # results kept per query (10), for Recall@10 and MRR; the @3 metrics read the top 3 of these
 
 
 class Candidate(BaseModel):
@@ -53,6 +62,21 @@ class QueryResult:
     metrics: dict[str, float]
     timings_ms: tuple[dict[str, float], ...]  # one per measured repeat
     top_score: float | None = None  # the best hit's score; None when nothing was found
+    weak_match: bool = False  # search told the client even the best dish is a weak match
+    # Dishes the SQL filter let through and the safety re-check dropped: a disagreement between the two, a bug.
+    dropped: tuple[str, ...] = ()
+
+
+class _Recorded:
+    """The retriever under a ``SearchService``, keeping its results for the timings and the raw top score."""
+
+    def __init__(self, retriever: Retriever) -> None:
+        self._retriever = retriever
+        self.runs: list[SearchResult] = []
+
+    def search(self, query: str, filters: Filters, config: RetrievalConfig) -> SearchResult:
+        self.runs.append(self._retriever.search(query, filters, config))
+        return self.runs[-1]
 
 
 def score_query(query: TextQuery, ranked: Sequence[str], truth: GroundTruth) -> dict[str, float]:
@@ -93,23 +117,31 @@ def run_candidates(
         indexes = load_indexes(store, embedders[variant], index_dir)
         retrievers[variant] = Retriever(store, indexes, embedders[variant], reranker, clock)
 
+    catalog = CatalogService(store)
+    words = MenuWords(store.doc_texts().values())
+    settings = get_settings()
     results: dict[str, list[QueryResult]] = {}
     for candidate in candidates:
-        retriever = retrievers[candidate.variant]
-        config = candidate.config.model_copy(update={"k": max(candidate.config.k, DEPTH)})
+        recorded = _Recorded(retrievers[candidate.variant])
+        weak_score = WEAK_SCORES.get(embedders[candidate.variant].fingerprint.model)
+        service = SearchService(catalog, recorded, candidate.config, settings, words, weak_score)
         rows = []
         for query in queries:
-            runs = [retriever.search(query.text, query.filters, config) for _ in range(repeats)]
-            hits = runs[-1].hits
-            ranked = tuple(hit.item_id for hit in hits)
+            constraints = Constraints(**query.filters.model_dump())
+            recorded.runs.clear()
+            found = [service.search(query.text, constraints, DEPTH) for _ in range(repeats)][-1]
+            ranked = tuple(dish.item_id for dish in found.dishes)
+            raw = [hit.item_id for hit in recorded.runs[-1].hits][:DEPTH]
             rows.append(
                 QueryResult(
                     query.id,
                     query.type,
                     ranked,
                     score_query(query, ranked, truth),
-                    tuple(run.timings_ms for run in runs),
-                    hits[0].score if hits else None,
+                    tuple(run.timings_ms for run in recorded.runs),
+                    recorded.runs[-1].hits[0].score if ranked else None,
+                    found.weak_match,
+                    tuple(item_id for item_id in raw if item_id not in ranked),
                 )
             )
         results[candidate.name] = rows

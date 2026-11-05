@@ -161,6 +161,9 @@ def _random_arguments(rng: random.Random) -> dict[str, Any]:
         ("no egg cake", {"eggless": True}, "no eggs"),
         ("nut allergy friendly sweets", {"exclude_allergens": ["nuts"]}, "no peanuts or tree nuts"),
         ("gluten-free and vegan", {"diet": "vegan", "exclude_allergens": ["gluten"]}, "vegan, no gluten"),
+        ("nothing with nuts please, a sweet", {"exclude_allergens": ["nuts"]}, "no peanuts or tree nuts"),
+        ("hold the peanuts, something crunchy", {"exclude_allergens": ["peanuts"]}, "no peanuts"),
+        ("no meat please", {"diet": "vegetarian"}, "vegetarian"),
     ],
 )
 async def test_constraints_stated_only_in_the_query_are_applied_and_named(
@@ -188,6 +191,24 @@ async def test_arguments_and_words_combine_and_nothing_is_noted_when_the_words_a
     assert plain["note"] is None
     assert both["note"] == "Also applied from the query: no milk."
     assert none_left == {"dishes": [], "weak_match": False, "note": f"Also applied from the query: vegan. {NO_MATCH}"}
+
+
+async def test_the_note_names_what_the_menu_does_not_record_and_allergens_left_unread(server: MCPServer) -> None:
+    _, untracked = await call(server, "search_dishes", {"query": "no onion no garlic curry", "k": 3})
+    _, unread = await call(server, "search_dishes", {"query": "no, I want prawns", "k": 3})
+    _, passed = await call(
+        server, "search_dishes", {"query": "no, I want prawns", "exclude_allergens": ["shellfish"], "k": 3}
+    )
+
+    assert untracked["dishes"]
+    assert untracked["note"] == (
+        "Not applied, since the menu doesn't record it: onion, garlic. Check those with the restaurant."
+    )
+    assert unread["note"] == (
+        "The query mentions crustaceans without saying to avoid them; if the diner does, search again with "
+        "exclude_allergens."
+    )
+    assert passed["note"] is None
 
 
 async def test_a_confirmation_given_as_an_argument_survives_the_query_words(

@@ -5,7 +5,10 @@ in Python (``dish_violations``) and drops any that breaks one. The two agree by 
 dish is dropped and the disagreement logged, so a dish that violates the constraints is never returned.
 
 Constraints the query states in words ("peanut-free", "vegan") are added to the ones given, since a client may
-write them only in the query; the note says which were read, so the client can confirm them with the diner.
+write them only in the query; the note says which were read, so the client can confirm them with the diner. This
+is a backstop, not the contract (#142): the note also names what the menu doesn't record ("no onion", "halal"),
+which is never applied, and an allergen the query mentions near a negation without being read as avoided, so the
+client can pass it as an argument.
 
 Each dish carries its score, and ``weak_match`` says when even the best one is a weak match (``services/relevance``),
 so a client can say the menu has nothing like the request instead of recommending the nearest dish regardless.
@@ -22,7 +25,8 @@ from pydantic import BaseModel, ConfigDict
 from food_concierge.config import Settings
 from food_concierge.errors import InputValidationError
 from food_concierge.services.catalog import CatalogService, DishSummary, summary_of
-from food_concierge.services.constraints import Constraints, constraints_in_text, describe, dish_violations, merge
+from food_concierge.services.constraints import Constraints, describe, dish_violations, merge
+from food_concierge.services.constraints import read_query as read_words
 from food_concierge.services.relevance import WEAK_MATCH, MenuWords, is_weak
 from food_concierge.services.retrieval import RetrievalConfig, SearchResult
 from food_concierge.storage.catalog_db import Filters
@@ -86,14 +90,26 @@ class SearchService:
             raise InputValidationError(f"Ask for 1 to {MAX_RESULTS} dishes.")
         notes: list[str] = []
         if read_query:
-            stated = constraints_in_text(query, constraints.include_unverified)
-            tightened = merge(constraints, stated)
+            reading = read_words(query, constraints.include_unverified)
+            tightened = merge(constraints, reading.constraints)
             added = Constraints(
                 diet=tightened.diet if tightened.diet != constraints.diet else None,
                 exclude_allergens=tightened.excluded - constraints.excluded,
             )
             if describe(added):
                 notes.append(f"Also applied from the query: {describe(added)}.")
+            if reading.untracked:
+                notes.append(
+                    f"Not applied, since the menu doesn't record it: {', '.join(reading.untracked)}. "
+                    "Check those with the restaurant."
+                )
+            unread = reading.unread - tightened.excluded
+            if unread:
+                names = " or ".join(sorted(a.value.replace("_", " ") for a in unread))
+                notes.append(
+                    f"The query mentions {names} without saying to avoid them; if the diner does, search "
+                    "again with exclude_allergens."
+                )
             constraints = tightened
         config = self._retrieval.model_copy(update={"k": k + len(skip)})
         found = self._searcher.search(query, constraints.filters, config).hits

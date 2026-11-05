@@ -1,0 +1,172 @@
+# What a diner's words should add to a search (#142): the allergens avoided, the diet, and anything avoided that
+# the menu doesn't record (named in the note, never applied). A phrasing with none of these must add nothing.
+#
+# Scored by `python scripts/phrasing_report.py`; tests/unit/test_phrasings.py holds the reader to it.
+# Drafted by the developer while widening the parser, so it is in-sample: it shows what the parser reads, not how
+# often real diners' words get through. A held-out set written by someone who hasn't seen the parser comes later.
+#
+# allergens: catalog keys, without the implied ones (wheat implies gluten when scoring).
+# diet: vegan or vegetarian. unsupported: what the note must name.
+version: 1
+phrasings:
+  # Cues read before #142
+  - {text: "peanut-free snack", allergens: [peanuts]}
+  - {text: "snack without peanuts", allergens: [peanuts]}
+  - {text: "dairy free curry", allergens: [milk]}
+  - {text: "no egg cake", allergens: [eggs]}
+  - {text: "eggless cake", allergens: [eggs]}
+  - {text: "nut allergy friendly sweets", allergens: [peanuts, tree_nuts]}
+  - {text: "no dairy or nuts please", allergens: [milk, peanuts, tree_nuts]}
+  - {text: "I can't eat shellfish", allergens: [crustaceans, molluscs]}
+  - {text: "allergic to cashews", allergens: [tree_nuts]}
+  - {text: "free of soy, sesame and mustard", allergens: [soy, sesame, mustard]}
+  - {text: "lactose intolerant, something filling", allergens: [milk]}
+  - {text: "wheat-free roti", allergens: [wheat]}
+  - {text: "avoid fish please", allergens: [fish]}
+  - {text: "exclude celery", allergens: [celery]}
+  - {text: "I don't eat eggs", allergens: [eggs]}
+  - {text: "soy allergy, noodles", allergens: [soy]}
+  - {text: "sesame-free bread", allergens: [sesame]}
+  - {text: "gluten free pasta", allergens: [gluten]}
+  - {text: "a curry with no mustard", allergens: [mustard]}
+  - {text: "do not have milk", allergens: [milk]}
+  - {text: "vegan dessert", diet: vegan}
+  - {text: "plant-based bowl", diet: vegan}
+  - {text: "veg biryani", diet: vegetarian}
+  - {text: "pure veg thali", diet: vegetarian}
+  - {text: "vegetarian starter", diet: vegetarian}
+  - {text: "gluten-free and vegan", diet: vegan, allergens: [gluten]}
+
+  # Other ways to say "avoid"
+  - {text: "nothing with nuts please, a sweet", allergens: [peanuts, tree_nuts]}
+  - {text: "nothing containing eggs", allergens: [eggs]}
+  - {text: "hold the peanuts, something crunchy", allergens: [peanuts]}
+  - {text: "hold the dairy on that", allergens: [milk]}
+  - {text: "skip the peanuts", allergens: [peanuts]}
+  - {text: "skip the prawns in the fried rice", allergens: [crustaceans]}
+  - {text: "anything except peanuts", allergens: [peanuts]}
+  - {text: "any curry except ones with cashews", allergens: [tree_nuts]}
+  - {text: "anything but shellfish", allergens: [crustaceans, molluscs]}
+  - {text: "keep it away from sesame", allergens: [sesame]}
+  - {text: "stay away from gluten", allergens: [gluten]}
+  - {text: "steer clear of soy", allergens: [soy]}
+  - {text: "leave out the eggs", allergens: [eggs]}
+  - {text: "leave off the dairy", allergens: [milk]}
+  - {text: "with no peanuts", allergens: [peanuts]}
+  - {text: "something that has no milk", allergens: [milk]}
+  - {text: "not with nuts", allergens: [peanuts, tree_nuts]}
+  - {text: "nuts are a no for me", allergens: [peanuts, tree_nuts]}
+  - {text: "can't have gluten", allergens: [gluten]}
+  - {text: "cannot eat wheat", allergens: [wheat]}
+  - {text: "can't tolerate lactose", allergens: [milk]}
+  - {text: "sensitive to sulphites", allergens: [sulphites]}
+  - {text: "sensitivity to mustard", allergens: [mustard]}
+  - {text: "I react to sesame", allergens: [sesame]}
+  - {text: "eggs make me sick", allergens: [eggs]}
+  - {text: "my son is allergic to tree nuts", allergens: [tree_nuts]}
+  - {text: "she has a peanut allergy", allergens: [peanuts]}
+  - {text: "severe shellfish allergy", allergens: [crustaceans, molluscs]}
+  - {text: "fish allergy, any rice dish", allergens: [fish]}
+  - {text: "egg allergic kid wants dessert", allergens: [eggs]}
+  - {text: "intolerant to dairy", allergens: [milk]}
+  - {text: "dairy intolerance", allergens: [milk]}
+  - {text: "lactose-intolerant friendly", allergens: [milk]}
+  - {text: "celiac friendly bread", allergens: [gluten]}
+  - {text: "coeliac, so a safe dessert", allergens: [gluten]}
+  - {text: "I have celiac disease", allergens: [gluten]}
+  - {text: "nut free", allergens: [peanuts, tree_nuts]}
+  - {text: "peanutless chutney", allergens: [peanuts]}
+  - {text: "dairy-less dessert", allergens: [milk]}
+  - {text: "zero dairy", allergens: [milk]}
+  - {text: "minus the egg", allergens: [eggs]}
+  - {text: "without any soy", allergens: [soy]}
+  - {text: "no peanuts and no sesame", allergens: [peanuts, sesame]}
+  - {text: "no milk, no eggs", allergens: [milk, eggs]}
+  - {text: "no prawns or crab", allergens: [crustaceans]}
+  - {text: "no squid", allergens: [molluscs]}
+  - {text: "no walnuts in it please", allergens: [tree_nuts]}
+  - {text: "without seafood", allergens: [fish, crustaceans, molluscs]}
+  - {text: "free from groundnuts", allergens: [peanuts]}
+  - {text: "No Dairy", allergens: [milk]}
+  - {text: "NO NUTS", allergens: [peanuts, tree_nuts]}
+  - {text: "please avoid any nuts and dairy", allergens: [peanuts, tree_nuts, milk]}
+  - {text: "I avoid eggs", allergens: [eggs]}
+  - {text: "allergies: peanuts, sesame", allergens: [peanuts, sesame]}
+  - {text: "allergy to fish", allergens: [fish]}
+  - {text: "excluding milk", allergens: [milk]}
+  - {text: "non-dairy latte", allergens: [milk]}
+  - {text: "eggfree pancakes", allergens: [eggs]}
+
+  # Diets
+  - {text: "no meat please", diet: vegetarian}
+  - {text: "I don't eat meat", diet: vegetarian}
+  - {text: "meat-free dinner", diet: vegetarian}
+  - {text: "meatless monday lunch", diet: vegetarian}
+  - {text: "without meat", diet: vegetarian}
+  - {text: "nothing with meat", diet: vegetarian}
+  - {text: "veggie wrap", diet: vegetarian}
+  - {text: "vegan, no soy", diet: vegan, allergens: [soy]}
+  - {text: "strictly vegetarian", diet: vegetarian}
+  - {text: "I'm vegan", diet: vegan}
+  - {text: "not vegan, just want a curry"}
+  - {text: "doesn't have to be vegetarian"}
+  - {text: "no need for veg, I eat anything"}
+  - {text: "not vegetarian, something spicy"}
+  - {text: "non veg thali"}
+  - {text: "non-vegetarian platter"}
+  - {text: "nonveg biryani"}
+  - {text: "not allergic to nuts, any dessert"}
+  - {text: "jain food", diet: vegetarian, allergens: [eggs], unsupported: [onion, garlic, root vegetables]}
+  - {text: "jain thali please", diet: vegetarian, allergens: [eggs], unsupported: [onion, garlic, root vegetables]}
+
+  # Avoided, but the menu doesn't record it: the note names it, nothing is applied
+  - {text: "no onion no garlic", unsupported: [onion, garlic]}
+  - {text: "without onion", unsupported: [onion]}
+  - {text: "hold the onions", unsupported: [onion]}
+  - {text: "no garlic please", unsupported: [garlic]}
+  - {text: "no beef", unsupported: [beef]}
+  - {text: "no pork", unsupported: [pork]}
+  - {text: "nothing with pork or beef", unsupported: [pork, beef]}
+  - {text: "halal chicken", unsupported: [halal]}
+  - {text: "is the mutton halal", unsupported: [halal]}
+  - {text: "kosher meal", unsupported: [kosher]}
+  - {text: "no alcohol in it", unsupported: [alcohol]}
+  - {text: "no mushrooms", unsupported: [mushroom]}
+  - {text: "no peanuts and no onion", allergens: [peanuts], unsupported: [onion]}
+
+  # Wishes and unrelated words: nothing is added
+  - {text: "peanut chikki"}
+  - {text: "prawn curry"}
+  - {text: "egg curry"}
+  - {text: "coconut curry"}
+  - {text: "doughnut"}
+  - {text: "eggplant bharta"}
+  - {text: "vegetable soup"}
+  - {text: "sugar free dessert"}
+  - {text: "something sweet with milk and nuts"}
+  - {text: "extra cheese pizza"}
+  - {text: "butter chicken with naan"}
+  - {text: "fish fry"}
+  - {text: "sesame noodles"}
+  - {text: "mustard fish curry"}
+  - {text: "a dessert with cashews and almonds"}
+  - {text: "soy chunks curry"}
+  - {text: "nutty brownie"}
+  - {text: "nothing too spicy"}
+  - {text: "no rush, something light"}
+  - {text: "anything but boring"}
+  - {text: "skip the starters, mains only"}
+  - {text: "hold the spice"}
+  - {text: "no sugar"}
+  - {text: "low calorie lunch"}
+  - {text: "spicy chicken"}
+  - {text: "the best seafood platter"}
+  - {text: "I love peanuts"}
+  - {text: "extra egg on top"}
+  - {text: "anything with wheat noodles"}
+  - {text: "milk tea"}
+  - {text: "keep it light"}
+  - {text: "except for dessert, anything goes"}
+  - {text: "cheap street food"}
+  - {text: "something like a dal makhani"}
+  - {text: "something with a crunchy topping"}

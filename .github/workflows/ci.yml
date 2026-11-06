@@ -28,8 +28,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Scan for secrets
-        # Third-party action pinned to a commit (v2.3.9).
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        # Third-party action pinned to a commit; Dependabot keeps the version note current.
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false

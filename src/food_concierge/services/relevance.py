@@ -12,6 +12,12 @@ often share no word with the query ("something to cool me down on a very hot day
 ``BAAI/bge-small-en-v1.5``: the 62 drafted queries' best scores start at 0.540 and none is weak; eight off-menu
 probes ("asdfghjkl", "what is the weather", "book me a taxi to the airport") score 0.434-0.543 and all are weak.
 Provisional until the owner's grades (#42) calibrate it; the PR gate fails if a dev query is weak.
+
+Held out (#143, ``eval/results/weak_match_2026-11-06.md``, 200 labelled queries): at 0.55 the rule never flags an
+on-menu test query but finds only 26% of the off-menu ones, nearly all of them not food requests; it misses food the
+menu doesn't serve ("ramen", "beef tacos"), since those score like vague requests the menu can serve ("a light
+lunch") and often share a menu word. The best score-only signal tried, this rule at 0.636, finds 48% at a 4%
+false-weak rate and would flag "thayir sadam" (curd rice); the cut-off stays until the owner decides.
 """
 
 from __future__ import annotations

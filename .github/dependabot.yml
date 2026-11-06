@@ -1,0 +1,16 @@
+# Version updates for the GitHub Actions the workflows use.
+# Python packages are left out on purpose: the locks are hash-pinned `uv pip compile` output, which Dependabot
+# can't regenerate, so its PRs would fail the lock check. They are covered by Dependabot security alerts
+# (repository settings), `pip-audit` on every PR and the nightly audit of both locks.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope

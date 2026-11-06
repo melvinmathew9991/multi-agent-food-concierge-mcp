@@ -1,0 +1,12 @@
+Multi-Agent Food Concierge MCP
+Copyright 2026 Melvin Mathew
+
+This product's source code is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The licence does not cover the dish photographs in data/photos/. They are thumbnails of
+Wikimedia Commons files, each under its own licence (CC0, public domain, CC BY or CC BY-SA),
+and data/raw/attributions.csv credits the author, licence and source page of every one.
+Anyone reusing a photo must follow its own licence, not this product's.
+
+The restaurant catalog in data/raw/ is synthetic: the restaurants are fictional and the
+dishes, prices, ratings and nutrition are invented (see data/raw/README.md).

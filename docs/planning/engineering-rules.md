@@ -109,7 +109,7 @@ Hierarchy in `food_concierge/errors.py` (codes and HTTP statuses on the classes)
 3. Small coherent commits; tests pass at each.
 3a. **Issues:** every PR closes or references a GitHub issue (`Closes #N`); phases are milestones; bugs, follow-ups and audit findings are issues, not notes in a PR (labels and flow in `phases.md`, Git workflow).
 4. Never commit: `.env`, secrets or credential files, `private/`, audit reports, the local project report (`docs/report.md`), user uploads, logs, local service data (Langfuse, Qdrant, Prefect), built DB/index, photo originals (only their thumbnails, in `data/photos/`), `.venv`, notebooks, PDFs, files > 5 MB, local paths or machine details. `.gitignore` enforces this list; gitleaks and a 5 MB file-size check in CI, and GitHub push protection, catch what it cannot.
-5. Public repo, no LICENSE file. A repository ruleset on `main` blocks force-pushes and deletion and requires a pull request with the `secrets` and `test` checks green.
+5. Public repo under Apache-2.0 (`LICENSE`); the Commons photos keep their own licences, which `NOTICE` and `data/raw/attributions.csv` record. Vulnerabilities are reported privately (`SECURITY.md`). Local hooks in `.pre-commit-config.yaml` mirror the CI checks. A repository ruleset on `main` blocks force-pushes and deletion and requires a pull request with the `secrets` and `test` checks green.
 6. Architecture decisions recorded as ADRs in `docs/adr/NNNN-title.md`.
 
 ## 9. Budgets and optimisation

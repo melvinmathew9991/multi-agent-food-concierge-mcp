@@ -1,6 +1,6 @@
 {
   "record": {
-    "git_sha": "a2487e843b209de1b88fa646650a4a57475e601f",
+    "git_sha": "645aa8e36e2b86363ef872681cd458c60d6b7c65",
     "lock_sha256": "85bf058c30e6a4fb78ae14c9ab026c4a6237f12afc4e72c067bb02153e44a192",
     "data_sha256": "33c4b3a63884f3bb22e7c8e02de135d2cd509f43a5e740b3813cd580829ffe40",
     "embedders": {
@@ -28,7 +28,7 @@
       "cores": 20,
       "os": "Windows"
     },
-    "created_at": "2026-11-06T11:23:57.514539Z"
+    "created_at": "2026-11-06T11:33:24.131594Z"
   },
   "dataset_sha256": "8ea3bde30221747d778468c4c4f5b8718405280cacd7f4ba434b0c2bb7094b83",
   "dataset_version": 1,

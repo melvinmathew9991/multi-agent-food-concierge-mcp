@@ -1,6 +1,6 @@
 # Weak-match signals on held-out queries (#143)
 
-Dataset `eval/datasets/weak_match.yaml` v1: 200 queries (100 on the menu), dev 101, test 99. Commit `a2487e8`. Cut-offs are chosen on dev for the most off-menu queries flagged with at most 5% of on-menu queries flagged; test is reported once with 95% bootstrap intervals.
+Dataset `eval/datasets/weak_match.yaml` v1: 200 queries (100 on the menu), dev 101, test 99. Commit `645aa8e`. Cut-offs are chosen on dev for the most off-menu queries flagged with at most 5% of on-menu queries flagged; test is reported once with 95% bootstrap intervals.
 
 | Signal | Cut-off | Test precision | Test recall | Test false-weak | Dev recall | Dev false-weak |
 |---|---|---|---|---|---|---|

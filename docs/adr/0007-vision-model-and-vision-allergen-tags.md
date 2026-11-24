@@ -11,7 +11,7 @@ Two questions were left open by ADR-0006 and the Phase 2 plan (item 7):
 1. **Which model describes a user's photo at runtime.** Catalog photos are described offline by local `qwen2.5vl:7b` on the owner's GPU. The deployment has no GPU, so user photos need a hosted model. ADR-0006 found no Groq vision model by name, and Gemini's free tier lets Google use prompts and replies, with human review (`docs/data-handling.md`).
 2. **Whether vision `may_contain` tags should filter search.** The tagger turns allergen terms in a photo's name-free description into `may_contain` tags. Today `CatalogFilters` hides a dish when an excluded allergen is in `contains` or `may_contain`.
 
-**Evidence.** Both models described the same seeded sample of 30 catalog photos (Wikimedia Commons, no user data), with the same name-free prompt (version 1), at 1024 px and without metadata. Each description was scored against its photo by the rules in `scripts/vision_measurement.py`: dish type, whether each named ingredient is visible, and allergen terms whose food the photo gives no evidence of. Intervals are Wilson 95%.
+**Evidence.** Both models described the same seeded sample of 30 catalog photos (Wikimedia Commons, no user data), with the same name-free prompt (version 1), at 1024 px and without metadata. Each description was scored against its photo by the rules in `scripts/eval/vision_measurement.py`: dish type, whether each named ingredient is visible, and allergen terms whose food the photo gives no evidence of. Intervals are Wilson 95%.
 
 | | Local `qwen2.5vl:7b` (Ollama, RTX 4060 Laptop) | Groq `qwen/qwen3.8-27b` |
 |---|---|---|
@@ -33,7 +33,7 @@ Observations:
 - **Groq is fast, but the tokens-a-minute limit binds.** An image costs about 1,900 tokens against Groq's 8,000 tokens a minute per model, so three or four photos a minute at most. The run paced itself to 8,000 by the tokens each reply reported, and still got 12 rate-limit replies (429) in 30 photos. Groq appears to count more per call than the reply reports. The first two attempts at the run also stalled: three calls timed out at 30 s on the first photo before the run went through. None of the 30 kept calls was slower than the 3 s production timeout.
 - **Gemini vision was not measured.** Its free-tier data terms rule it out for user photos whatever its accuracy (Option 3).
 
-**Vision tags on the whole catalog** (`scripts/allergen_report.py`, lexicon version 2): 211 `may_contain` tags on 131 photographed dishes, 150 of them in the ground truth. Counted as distinct (dish, allergen) pairs not already in `contains`, which is what the filter sees, vision adds **47 tags on 29 dishes, and none is in the ground truth**: gluten 10, wheat 10, peanuts 10, milk 5, soy 4, fish 3, tree nuts 2, eggs 2, sesame 1. Label and lexicon already reach 100% recall here, so vision gains nothing, and today each of those 47 tags hides a dish from someone who excludes that allergen.
+**Vision tags on the whole catalog** (`scripts/eval/allergen_report.py`, lexicon version 2): 211 `may_contain` tags on 131 photographed dishes, 150 of them in the ground truth. Counted as distinct (dish, allergen) pairs not already in `contains`, which is what the filter sees, vision adds **47 tags on 29 dishes, and none is in the ground truth**: gluten 10, wheat 10, peanuts 10, milk 5, soy 4, fish 3, tree nuts 2, eggs 2, sesame 1. Label and lexicon already reach 100% recall here, so vision gains nothing, and today each of those 47 tags hides a dish from someone who excludes that allergen.
 
 ## Options
 
@@ -55,7 +55,7 @@ C. **Drop the vision source.** Simplest, but loses the warning on real menus wit
 **Option 1 and Option B.**
 
 - `GROQ_VISION_MODEL=qwen/qwen3.8-27b` becomes the default in `config.py`. `GEMINI_VISION_MODEL` stays blank, so the vision chain is Groq alone. When Groq fails or is rate-limited, the request does not fall back to another provider. The user is asked to describe the dish in words, and text search serves it (P4/P7).
-- Local `qwen2.5vl:7b` stays the model for catalog descriptions, run offline by `scripts/describe_photos.py`. Catalog descriptions are tracked, so neither the build nor CI needs a vision model.
+- Local `qwen2.5vl:7b` stays the model for catalog descriptions, run offline by `scripts/ops/describe_photos.py`. Catalog descriptions are tracked, so neither the build nor CI needs a vision model.
 - Vision `may_contain` tags no longer hide dishes. `CatalogFilters` excludes a dish when an excluded allergen is in `contains`, or when the dish is `unverified` and unverified dishes are not included. `may_contain` tags are still stored, returned by `check_allergens` and shown as chips. The deterministic verifier (P5) treats them as a warning to show, not a reason to refuse.
 - The safety gate (`evaluate` in `ingestion/allergens.py`) now checks recall of `contains`, the tags search filters on, so a vision tag can no longer pass the gate for an allergen search would ignore. It passes on all 150 dishes.
 
@@ -70,11 +70,11 @@ Why:
 - **No vision fallback.** A Groq outage turns photo search into "describe it in words". That is a visible degradation, and better than a silent change of data terms.
 - **Descriptions can misname proteins** ("meatballs" for muthia). Image queries search with the description, so a vegetarian dish can rank below meat dishes for its own photo, but diet and allergen filters come from catalog data, never from a description. P3 measures image-query retrieval with these descriptions.
 - **Lexicon follow-ups:** negations ("no nuts") and hedged alternatives ("spices or nuts") produce false terms in both models. These now cost a chip rather than a hidden dish, and are worth fixing when the lexicon next changes. (Negations done in #54: descriptions skip terms they deny, so the Groq sample's false terms fell from 3 of 24 to 2 of 23; the local sample has no negated terms. Hedged alternatives stay: 12 of the 16 hedged terms on the two samples are right, "cream or yogurt" among them, so skipping them would drop more true warnings than false ones.)
-- **Revisit** when the catalog includes real menus whose ingredient lists have gaps (vision may then catch allergens, and Option A becomes worth measuring again), when Groq lists, renames or retires vision models, when Gemini's free-tier terms change, or when a paid tier is allowed. Any new vision model must pass `scripts/vision_measurement.py describe` and an owner-reviewed sample first.
+- **Revisit** when the catalog includes real menus whose ingredient lists have gaps (vision may then catch allergens, and Option A becomes worth measuring again), when Groq lists, renames or retires vision models, when Gemini's free-tier terms change, or when a paid tier is allowed. Any new vision model must pass `scripts/eval/vision_measurement.py describe` and an owner-reviewed sample first.
 
 ## Update 2026-10-23: image size (#53)
 
-The 30-photo sample was described again at 768 px (`eval/datasets/vision_descriptions_groq_768.jsonl`, `scripts/vision_measurement.py describe --provider groq --px 768`) to test the expected saving of about 45% (optimization.md §2.4).
+The 30-photo sample was described again at 768 px (`eval/caches/vision_descriptions_groq_768.jsonl`, `scripts/eval/vision_measurement.py describe --provider groq --px 768`) to test the expected saving of about 45% (optimization.md §2.4).
 
 | Shape sent | Tokens at 1,024 px | Tokens at 768 px | Photos |
 |---|---|---|---|

@@ -8,7 +8,7 @@
 
 Every later phase calls one model layer: Groq first, then Gemini through their OpenAI-compatible endpoints, with Ollama locally (`models/router.py`). The router needs model names, and P3–P6 rely on those models producing valid typed output and correct tool calls within the 8 s request deadline. Model names were left blank until measured, because provider listings are not proof of access. On 2026-09-30, Gemini listed 2.5 models that return 404 for new accounts, and it did so again on 2026-10-01.
 
-**Evidence.** `scripts/model_profile.py` ran the 20 fixed prompts in `eval/datasets/model_profile.yaml`:
+**Evidence.** `scripts/eval/model_profile.py` ran the 20 fixed prompts in `eval/datasets/model_profile.yaml`:
 - 10 constraint extractions and 5 routing decisions, as structured output with one repair;
 - 5 tool calls.
 
@@ -79,14 +79,14 @@ The capability table needs no change. Tool calling worked for Groq and Gemini (1
 ## Consequences
 
 - **The router works out of the box** with only API keys set: no model names to configure, and the chain verifiably meets the deadline when Gemini is not under load (see the 2026-10-22 update).
-- **`reasoning_effort` support is per model, not per provider.** A model that rejects it, such as Gemma, gets a 400 on every call, and a 400 does not fall back. Any model change must pass `scripts/model_profile.py --probe` first, and a full profile run before it becomes a default.
+- **`reasoning_effort` support is per model, not per provider.** A model that rejects it, such as Gemma, gets a 400 on every call, and a 400 does not fall back. Any model change must pass `scripts/eval/model_profile.py --probe` first, and a full profile run before it becomes a default.
 - **Groq's tokens-a-minute limit** will bind before its request caps once agents make several calls per request. P4/P5 budget work should add a token-rate limit, not only call counts.
 - **Gemini quotas are opaque,** so 429s from the fallback must be monitored (Langfuse error and fallback rate). If they appear in normal use, re-profile and reconsider.
 - **Revisit** when a provider retires or renames a chosen model, when the free tiers change, when the P3/P5 prompts differ materially from this set, or when vision is measured.
 
 ## Update 2026-10-22: Gemini latency after idle (#50)
 
-On 2026-10-06 a forced fallback failed when Gemini timed out after an idle stretch. `scripts/idle_latency.py` made one cold and two warm calls after each idle gap (nominally 0 to 60 min) through the production structured-output path, on two days:
+On 2026-10-06 a forced fallback failed when Gemini timed out after an idle stretch. `scripts/eval/idle_latency.py` made one cold and two warm calls after each idle gap (nominally 0 to 60 min) through the production structured-output path, on two days:
 
 | Run | Window (UTC) | Latency per call, cold and warm |
 |---|---|---|

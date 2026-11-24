@@ -11,13 +11,13 @@ The catalog is written in reviewed batches of about 50 dishes and validated by `
 | `restaurants.csv` | restaurant | `cuisines` is a `;`-separated list from the closed set in `ingestion/taxonomy.py` |
 | `menu.csv` | dish at a restaurant | the same dish at two restaurants is two rows |
 | `photo_review.csv` | photo candidate for a dish | Wikimedia Commons files under accepted licences, plus a `none` row per dish; the owner marks one row per dish `yes` in `approved` |
-| `attributions.csv` | approved photo | file page, file URL, author, licence, licence URL, SHA-256 and size; written by `scripts/fetch_photos.py approve` |
+| `attributions.csv` | approved photo | file page, file URL, author, licence, licence URL, SHA-256 and size; written by `scripts/ops/fetch_photos.py approve` |
 
 ## Photos
 
 Photos come from Wikimedia Commons only, under CC0, public domain, CC BY or CC BY-SA. NC, ND, GFDL-only, non-free and unknown licences are refused, and so are files with restrictions such as trademarks or personality rights. The owner approves one photo per dish, or marks the dish as having no suitable photo.
 
-The original files are not committed. Their WebP thumbnails, at most 480 px and 3.6 MB in all, are committed in `data/photos/`, named by the original's SHA-256, so the server image is built without Wikimedia. `scripts/fetch_photos.py sync` maintains that folder: it builds any missing thumbnail from the original, which it downloads into the photo cache outside the repository and checks against its pinned SHA-256, and removes thumbnails no longer attributed. Clients link Commons' own 500 px copy (`photo_url`). Wherever a photo is shown, its author and licence are shown with it: every search result and dish carries them in `photo`.
+The original files are not committed. Their WebP thumbnails, at most 480 px and 3.6 MB in all, are committed in `data/photos/`, named by the original's SHA-256, so the server image is built without Wikimedia. `scripts/ops/fetch_photos.py sync` maintains that folder: it builds any missing thumbnail from the original, which it downloads into the photo cache outside the repository and checks against its pinned SHA-256, and removes thumbnails no longer attributed. Clients link Commons' own 500 px copy (`photo_url`). Wherever a photo is shown, its author and licence are shown with it: every search result and dish carries them in `photo`.
 
 ## `menu.csv` columns
 

@@ -7,8 +7,8 @@ call, with the repair if the model needs it). The attempt timeout is relaxed so 
 calls slower than the production timeout, or slower than what is left of the 8 s deadline after a Groq
 timeout, are counted instead. The production call caps apply.
 
-    python scripts/idle_latency.py                      # gaps 0,1,2,5,10,20,30,45,60 min: about 3 h, 27 calls
-    python scripts/idle_latency.py --gaps 0,5 --warm 1  # a quick check
+    python scripts/eval/idle_latency.py                      # gaps 0,1,2,5,10,20,30,45,60 min: about 3 h, 27 calls
+    python scripts/eval/idle_latency.py --gaps 0,5 --warm 1  # a quick check
 
 Results go to ``eval/results/idle_latency_<provider>_<UTC time>.json``; conclusions go to ADR-0006.
 """

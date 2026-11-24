@@ -64,7 +64,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 **Status (2026-10-06):** the Phase 1 audit's high and medium findings are fixed except M5 (PRs #12–#15: coverage gate, request deadline, enforced call and token caps, metadata-only production traces, embedder fingerprint).
 
-**Live smoke passed** (`scripts/smoke_live.py`; `eval/results/smoke_2026-10-06T1228Z.json`, commit `e0197b4`):
+**Live smoke passed** (`scripts/ops/smoke_live.py`; `eval/results/smoke_2026-10-06T1228Z.json`, commit `e0197b4`):
 - Groq, Gemini and Ollama each answer.
 - A forced Groq authentication failure is served by Gemini, with the fallback recorded.
 - Typed output validates.
@@ -77,7 +77,7 @@ Decisions (2026-09-30): Langfuse self-hosted with Docker for development (WSL2 m
 
 Calls after an idle stretch appear slow. So whether the fallback works inside the 8 s deadline is not settled, which is ADR-0006's revisit trigger. It is to be measured over a longer window before the P4 demo relies on it.
 
-**Closed 2026-10-06.** Every DoD item is met except vision, which is **deferred to Phase 2 item 7** by the owner's decision: no own photos were available, and Phase 2 describes ~150 openly licensed catalog photos with the same local model, which is a larger and reproducible test set. No vision default is configured until then. `scripts/smoke_live.py --photos <folder>` still measures own photos whenever they are available.
+**Closed 2026-10-06.** Every DoD item is met except vision, which is **deferred to Phase 2 item 7** by the owner's decision: no own photos were available, and Phase 2 describes ~150 openly licensed catalog photos with the same local model, which is a larger and reproducible test set. No vision default is configured until then. `scripts/ops/smoke_live.py --photos <folder>` still measures own photos whenever they are available.
 
 Carried forward:
 - Gemini latency after idle periods, to be measured over a longer window **before the P4 demo** relies on the fallback (ADR-0006 revisit trigger). *Done 2026-10-22 (#50, #97, #100): latency follows Google's load, not idle; Gemini is a best-effort fallback (ADR-0006 update).*
@@ -107,7 +107,7 @@ Decisions (2026-10-06):
    - **Variation on purpose:** some dishes appear at more than one restaurant, to exercise `dish_key` de-duplication (A13).
    - **Review:** drafted in batches, and the owner reviews every `true_allergens` entry before the batch merges. That review is the ground truth's authority.
 2. **Photos (Wikimedia Commons).**
-   - **Candidates:** `scripts/fetch_photos.py` queries the Commons API per dish and keeps only CC0, public domain, CC BY and CC BY-SA files. NC, ND, GFDL-only and unknown licences are refused.
+   - **Candidates:** `scripts/ops/fetch_photos.py` queries the Commons API per dish and keeps only CC0, public domain, CC BY and CC BY-SA files. NC, ND, GFDL-only and unknown licences are refused.
    - **Review:** candidates are written to `data/raw/photo_review.csv`. The owner approves one per dish or marks it as having no suitable photo, which is allowed and recorded.
    - **Attribution:** approved photos go to `data/raw/attributions.csv` with file page URL, author, licence, licence URL, SHA-256 and original size.
    - **Fetch:** downloads use a descriptive User-Agent with the repo URL (Commons API policy), are paced, and are verified against the hash. A mismatch fails.
@@ -362,7 +362,7 @@ Every candidate is also measured with `dish_key` de-duplication on and off (6 di
   - a full query × item cross-encoder score matrix, so rerank depth can change without a cache miss;
   - C0's LLM verdicts, including the raw reply;
   - a manifest: embedder fingerprint, reranker model and file hash (a reranker fingerprint is added in item 1 of the workstreams), catalog `data_sha256`, `doc_text_version` and dataset SHA-256.
-- **Building the caches:** `scripts/build_eval_cache.py` builds them locally, where model downloads are allowed. Any change to the catalog, the document text, the dataset or a model means rebuilding them in the same PR. The gate names the stale field.
+- **Building the caches:** `scripts/eval/build_eval_cache.py` builds them locally, where model downloads are allowed. Any change to the catalog, the document text, the dataset or a model means rebuilding them in the same PR. The gate names the stale field.
 - **Gate** (a new step in `ci.yml`, after the tests). It runs the dev split from the caches and is deterministic, so any change in a number comes from a code or data change, not noise. It fails when:
   - nDCG@3 drops more than 0.02 below `eval/gates/retrieval_baseline.json`;
   - any violation appears;

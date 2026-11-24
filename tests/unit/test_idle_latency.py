@@ -11,7 +11,7 @@ from food_concierge.config import REPO_ROOT, Settings
 
 @pytest.fixture(scope="module")
 def idle() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("idle_latency", REPO_ROOT / "scripts" / "idle_latency.py")
+    spec = importlib.util.spec_from_file_location("idle_latency", REPO_ROOT / "scripts" / "eval" / "idle_latency.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

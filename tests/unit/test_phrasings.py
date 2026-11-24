@@ -54,7 +54,7 @@ def test_recall_counts_implied_allergens_and_the_report_lists_each_phrasing() ->
 
 def test_the_report_script_passes_on_the_committed_set(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exit_info:
-        runpy.run_path(str(REPO_ROOT / "scripts" / "phrasing_report.py"), run_name="__main__")
+        runpy.run_path(str(REPO_ROOT / "scripts" / "eval" / "phrasing_report.py"), run_name="__main__")
 
     assert exit_info.value.code == 0
     assert "0 with something missed, 0 over-read" in capsys.readouterr().out

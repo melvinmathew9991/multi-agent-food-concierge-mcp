@@ -4,14 +4,14 @@ python -m food_concierge.flows build.
 1. Retrieve each query's dense top 5 without filters and ask Groq one Yes/No question per dish (live, never in
    CI). Paced, saved after each query, resumable; a changed query is asked again:
 
-       python scripts/original_baseline.py collect [--limit N]
+       python scripts/eval/original_baseline.py collect [--limit N]
 
    About 5 calls and 1,000 tokens a query. The chat model's quota is separate from the vision model's (Groq's
    free tier: 1,000 requests and 200,000 tokens a day), so the full set fits in one day.
 
 2. Score C0 offline from the cache, with the original's strict parser and a fixed one:
 
-       python scripts/original_baseline.py replay
+       python scripts/eval/original_baseline.py replay
 
 Both read eval/datasets/retrieval.yaml; collect writes eval/caches/original_verdicts.jsonl.
 """

@@ -14,8 +14,8 @@ Needs local Langfuse (``docker compose --env-file .env.langfuse up -d``) with it
 Gemini keys in ``.env``, and Ollama running with the configured models pulled. About ten free-tier calls.
 The planted values are fake (example.com, a 555-01xx number, the standard 4111 test card).
 
-    python scripts/smoke_live.py
-    python scripts/smoke_live.py --photos path/to/photos
+    python scripts/ops/smoke_live.py
+    python scripts/ops/smoke_live.py --photos path/to/photos
 
 Results go to ``eval/results/smoke_<UTC time>.json`` (no keys, no file names); exit code 1 if any check fails.
 """

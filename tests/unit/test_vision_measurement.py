@@ -20,7 +20,8 @@ from food_concierge.ingestion.descriptions import (
 
 
 def _load() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("vision_measurement", REPO_ROOT / "scripts" / "vision_measurement.py")
+    path = REPO_ROOT / "scripts" / "eval" / "vision_measurement.py"
+    spec = importlib.util.spec_from_file_location("vision_measurement", path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

@@ -1,7 +1,7 @@
 """Weak-match signals on held-out queries (#143).
 
-python scripts/weak_match_report.py measure   # search every query with the real models; writes the run to eval/results
-python scripts/weak_match_report.py report    # calibrate on dev, score on test, from the latest run; no models needed
+python scripts/eval/weak_match_report.py measure  # search every query with the real models; writes eval/results
+python scripts/eval/weak_match_report.py report   # calibrate on dev, score on test, from the latest run; no models
 
 `measure` needs the built catalog and indexes (`python -m food_concierge.flows build`) and the local embedding and
 reranker models, and saves the run and its table. `report` reads only the committed run; `--write` saves the table.

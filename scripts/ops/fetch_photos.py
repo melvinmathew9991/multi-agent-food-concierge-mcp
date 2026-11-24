@@ -2,23 +2,23 @@
 
 1. Find candidates for every dish (about 150 paced API requests, a few minutes):
 
-       python scripts/fetch_photos.py candidates
+       python scripts/ops/fetch_photos.py candidates
 
    This writes data/raw/photo_review.csv and a local page, photo_review.html, in the photo cache. Open the page,
    choose one photo per dish (or "no suitable photo"), and download the filled sheet over data/raw/photo_review.csv.
    Re-running keeps choices already made. The page remembers clicks across reloads; to rebuild it from the sheet
    without searching Commons again:
 
-       python scripts/fetch_photos.py review
+       python scripts/ops/fetch_photos.py review
 
 2. Turn the choices into attributions, downloading each approved file and pinning its SHA-256:
 
-       python scripts/fetch_photos.py approve
+       python scripts/ops/fetch_photos.py approve
 
 3. Build the committed thumbnails in data/photos/ (missing ones only, from originals fetched and verified as
    needed) and remove thumbnails no longer attributed; commit the result with attributions.csv:
 
-       python scripts/fetch_photos.py sync
+       python scripts/ops/fetch_photos.py sync
 """
 
 from __future__ import annotations

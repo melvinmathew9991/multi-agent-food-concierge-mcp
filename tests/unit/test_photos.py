@@ -384,7 +384,7 @@ def test_loader_rejects_bad_attributions(tmp_path: Path) -> None:
 
 @pytest.fixture(scope="module")
 def script() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("fetch_photos", REPO_ROOT / "scripts" / "fetch_photos.py")
+    spec = importlib.util.spec_from_file_location("fetch_photos", REPO_ROOT / "scripts" / "ops" / "fetch_photos.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

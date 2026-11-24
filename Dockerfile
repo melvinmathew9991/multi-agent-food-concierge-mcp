@@ -4,7 +4,7 @@
 #   docker build -t food-concierge .
 #   docker run --rm -p 7860:7860 -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 -e GROQ_API_KEY food-concierge
 #   (keys from the shell, never baked in; production needs ALLOWED_HOSTS)
-#   python scripts/smoke_deploy.py http://127.0.0.1:7860
+#   python scripts/ops/smoke_deploy.py http://127.0.0.1:7860
 #
 # The catalog, indexes, embedding model and the committed photo thumbnails (data/photos/) are built into the image,
 # so neither the build nor a cold start needs Wikimedia, and the server needs no network except to the model

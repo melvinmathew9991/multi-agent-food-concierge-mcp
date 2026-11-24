@@ -33,7 +33,8 @@ FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "catalog"
 
 @pytest.fixture(scope="module")
 def report_script() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("allergen_report", REPO_ROOT / "scripts" / "allergen_report.py")
+    path = REPO_ROOT / "scripts" / "eval" / "allergen_report.py"
+    spec = importlib.util.spec_from_file_location("allergen_report", path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

@@ -2,11 +2,11 @@
 
 No model download and no network. Runs in CI after the tests; exits 1 on any failure:
 
-    python scripts/retrieval_gate.py
+    python scripts/eval/retrieval_gate.py
 
 Move the baseline to what is measured now, in a PR that says why (refused while any dish breaks a filter):
 
-    python scripts/retrieval_gate.py --update --reason "owner grades imported"
+    python scripts/eval/retrieval_gate.py --update --reason "owner grades imported"
 """
 
 from __future__ import annotations

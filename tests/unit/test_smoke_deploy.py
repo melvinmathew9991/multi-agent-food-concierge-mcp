@@ -26,7 +26,7 @@ AGENT_TOKEN = "agent-" + "a" * 40
 
 @pytest.fixture(scope="module")
 def smoke() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("smoke_deploy", REPO_ROOT / "scripts" / "smoke_deploy.py")
+    spec = importlib.util.spec_from_file_location("smoke_deploy", REPO_ROOT / "scripts" / "ops" / "smoke_deploy.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

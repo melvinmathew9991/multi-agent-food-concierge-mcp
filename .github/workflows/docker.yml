@@ -33,7 +33,7 @@ jobs:
           if [ "${{ github.event_name }}" != "pull_request" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           changed=$(git diff --name-only "$BASE...HEAD" -- Dockerfile .dockerignore pyproject.toml requirements.lock \
             requirements-dev.lock src data/lexicon data/raw data/photos data/processed/image_descriptions.jsonl \
-            scripts/smoke_deploy.py .github/workflows/docker.yml)
+            scripts/ops/smoke_deploy.py .github/workflows/docker.yml)
           if [ -n "$changed" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"; echo "Image inputs changed:"; echo "$changed"
           else
@@ -62,7 +62,7 @@ jobs:
         # Runs in the image itself, so the runner needs no Python packages.
         run: |
           docker run --rm --network host -e SMOKE_TOKEN -v "$PWD/scripts:/scripts:ro" food-concierge:ci \
-            python /scripts/smoke_deploy.py http://127.0.0.1:7860 --token-env SMOKE_TOKEN
+            python /scripts/ops/smoke_deploy.py http://127.0.0.1:7860 --token-env SMOKE_TOKEN
       - name: Runs as non-root, offline model files, read-only code and data, no pip
         if: steps.changes.outputs.build == 'true'
         run: |
@@ -83,7 +83,7 @@ jobs:
             sleep 1
           done
           docker run --rm --network container:offline -v "$PWD/scripts:/scripts:ro" food-concierge:ci \
-            python /scripts/smoke_deploy.py http://127.0.0.1:7860
+            python /scripts/ops/smoke_deploy.py http://127.0.0.1:7860
       - name: Server logs
         if: always() && steps.changes.outputs.build == 'true'
         run: |

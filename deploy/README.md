@@ -5,7 +5,7 @@ The server image is the repository's [`Dockerfile`](../Dockerfile): the catalog,
 ```bash
 docker build -t food-concierge .
 docker run --rm -p 7860:7860 -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 -e GROQ_API_KEY food-concierge
-python scripts/smoke_deploy.py http://127.0.0.1:7860
+python scripts/ops/smoke_deploy.py http://127.0.0.1:7860
 ```
 
 The `docker` workflow builds the image, starts it and runs the same smoke test on `main`, on PRs that change the image's inputs, and by hand.

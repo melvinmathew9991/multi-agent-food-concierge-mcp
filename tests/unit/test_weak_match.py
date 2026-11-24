@@ -208,7 +208,7 @@ def test_the_report_script_reads_the_committed_run(
 ) -> None:
     monkeypatch.setattr("sys.argv", ["weak_match_report.py", "report"])  # prints only; --write would save it
     with pytest.raises(SystemExit) as exit_info:
-        runpy.run_path(str(REPO_ROOT / "scripts" / "weak_match_report.py"), run_name="__main__")
+        runpy.run_path(str(REPO_ROOT / "scripts" / "eval" / "weak_match_report.py"), run_name="__main__")
 
     assert exit_info.value.code == 0
     assert "| cosine_no_menu_word (production) | 0.550 |" in capsys.readouterr().out

@@ -6,7 +6,7 @@ Two variants per photo:
   (``may_contain``) and stands in for a user's photo in Phase 3's image queries.
 - **named**: the same, told the dish's name, for comparing the two in Phase 3.
 
-Descriptions are generated offline by ``scripts/describe_photos.py`` and cached in
+Descriptions are generated offline by ``scripts/ops/describe_photos.py`` and cached in
 ``data/processed/image_descriptions.jsonl``, one JSON object per line. The cache is tracked, so the build, CI and
 the deployed app never need a vision model. A description is regenerated only when its prompt version changes.
 """

@@ -158,7 +158,7 @@ def test_the_tracked_dataset_names_real_target_dishes(store: CatalogStore) -> No
 
 @pytest.fixture
 def script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    spec = importlib.util.spec_from_file_location("label_queries", REPO_ROOT / "scripts" / "label_queries.py")
+    spec = importlib.util.spec_from_file_location("label_queries", REPO_ROOT / "scripts" / "eval" / "label_queries.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

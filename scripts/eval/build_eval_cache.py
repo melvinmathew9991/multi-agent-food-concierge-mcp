@@ -3,14 +3,14 @@
 1. Build eval/caches/retrieval/ from the catalog and every query in eval/datasets/retrieval.yaml: document vectors,
    query vectors with and without the BGE prefix, and the full query x document rerank score matrix:
 
-       python scripts/build_eval_cache.py build
+       python scripts/eval/build_eval_cache.py build
 
    Rebuild in the same PR as any change to the catalog, the document text, the query texts or a model; the PR
    gate names the stale field.
 
 2. Check the caches against freshly downloaded models (the nightly drift check; exits 1 on drift):
 
-       python scripts/build_eval_cache.py check
+       python scripts/eval/build_eval_cache.py check
 """
 
 from __future__ import annotations

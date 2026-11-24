@@ -1,6 +1,6 @@
 """How the query reader reads the phrasing set (#142); exits 1 on any miss or over-read.
 
-python scripts/phrasing_report.py
+python scripts/eval/phrasing_report.py
 """
 
 from __future__ import annotations

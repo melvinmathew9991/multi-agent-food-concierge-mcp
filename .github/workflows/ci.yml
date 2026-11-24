@@ -68,7 +68,7 @@ jobs:
       - name: Test (offline, full coverage of src/)
         run: pytest --cov=food_concierge --cov-report=term-missing --cov-fail-under=100
       - name: Retrieval gate (committed caches, no model download)
-        run: python scripts/retrieval_gate.py
+        run: python scripts/eval/retrieval_gate.py
       - name: Audit dependencies
         run: |
           pip-audit --require-hashes --disable-pip -r requirements.lock

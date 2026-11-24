@@ -2,18 +2,18 @@
 
 1. Pool candidates and build the grading page (needs the built catalog and index: python -m food_concierge.flows build):
 
-       python scripts/label_queries.py pool
+       python scripts/eval/label_queries.py pool
 
    This writes pool.json and grading.html to a review folder in the local cache (outside the repository) and prints
    where. Open the page, grade every dish 0-3 using eval/datasets/labelling-guide.md, and download grades.csv.
 
 2. Import the grades into eval/datasets/retrieval.yaml (every pooled dish needs a grade):
 
-       python scripts/label_queries.py import path/to/grades.csv
+       python scripts/eval/label_queries.py import path/to/grades.csv
 
 3. Once every query is written and graded, split dev/test (seeded by EVAL_SEED) and lock the test split:
 
-       python scripts/label_queries.py split
+       python scripts/eval/label_queries.py split
 """
 
 from __future__ import annotations

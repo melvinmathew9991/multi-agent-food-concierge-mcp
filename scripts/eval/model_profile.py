@@ -6,9 +6,9 @@ attempt timeouts are relaxed so true latency is measured; calls slower than the 
 counted instead. Requests are paced under the free-tier per-minute caps in settings, and the production
 call and token caps (``models/usage.py``) apply, so a call they refuse is recorded as ``budget_exceeded``.
 
-    python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite --probe
-    python scripts/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite
-    python scripts/model_profile.py groq:openai/gpt-oss-20b --split test   # once, after dev is settled
+    python scripts/eval/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite --probe
+    python scripts/eval/model_profile.py groq:openai/gpt-oss-20b gemini:gemini-3.5-flash-lite
+    python scripts/eval/model_profile.py groq:openai/gpt-oss-20b --split test   # once, after dev is settled
 
 Results go to ``eval/results/model_profile_<UTC time>_<split>.json``, one file per run; model choices go to ADR-0006.
 """

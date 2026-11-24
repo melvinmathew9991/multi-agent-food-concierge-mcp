@@ -2,7 +2,7 @@
 
 Run once when the embedding model or query prefix changes on purpose, and commit the result:
 
-    python scripts/build_embedding_reference.py
+    python scripts/ops/build_embedding_reference.py
 """
 
 from __future__ import annotations

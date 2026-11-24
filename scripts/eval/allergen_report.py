@@ -3,7 +3,7 @@
 Offline and deterministic (no model calls): photo descriptions come from the tracked cache, as in the build. Run
 after changing the lexicon, the catalog or the descriptions:
 
-    python scripts/allergen_report.py
+    python scripts/eval/allergen_report.py
 """
 
 from __future__ import annotations

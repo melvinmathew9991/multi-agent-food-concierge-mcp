@@ -1,9 +1,9 @@
 """Describe every approved catalog photo with the local vision model (Phase 2 plan, item 7). Never run in CI.
 
-    python scripts/describe_photos.py [--limit N]
+    python scripts/ops/describe_photos.py [--limit N]
 
 Needs Ollama with the vision model (``OLLAMA_VISION_MODEL``, default ``qwen2.5vl:7b``) and the photo cache
-(``python scripts/fetch_photos.py sync``). Writes data/processed/image_descriptions.jsonl, saving after each photo,
+(``python scripts/ops/fetch_photos.py sync``). Writes data/processed/image_descriptions.jsonl, saving after each photo,
 so an interrupted run resumes. Photos that already have current descriptions are skipped.
 """
 

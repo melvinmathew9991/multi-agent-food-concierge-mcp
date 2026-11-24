@@ -3,12 +3,12 @@
 1. Draw the seeded transforms, compute each altered image's SHA-256, and fill L0 from the local named descriptions
    (and L1 from the Phase 2 Groq measurement where it exists). Offline:
 
-       python scripts/image_queries.py build
+       python scripts/eval/image_queries.py build
 
 2. Describe the rest with the production vision model (Groq; live, never in CI). The catalog's Commons photos are
    sent, never user data. Paced under Groq's tokens-a-minute cap, saved after each photo, resumable:
 
-       python scripts/image_queries.py describe [--limit N]
+       python scripts/eval/image_queries.py describe [--limit N]
 
 Both write eval/datasets/image_queries.jsonl.
 
@@ -52,7 +52,7 @@ from food_concierge.models.usage import budget_key, get_usage_ledger
 from food_concierge.storage.catalog_db import dish_key
 
 DATASET = REPO_ROOT / "eval" / "datasets" / "image_queries.jsonl"
-HOSTED_L1 = REPO_ROOT / "eval" / "datasets" / "vision_descriptions_groq.jsonl"
+HOSTED_L1 = REPO_ROOT / "eval" / "caches" / "vision_descriptions_groq.jsonl"
 PROVIDER: ProviderName = "groq"
 ATTEMPT_TIMEOUT_S = 30.0  # relaxed from production: these are offline descriptions, not a user waiting
 RATE_LIMIT_WAIT_S = 60.0

@@ -28,7 +28,7 @@ git diff --exit-code -- requirements.lock requirements-dev.lock
 ruff check . && ruff format --check .
 mypy
 pytest --cov=food_concierge --cov-report=term-missing --cov-fail-under=100
-python scripts/retrieval_gate.py                # committed caches, no model download
+python scripts/eval/retrieval_gate.py                # committed caches, no model download
 pip-audit --require-hashes --disable-pip -r requirements.lock
 pip-audit --require-hashes --disable-pip -r requirements-dev.lock
 ```
@@ -39,7 +39,7 @@ CI's `secrets` job also scans for secrets with gitleaks and rejects tracked file
 
 ```bash
 python -m food_concierge.flows build   # validate, tag allergens, build SQLite and the indexes; a re-run with unchanged inputs does nothing
-python scripts/allergen_report.py      # the allergen safety gate and per-allergen precision
+python scripts/eval/allergen_report.py      # the allergen safety gate and per-allergen precision
 ```
 
 The first build downloads the local embedding model (fastembed, cached outside the repository). The catalog database and indexes go to `data/processed/` and are git-ignored; the photo descriptions there (`image_descriptions.jsonl`) are tracked, so the build never needs a vision model.
@@ -47,8 +47,8 @@ The first build downloads the local embedding model (fastembed, cached outside t
 Catalog photos are maintained by hand, never by CI:
 
 ```bash
-python scripts/fetch_photos.py sync    # rebuild data/photos/ thumbnails from verified originals; commit the result
-python scripts/describe_photos.py      # describe new photos with the local Ollama vision model (qwen2.5vl:7b)
+python scripts/ops/fetch_photos.py sync    # rebuild data/photos/ thumbnails from verified originals; commit the result
+python scripts/ops/describe_photos.py      # describe new photos with the local Ollama vision model (qwen2.5vl:7b)
 ```
 
 The catalog is synthetic by design; see [`docs/data-card.md`](docs/data-card.md) and [`data/raw/README.md`](data/raw/README.md).
@@ -58,13 +58,13 @@ The catalog is synthetic by design; see [`docs/data-card.md`](docs/data-card.md)
 Offline and deterministic: the evaluation runs from committed caches, with no model download and no network.
 
 ```bash
-python scripts/retrieval_gate.py                  # the CI gate: no constraint violation, no nDCG@3 drop over 0.02
+python scripts/eval/retrieval_gate.py                  # the CI gate: no constraint violation, no nDCG@3 drop over 0.02
 python -m food_concierge.flows evaluate           # every candidate; writes eval/results/retrieval_<date>_<split>.json
 python -m food_concierge.flows evaluate --check   # reproduce the committed results instead of writing (nightly)
 python -m food_concierge.flows report             # render docs/evaluation.md from the newest results
 ```
 
-The latest numbers are in [`docs/evaluation.md`](docs/evaluation.md), and what each dataset, cache and result file holds is in [`eval/README.md`](eval/README.md). Rebuilding the caches (`scripts/build_eval_cache.py build`) downloads the models and is done locally, never in CI.
+The latest numbers are in [`docs/evaluation.md`](docs/evaluation.md), and what each dataset, cache and result file holds is in [`eval/README.md`](eval/README.md). Rebuilding the caches (`scripts/eval/build_eval_cache.py build`) downloads the models and is done locally, never in CI.
 
 ## Run the MCP server
 
@@ -93,7 +93,7 @@ In a container, with the catalog, indexes, embedding model and photo thumbnails 
 ```bash
 docker build -t food-concierge .
 docker run --rm -p 7860:7860 -e ALLOWED_HOSTS=127.0.0.1:7860,localhost:7860 -e GROQ_API_KEY food-concierge
-python scripts/smoke_deploy.py http://127.0.0.1:7860    # health, search, MCP, scopes; no model calls
+python scripts/ops/smoke_deploy.py http://127.0.0.1:7860    # health, search, MCP, scopes; no model calls
 ```
 
 To connect Claude Desktop or MCP Inspector, see [`docs/mcp.md`](docs/mcp.md) and [`examples/claude_desktop_config.json`](examples/claude_desktop_config.json).

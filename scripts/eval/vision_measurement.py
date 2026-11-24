@@ -2,7 +2,7 @@
 
 1. Draw the sample of 30 photos, seeded, and build a local review page (thumbnail beside description and scores):
 
-       python scripts/vision_measurement.py sample
+       python scripts/eval/vision_measurement.py sample
 
    This writes eval/datasets/vision_sample.yaml and vision_review.html in the photo cache. Re-running keeps scores
    already written and only rebuilds the page.
@@ -11,22 +11,22 @@
 
 3. Report:
 
-       python scripts/vision_measurement.py report
+       python scripts/eval/vision_measurement.py report
 
    This prints the summary and writes eval/results/vision_measurement_<date>.json. Every entry must be scored.
 
 A hosted model is measured on the same 30 photos, for the runtime vision default (ADR-0007). It is live, so never
 run in CI; the photos are the catalog's Commons files, never user data:
 
-       python scripts/vision_measurement.py describe --provider groq
-       python scripts/vision_measurement.py sample --provider groq
-       python scripts/vision_measurement.py report --provider groq
+       python scripts/eval/vision_measurement.py describe --provider groq
+       python scripts/eval/vision_measurement.py sample --provider groq
+       python scripts/eval/vision_measurement.py report --provider groq
 
 ``--px`` sends the photos at another size (#53: 768 against the default 1,024). The run gets its own files, named
 ``<provider>_<px>`` (``vision_descriptions_groq_768.jsonl``, ``vision_sample_groq_768.yaml``), scored afresh.
 
 ``describe`` sends each sampled photo through the production code path (``describe`` in ingestion/descriptions.py:
-the same prompt, 1024 px, no metadata) and writes eval/datasets/vision_descriptions_<provider>.jsonl, saving after
+the same prompt, 1024 px, no metadata) and writes eval/caches/vision_descriptions_<provider>.jsonl, saving after
 each photo. Attempt timeouts are relaxed to 30 s, and calls slower than the production timeout are counted. Calls
 are paced under the provider's tokens-a-minute cap. ``sample`` and ``report`` then work as above, on
 eval/datasets/vision_sample_<provider>.yaml.
@@ -84,10 +84,11 @@ from food_concierge.models.usage import budget_key, get_usage_ledger
 
 DATASET = REPO_ROOT / "eval" / "datasets" / "vision_sample.yaml"
 RESULTS = REPO_ROOT / "eval" / "results"
+CACHES = REPO_ROOT / "eval" / "caches"
 SAMPLE_SIZE = 30
 SEED = 20261009
 DISH_TYPES = ("correct", "partial", "wrong")
-LOCAL = "ollama"  # the tracked description cache, written by scripts/describe_photos.py
+LOCAL = "ollama"  # the tracked description cache, written by scripts/ops/describe_photos.py
 # Hosted vision models to measure. Found by a probe on 2026-10-09: Groq names no vision model, but qwen3.8-27b
 # accepts images.
 HOSTED_MODELS: dict[str, str] = {"groq": "qwen/qwen3.8-27b"}
@@ -96,7 +97,7 @@ RATE_LIMIT_WAIT_S = 60.0
 SCORE_FIELDS = ("dish_type", "seen", "not_seen", "not_visible", "note")
 HEADER = """\
 # Hand-checked sample of name-free photo descriptions (Phase 2 plan, item 7), scored against each photo.
-# Drawn by `python scripts/vision_measurement.py sample`; scoring rules are in that script's docstring.
+# Drawn by `python scripts/eval/vision_measurement.py sample`; scoring rules are in that script's docstring.
 # Drafted by looking at each thumbnail; `reviewed: true` records that the owner has checked every score.
 """
 
@@ -119,7 +120,7 @@ def dataset_path(run: str) -> Path:
 
 
 def hosted_cache_path(run: str) -> Path:
-    return DATASET.with_name(f"vision_descriptions_{run}.jsonl")
+    return CACHES / f"vision_descriptions_{run}.jsonl"
 
 
 def read_hosted(path: Path) -> dict[DescriptionKey, HostedDescription]:
@@ -433,11 +434,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     settings = get_settings()
     provider = args.provider
     if provider == LOCAL and args.px != DESCRIBE_PX:
-        raise SystemExit("--px applies to hosted models; local descriptions come from scripts/describe_photos.py")
+        raise SystemExit("--px applies to hosted models; local descriptions come from scripts/ops/describe_photos.py")
     run = run_name(provider, args.px)
     if args.command == "describe":
         if provider == LOCAL:
-            raise SystemExit("local descriptions come from scripts/describe_photos.py")
+            raise SystemExit("local descriptions come from scripts/ops/describe_photos.py")
         new = describe_sample(settings, provider, args.px)
         print(f"{len(new)} descriptions written to {hosted_cache_path(run).relative_to(REPO_ROOT)}")
         return 0

@@ -17,7 +17,7 @@ from food_concierge.telemetry import CONTENT_PLACEHOLDER, ModelCallRecorder
 
 @pytest.fixture(scope="module")
 def smoke() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("smoke_live", REPO_ROOT / "scripts" / "smoke_live.py")
+    spec = importlib.util.spec_from_file_location("smoke_live", REPO_ROOT / "scripts" / "ops" / "smoke_live.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
